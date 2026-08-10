@@ -3,7 +3,7 @@
 Update this through real PRs. Do not backdate progress.
 
 ## Current phase
-Foundation / pre-parallel-development
+Authentication and session foundation
 
 ## Repository
 - [x] frontend structure
@@ -21,14 +21,14 @@ Foundation / pre-parallel-development
 - [x] rate limiting
 
 ## Authentication
-- [ ] anonymous session
-- [ ] registration
-- [ ] login
-- [ ] refresh/session restoration
-- [ ] logout
-- [ ] `/auth/me`
-- [ ] role authorization
-- [ ] moderator provisioning
+- [x] anonymous session
+- [x] registration
+- [x] login
+- [x] refresh/session restoration
+- [x] logout
+- [x] `/auth/me`
+- [x] role authorization
+- [x] moderator provisioning
 - [ ] secure native storage
 
 ## Components

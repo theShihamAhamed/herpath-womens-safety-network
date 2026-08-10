@@ -33,6 +33,35 @@ POST /api/v1/auth/logout
 GET  /api/v1/auth/me
 ```
 
+## Authentication endpoint contracts
+
+All request bodies are strict: unknown properties are rejected. Public registration cannot set `role`, `status`, or privileges.
+
+| Endpoint | Request | Success | Authentication |
+| --- | --- | --- | --- |
+| `POST /auth/anonymous` | `{}` | HTTP 201 token bundle and anonymous user | None |
+| `POST /auth/register` | `{ name, email, password }` | HTTP 201 token bundle and registered user | None |
+| `POST /auth/login` | `{ email, password }` | HTTP 200 token bundle and registered user | None |
+| `POST /auth/refresh` | `{ refreshToken }` | HTTP 200 rotated token bundle and user | Refresh token |
+| `POST /auth/logout` | `{ refreshToken }` | HTTP 200 `{ loggedOut: true }` | Refresh token; idempotent |
+| `GET /auth/me` | None | HTTP 200 `{ user }` | Bearer access token |
+
+A token bundle contains `accessToken`, `refreshToken`, `tokenType: "Bearer"`, `expiresIn` (seconds), and a safe `user` projection. Password hashes and refresh-token hashes are never response fields. Login failures use the same response for an unknown email, incorrect password, or disabled account.
+
+## User and session model
+
+Users have these server-controlled classifications:
+
+- `accountType`: `ANONYMOUS` or `REGISTERED`
+- `role`: `USER` or `MODERATOR`
+- `status`: `ACTIVE` or `DISABLED`
+
+Anonymous users have no name, email, password, or public identity. Registered email addresses are trimmed, lowercased, and unique; registered passwords are stored only as Argon2id hashes.
+
+Access JWTs are short-lived and contain only `sub`, `role`, `sid`, `iss`, `aud`, `iat`, and `exp`. Refresh tokens are opaque random values. Only their SHA-256 hashes are stored. Refreshing rotates the token and session; reuse of an already rotated token revokes the active session chain. Logout revokes the matching session.
+
+The anonymous, registration, login, and refresh endpoints have a stricter auth-specific rate limit in addition to the API-wide limit.
+
 ## Anonymous/pseudonymous identity
 Anonymous reporting and anonymous journeys still need server-side ownership, rate limiting, and secure linking. Therefore anonymous access is represented by a pseudonymous backend session/account rather than only a frontend boolean.
 
@@ -47,7 +76,7 @@ Its identity is never displayed publicly.
 Public registration always creates a normal user role server-side. The client cannot choose moderator/admin roles.
 
 ## Moderator
-Provision through a restricted development/operator CLI or administrative process. No public moderator-signup route.
+Provision an existing active registered account through the restricted operator command `npm run user:promote -- <registered-email>`. No public moderator-signup route exists.
 
 ## Token baseline
 - short-lived access token

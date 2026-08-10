@@ -2,7 +2,7 @@
 
 Production-conscious Express and TypeScript foundation for the HerPath REST API. The backend is an independent npm project and exposes all application endpoints under `/api/v1`.
 
-PR 2 intentionally contains shared infrastructure only. Authentication, incidents, maps, routes, journeys, notifications, and application models belong to later feature PRs.
+The backend contains the shared infrastructure from PR 2 and the authentication/session foundation from PR 3. Incidents, maps, routes, journeys, notifications, and their application models belong to later feature PRs.
 
 ## Architecture
 
@@ -43,6 +43,14 @@ Copy-Item .env.example .env
 
 `CORS_ORIGINS` accepts a comma-separated allowlist. Production deployments must configure their actual origins rather than relying on the development example.
 
+Authentication also requires:
+
+- `ACCESS_TOKEN_SECRET` (at least 32 characters; at least 64 in production)
+- `ACCESS_TOKEN_TTL` (default `15m`)
+- `REFRESH_TOKEN_TTL_DAYS` (default `30`)
+- `JWT_ISSUER` and `JWT_AUDIENCE`
+- `AUTH_RATE_LIMIT_MAX` (default `10` per general rate-limit window)
+
 ## Commands
 
 ```bash
@@ -53,7 +61,27 @@ npm run typecheck  # Type-check without emitting files
 npm run lint       # Run ESLint with zero warnings allowed
 npm test           # Run the Vitest suite once
 npm run test:watch # Run Vitest in watch mode
+npm run user:promote -- user@example.com # Promote an active registered user
 ```
+
+## Authentication endpoints
+
+All authentication endpoints are under `/api/v1/auth`:
+
+```text
+POST /anonymous
+POST /register
+POST /login
+POST /refresh
+POST /logout
+GET  /me
+```
+
+Anonymous users are pseudonymous server-side accounts with no email, password, name, or public identity. Public registration always creates an active `USER`; it cannot create a moderator. The operator-only promotion command is the sole PR 3 moderator provisioning path.
+
+Passwords use Argon2id. Access JWTs are short-lived and issuer/audience constrained. Refresh tokens are opaque, stored only as SHA-256 hashes, rotated on refresh, and revocable on logout, account disablement, or detected reuse. Clients must store refresh tokens in secure native storage when that frontend work is implemented.
+
+Authentication integration tests run against `mongodb-memory-server`, not a developer or shared database. The first local run may download its isolated MongoDB binary.
 
 ## Health endpoint
 
