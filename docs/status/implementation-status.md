@@ -7,18 +7,18 @@ Foundation / pre-parallel-development
 
 ## Repository
 - [x] frontend structure
-- [ ] backend structure
+- [x] backend structure
 - [x] docs baseline
-- [ ] CI
+- [x] CI
 - [ ] develop branch
 
 ## Backend foundation
-- [ ] environment validation
-- [ ] database connection
-- [ ] health endpoint
-- [ ] errors / 404
-- [ ] logging
-- [ ] rate limiting
+- [x] environment validation
+- [x] database connection
+- [x] health endpoint
+- [x] errors / 404
+- [x] logging
+- [x] rate limiting
 
 ## Authentication
 - [ ] anonymous session

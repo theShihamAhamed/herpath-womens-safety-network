@@ -8,7 +8,7 @@ HerPath provides safety context based on available community data. It does not g
 
 ```text
 frontend/  Expo SDK 54 React Native application
-backend/   Backend placeholder; initialization is planned for PR 2
+backend/   Express and TypeScript API
 docs/      Implementation documentation baseline
 ```
 
@@ -24,7 +24,14 @@ npx expo start
 
 ## Backend development
 
-The backend is not initialized yet. See [backend/README.md](backend/README.md).
+```bash
+cd backend
+npm ci
+Copy-Item .env.example .env
+npm run dev
+```
+
+Provide a valid `MONGODB_URI` in `backend/.env` before starting the server. See [backend/README.md](backend/README.md) for architecture, environment variables, commands, and conventions.
 
 ## Documentation
 
