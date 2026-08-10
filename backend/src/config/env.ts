@@ -2,6 +2,16 @@ import { z } from 'zod';
 
 const nodeEnvironmentSchema = z.enum(['development', 'test', 'production']);
 const logLevelSchema = z.enum(['fatal', 'error', 'warn', 'info', 'debug', 'trace', 'silent']);
+const accessTokenTtlSchema = z
+  .string()
+  .trim()
+  .regex(/^\d+[smh]$/, 'ACCESS_TOKEN_TTL must be a duration such as 15m');
+
+function durationToSeconds(duration: string): number {
+  const match = duration.match(/^(\d+)([smh])$/);
+  if (!match?.[1] || !match[2]) return 0;
+  return Number(match[1]) * ({ s: 1, m: 60, h: 3_600 }[match[2]] ?? 0);
+}
 
 const rawEnvironmentSchema = z.object({
   NODE_ENV: nodeEnvironmentSchema.default('development'),
@@ -18,7 +28,38 @@ const rawEnvironmentSchema = z.object({
   LOG_LEVEL: logLevelSchema.default('info'),
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(200),
+  AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
   TRUST_PROXY: z.enum(['true', 'false']).default('false'),
+  ACCESS_TOKEN_SECRET: z.string().min(32, 'ACCESS_TOKEN_SECRET must contain at least 32 characters'),
+  ACCESS_TOKEN_TTL: accessTokenTtlSchema.default('15m'),
+  REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+  JWT_ISSUER: z.string().trim().min(1).default('herpath-api'),
+  JWT_AUDIENCE: z.string().trim().min(1).default('herpath-mobile'),
+}).superRefine((environment, context) => {
+  const accessTokenSeconds = durationToSeconds(environment.ACCESS_TOKEN_TTL);
+  if (accessTokenSeconds < 60 || accessTokenSeconds > 3_600) {
+    context.addIssue({
+      code: 'custom',
+      path: ['ACCESS_TOKEN_TTL'],
+      message: 'ACCESS_TOKEN_TTL must be between 60 seconds and 1 hour',
+    });
+  }
+
+  if (environment.AUTH_RATE_LIMIT_MAX >= environment.RATE_LIMIT_MAX) {
+    context.addIssue({
+      code: 'custom',
+      path: ['AUTH_RATE_LIMIT_MAX'],
+      message: 'AUTH_RATE_LIMIT_MAX must be lower than RATE_LIMIT_MAX',
+    });
+  }
+
+  if (environment.NODE_ENV === 'production' && environment.ACCESS_TOKEN_SECRET.length < 64) {
+    context.addIssue({
+      code: 'custom',
+      path: ['ACCESS_TOKEN_SECRET'],
+      message: 'ACCESS_TOKEN_SECRET must contain at least 64 characters in production',
+    });
+  }
 });
 
 export type NodeEnvironment = z.infer<typeof nodeEnvironmentSchema>;
@@ -32,7 +73,13 @@ export interface Environment {
   logLevel: LogLevel;
   rateLimitWindowMs: number;
   rateLimitMax: number;
+  authRateLimitMax: number;
   trustProxy: boolean;
+  accessTokenSecret: string;
+  accessTokenTtl: string;
+  refreshTokenTtlDays: number;
+  jwtIssuer: string;
+  jwtAudience: string;
 }
 
 export class EnvironmentValidationError extends Error {
@@ -70,6 +117,12 @@ export function loadEnvironment(source: NodeJS.ProcessEnv = process.env): Enviro
     logLevel: result.data.LOG_LEVEL,
     rateLimitWindowMs: result.data.RATE_LIMIT_WINDOW_MS,
     rateLimitMax: result.data.RATE_LIMIT_MAX,
+    authRateLimitMax: result.data.AUTH_RATE_LIMIT_MAX,
     trustProxy: result.data.TRUST_PROXY === 'true',
+    accessTokenSecret: result.data.ACCESS_TOKEN_SECRET,
+    accessTokenTtl: result.data.ACCESS_TOKEN_TTL,
+    refreshTokenTtlDays: result.data.REFRESH_TOKEN_TTL_DAYS,
+    jwtIssuer: result.data.JWT_ISSUER,
+    jwtAudience: result.data.JWT_AUDIENCE,
   };
 }
