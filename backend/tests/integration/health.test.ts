@@ -16,7 +16,13 @@ const testConfig: AppRuntimeConfig = {
   logLevel: 'silent',
   rateLimitWindowMs: 60_000,
   rateLimitMax: 1_000,
+  authRateLimitMax: 1_000,
   trustProxy: false,
+  accessTokenSecret: 'test-only-access-token-secret-at-least-32-chars',
+  accessTokenTtl: '15m',
+  refreshTokenTtlDays: 30,
+  jwtIssuer: 'herpath-test-api',
+  jwtAudience: 'herpath-test-client',
 };
 
 const silentLogger = pino({ level: 'silent' });
