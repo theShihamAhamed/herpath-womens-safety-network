@@ -39,7 +39,7 @@ export function SignUpForm() {
   }
 
   return (
-    <Screen scroll contentStyle={styles.content}>
+    <Screen scroll keyboardAvoiding contentStyle={styles.content}>
       <View style={styles.header}>
         <Text style={styles.eyebrow}>CREATE ACCOUNT</Text>
         <Text style={styles.title}>Join HerPath</Text>

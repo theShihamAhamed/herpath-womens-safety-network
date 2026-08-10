@@ -1,5 +1,12 @@
 import type { PropsWithChildren } from 'react';
-import { ScrollView, StyleSheet, View, type ViewStyle } from 'react-native';
+import {
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  StyleSheet,
+  View,
+  type ViewStyle,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { palette, spacing } from '@/src/theme';
@@ -7,25 +14,47 @@ import { palette, spacing } from '@/src/theme';
 export function Screen({
   children,
   scroll = false,
+  keyboardAvoiding = false,
   contentStyle,
-}: PropsWithChildren<{ scroll?: boolean; contentStyle?: ViewStyle }>) {
-  const content = <View style={[styles.content, contentStyle]}>{children}</View>;
+}: PropsWithChildren<{
+  scroll?: boolean;
+  keyboardAvoiding?: boolean;
+  contentStyle?: ViewStyle;
+}>) {
+  const content = (
+    <View style={[styles.content, scroll ? styles.scrollBody : styles.fixedBody, contentStyle]}>
+      {children}
+    </View>
+  );
+  const body = scroll ? (
+    <ScrollView
+      style={styles.fill}
+      contentContainerStyle={styles.scrollContainer}
+      keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'on-drag'}
+      keyboardShouldPersistTaps="handled">
+      {content}
+    </ScrollView>
+  ) : (
+    content
+  );
 
   return (
     <SafeAreaView style={styles.safeArea} edges={['top', 'left', 'right']}>
-      {scroll ? (
-        <ScrollView contentContainerStyle={styles.scrollContent} keyboardShouldPersistTaps="handled">
-          {content}
-        </ScrollView>
-      ) : (
-        content
-      )}
+      <KeyboardAvoidingView
+        style={styles.fill}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        enabled={keyboardAvoiding}>
+        {body}
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: palette.background },
-  content: { flex: 1, padding: spacing.lg },
-  scrollContent: { flexGrow: 1 },
+  fill: { flex: 1 },
+  content: { padding: spacing.lg },
+  fixedBody: { flex: 1 },
+  scrollBody: { flexGrow: 1 },
+  scrollContainer: { flexGrow: 1 },
 });

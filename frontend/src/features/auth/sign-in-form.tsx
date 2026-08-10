@@ -37,7 +37,7 @@ export function SignInForm() {
   }
 
   return (
-    <Screen scroll contentStyle={styles.content}>
+    <Screen scroll keyboardAvoiding contentStyle={styles.content}>
       <View style={styles.header}>
         <Text style={styles.eyebrow}>WELCOME BACK</Text>
         <Text style={styles.title}>Sign in to HerPath</Text>
