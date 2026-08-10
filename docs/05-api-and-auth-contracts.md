@@ -39,7 +39,7 @@ All request bodies are strict: unknown properties are rejected. Public registrat
 
 | Endpoint | Request | Success | Authentication |
 | --- | --- | --- | --- |
-| `POST /auth/anonymous` | `{}` | HTTP 201 token bundle and anonymous user | None |
+| `POST /auth/anonymous` | No body (`{}` is also accepted) | HTTP 201 token bundle and anonymous user | None |
 | `POST /auth/register` | `{ name, email, password }` | HTTP 201 token bundle and registered user | None |
 | `POST /auth/login` | `{ email, password }` | HTTP 200 token bundle and registered user | None |
 | `POST /auth/refresh` | `{ refreshToken }` | HTTP 200 rotated token bundle and user | Refresh token |
@@ -86,3 +86,9 @@ Provision an existing active registered account through the restricted operator 
 - frontend route guards are UX, not security boundaries
 
 Native Android is the first assessed platform. Full authenticated web support can be deferred unless explicitly required.
+
+## Mobile session contract
+
+The Expo client keeps access tokens and the current actor in memory. On native platforms it persists only the refresh token through Expo SecureStore. Startup rotates any stored refresh token and verifies the actor through `/auth/me`; otherwise it creates an anonymous session. Invalid or revoked stored tokens are removed before creating a replacement anonymous identity.
+
+Sign-in and registration replace the anonymous session. Logout attempts server revocation, clears local session material, then creates a fresh anonymous session. The client never derives moderator status locally; route visibility uses the role returned by the backend.

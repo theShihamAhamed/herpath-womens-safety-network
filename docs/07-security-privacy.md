@@ -39,3 +39,12 @@
 Registered passwords currently have a four-character minimum for demo usability. This is intentionally below normal production guidance and must be strengthened before treating the authentication policy as production-ready. Argon2id hashing, the 128-character maximum, rate limiting, and all session controls remain in force.
 
 Frontend `EXPO_PUBLIC_*` values are visible in the client bundle and must not contain secrets.
+
+## Mobile session storage
+
+- Native Android/iOS stores only the opaque refresh token in Expo SecureStore.
+- Access tokens and the safe actor projection remain in memory.
+- Passwords, signing secrets, database credentials, and token logs are forbidden.
+- Web refresh-token persistence is deferred beyond the first assessed milestone; there is no insecure storage fallback.
+- Client route guards prevent normal navigation only. Every privileged backend operation must still authenticate and authorize the request.
+- Device-specific API addresses belong in ignored local environment files, never source control.
