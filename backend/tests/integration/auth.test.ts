@@ -88,8 +88,11 @@ describe('authentication and session foundation', () => {
     await mongo?.stop();
   });
 
-  it('creates an anonymous user without identity fields and returns a safe projection', async () => {
-    const response = await request(app).post('/api/v1/auth/anonymous').send({}).expect(201);
+  it('creates an anonymous user when the request has no body', async () => {
+    const response = await request(app)
+      .post('/api/v1/auth/anonymous')
+      .set('Content-Length', '0')
+      .expect(201);
 
     expect(response.body.data.user).toMatchObject({
       accountType: 'ANONYMOUS',
@@ -101,6 +104,17 @@ describe('authentication and session foundation', () => {
     expect(response.body.data).toMatchObject({ tokenType: 'Bearer', expiresIn: 900 });
     expect(await UserModel.findOne({ accountType: 'ANONYMOUS' }).lean()).not.toHaveProperty('email');
     assertNoSecrets(response.body);
+  });
+
+  it('rejects privilege-related fields in an anonymous-session body', async () => {
+    const response = await request(app)
+      .post('/api/v1/auth/anonymous')
+      .send({ role: 'MODERATOR', status: 'ACTIVE' })
+      .expect(400);
+
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
+    expect(await UserModel.countDocuments()).toBe(0);
+    expect(await SessionModel.countDocuments()).toBe(0);
   });
 
   it('registers a normalized user with an Argon2id hash and no secret projection', async () => {
@@ -122,6 +136,29 @@ describe('authentication and session foundation', () => {
     expect(stored?.passwordHash).toMatch(/^\$argon2id\$/);
     expect(stored?.passwordHash).not.toContain(registeredUser.password);
     assertNoSecrets(response.body);
+  });
+
+  it('rejects a 3-character registered password', async () => {
+    const response = await request(app)
+      .post('/api/v1/auth/register')
+      .send({ ...registeredUser, password: 'abc' })
+      .expect(400);
+
+    expect(response.body.error.code).toBe('VALIDATION_ERROR');
+    expect(await UserModel.countDocuments()).toBe(0);
+  });
+
+  it('accepts a 4-character registered password', async () => {
+    const response = await request(app)
+      .post('/api/v1/auth/register')
+      .send({ ...registeredUser, password: 'abcd' })
+      .expect(201);
+
+    expect(response.body.data.user.email).toBe('ayesha@example.com');
+    const stored = await UserModel.findOne({ email: 'ayesha@example.com' })
+      .select('+passwordHash')
+      .lean();
+    expect(stored?.passwordHash).toMatch(/^\$argon2id\$/);
   });
 
   it('rejects duplicate registered emails after normalization', async () => {

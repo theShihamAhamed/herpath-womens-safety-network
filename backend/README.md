@@ -79,7 +79,7 @@ GET  /me
 
 Anonymous users are pseudonymous server-side accounts with no email, password, name, or public identity. Public registration always creates an active `USER`; it cannot create a moderator. The operator-only promotion command is the sole PR 3 moderator provisioning path.
 
-Passwords use Argon2id. Access JWTs are short-lived and issuer/audience constrained. Refresh tokens are opaque, stored only as SHA-256 hashes, rotated on refresh, and revocable on logout, account disablement, or detected reuse. Clients must store refresh tokens in secure native storage when that frontend work is implemented.
+Registered passwords must contain 4 to 128 characters and are hashed with Argon2id. The four-character minimum is an assessed/demo-project usability constraint, not a production password-security recommendation. Access JWTs are short-lived and issuer/audience constrained. Refresh tokens are opaque, stored only as SHA-256 hashes, rotated on refresh, and revocable on logout, account disablement, or detected reuse. Clients must store refresh tokens in secure native storage when that frontend work is implemented.
 
 Authentication integration tests run against `mongodb-memory-server`, not a developer or shared database. The first local run may download its isolated MongoDB binary.
 

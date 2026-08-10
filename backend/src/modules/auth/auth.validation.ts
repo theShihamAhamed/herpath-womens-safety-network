@@ -1,10 +1,13 @@
 import { z } from 'zod';
 
 const email = z.string().trim().email().max(254).transform((value) => value.toLowerCase());
-const password = z.string().min(12).max(128);
+const password = z.string().min(4).max(128);
 const refreshToken = z.string().min(64).max(256);
 
-export const anonymousBodySchema = z.object({}).strict();
+export const anonymousBodySchema = z.preprocess(
+  (body) => (body === undefined ? {} : body),
+  z.object({}).strict(),
+);
 
 export const registerBodySchema = z
   .object({

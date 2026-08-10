@@ -34,4 +34,8 @@
 - Authentication endpoints use stricter rate limits than general API traffic.
 - Production startup rejects a missing or insufficiently strong access-token signing secret.
 
+## Known assessed-project constraint
+
+Registered passwords currently have a four-character minimum for demo usability. This is intentionally below normal production guidance and must be strengthened before treating the authentication policy as production-ready. Argon2id hashing, the 128-character maximum, rate limiting, and all session controls remain in force.
+
 Frontend `EXPO_PUBLIC_*` values are visible in the client bundle and must not contain secrets.

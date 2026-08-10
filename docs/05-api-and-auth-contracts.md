@@ -56,7 +56,7 @@ Users have these server-controlled classifications:
 - `role`: `USER` or `MODERATOR`
 - `status`: `ACTIVE` or `DISABLED`
 
-Anonymous users have no name, email, password, or public identity. Registered email addresses are trimmed, lowercased, and unique; registered passwords are stored only as Argon2id hashes.
+Anonymous users have no name, email, password, or public identity. The anonymous endpoint accepts a request with no body; if a body is supplied, it must be an empty object because unknown fields are rejected. Registered email addresses are trimmed, lowercased, and unique. Registered passwords must contain 4 to 128 characters and are stored only as Argon2id hashes.
 
 Access JWTs are short-lived and contain only `sub`, `role`, `sid`, `iss`, `aud`, `iat`, and `exp`. Refresh tokens are opaque random values. Only their SHA-256 hashes are stored. Refreshing rotates the token and session; reuse of an already rotated token revokes the active session chain. Logout revokes the matching session.
 
