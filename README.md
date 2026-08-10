@@ -1,50 +1,31 @@
-# Welcome to your Expo app 👋
+# HerPath – Women's Safety Reporting & Safe-Route Network
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+HerPath is an Android-first React Native mobile application for privacy-conscious incident reporting, community safety context, route comparison, and active journey outcomes.
 
-## Get started
+HerPath provides safety context based on available community data. It does not guarantee that a route or place is safe.
 
-1. Install dependencies
+## Repository structure
 
-   ```bash
-   npm install
-   ```
-
-2. Start the app
-
-   ```bash
-   npx expo start
-   ```
-
-In the output, you'll find options to open the app in a
-
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
-
-```bash
-npm run reset-project
+```text
+frontend/  Expo SDK 54 React Native application
+backend/   Backend placeholder; initialization is planned for PR 2
+docs/      Implementation documentation baseline
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+The frontend and backend are independent npm projects.
 
-## Learn more
+## Frontend development
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+cd frontend
+npm ci
+npx expo start
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+## Backend development
 
-## Join the community
+The backend is not initialized yet. See [backend/README.md](backend/README.md).
 
-Join our community of developers creating universal apps.
+## Documentation
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+Start with [docs/README.md](docs/README.md). Architecture, API, domain, privacy, navigation, and cross-component contract changes must update the relevant documentation in the same pull request.
