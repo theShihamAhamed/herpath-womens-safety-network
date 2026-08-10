@@ -1,0 +1,13 @@
+# Dependencies and Expo-generated output
+node_modules/
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Developer-local environment configuration
+.env
+.env*.local
+
+# Keep the public configuration template
+!.env.example

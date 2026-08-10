@@ -3,7 +3,7 @@
 Update this through real PRs. Do not backdate progress.
 
 ## Current phase
-Authentication and session foundation
+Mobile shell and frontend authentication integration
 
 ## Repository
 - [x] frontend structure
@@ -29,7 +29,15 @@ Authentication and session foundation
 - [x] `/auth/me`
 - [x] role authorization
 - [x] moderator provisioning
-- [ ] secure native storage
+- [x] secure native storage
+
+## Mobile shell
+- [x] anonymous-first startup and session restoration
+- [x] sign-in and sign-up screens
+- [x] five-tab navigation shell
+- [x] profile/auth-state placeholder
+- [x] moderator route guard and placeholder
+- [x] recoverable startup error state
 
 ## Components
 ### Shiham
