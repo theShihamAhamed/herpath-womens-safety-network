@@ -7,6 +7,8 @@ export interface GeneralRateLimiterOptions {
   max: number;
 }
 
+export const createAuthRateLimiter = createGeneralRateLimiter;
+
 export function createGeneralRateLimiter(options: GeneralRateLimiterOptions) {
   return rateLimit({
     windowMs: options.windowMs,
