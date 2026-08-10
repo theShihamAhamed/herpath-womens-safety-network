@@ -14,6 +14,8 @@ import { notFound } from './common/middleware/not-found.js';
 import { createGeneralRateLimiter } from './common/middleware/rate-limiters.js';
 import { requestId } from './common/middleware/request-id.js';
 import { sendSuccess } from './common/utils/api-response.js';
+import { createAuthRouter } from './modules/auth/auth.routes.js';
+import { createAuthService, type AuthService } from './modules/auth/auth.service.js';
 
 export const API_PREFIX = '/api/v1';
 
@@ -23,13 +25,20 @@ export interface AppRuntimeConfig {
   logLevel: LogLevel;
   rateLimitWindowMs: number;
   rateLimitMax: number;
+  authRateLimitMax: number;
   trustProxy: boolean;
+  accessTokenSecret: string;
+  accessTokenTtl: string;
+  refreshTokenTtlDays: number;
+  jwtIssuer: string;
+  jwtAudience: string;
 }
 
 export interface AppDependencies {
   config: AppRuntimeConfig;
   databaseStatus?: () => DatabaseStatus;
   logger?: Logger;
+  authService?: AuthService;
 }
 
 const JSON_BODY_LIMIT = '100kb';
@@ -87,6 +96,24 @@ export function createApp(dependencies: AppDependencies): Express {
     createGeneralRateLimiter({
       windowMs: dependencies.config.rateLimitWindowMs,
       max: dependencies.config.rateLimitMax,
+    }),
+  );
+
+  const authService =
+    dependencies.authService ??
+    createAuthService({
+      accessTokenSecret: dependencies.config.accessTokenSecret,
+      accessTokenTtl: dependencies.config.accessTokenTtl,
+      refreshTokenTtlDays: dependencies.config.refreshTokenTtlDays,
+      jwtIssuer: dependencies.config.jwtIssuer,
+      jwtAudience: dependencies.config.jwtAudience,
+    });
+
+  app.use(
+    `${API_PREFIX}/auth`,
+    createAuthRouter(authService, {
+      windowMs: dependencies.config.rateLimitWindowMs,
+      max: dependencies.config.authRateLimitMax,
     }),
   );
 
