@@ -1,15 +1,20 @@
-# Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
+# Dependencies
+frontend/node_modules/
+backend/node_modules/
 
-# dependencies
-node_modules/
+# Expo and generated frontend output
+frontend/.expo/
+frontend/dist/
+frontend/web-build/
+frontend/expo-env.d.ts
+frontend/android/
+frontend/ios/
 
-# Expo
-.expo/
-dist/
-web-build/
-expo-env.d.ts
+# Backend output
+backend/dist/
+backend/coverage/
 
-# Native
+# Native credentials and generated files
 .kotlin/
 *.orig.*
 *.jks
@@ -18,26 +23,27 @@ expo-env.d.ts
 *.key
 *.mobileprovision
 
-# Metro
+# Tooling and logs
 .metro-health-check*
+*.log
+*.tsbuildinfo
 
-# debug
-npm-debug.*
-yarn-debug.*
-yarn-error.*
+# Local environment files
+.env
+frontend/.env
+backend/.env
+.env*.local
+frontend/.env*.local
+backend/.env*.local
 
-# macOS
+# Allow committed environment templates
+!.env.example
+!frontend/.env.example
+!backend/.env.example
+
+# Operating system files
 .DS_Store
 *.pem
 
-# local env files
-.env*.local
-
-# typescript
-*.tsbuildinfo
-
-app-example
-
-# generated native folders
-/ios
-/android
+# Expo starter reset output
+frontend/app-example/
