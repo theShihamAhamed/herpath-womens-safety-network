@@ -14,7 +14,9 @@ Use these Markdown files during development so architecture, domain rules, API c
 7. `07-security-privacy.md`
 8. `08-development-workflow.md`
 9. `09-integration-checklist.md`
-10. `status/implementation-status.md`
+10. `ux/README.md` and the UX baseline documents it links
+11. `decisions/ADR-004-primary-navigation-and-map-routing.md`
+12. `status/implementation-status.md`
 
 ## Change-control rule
 If a PR changes an API, domain state, shared data contract, privacy or security rule, navigation contract, architecture, or cross-component behavior, update the relevant documentation in the same PR.

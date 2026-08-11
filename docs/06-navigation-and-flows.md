@@ -4,13 +4,11 @@
 
 ```text
 Map
-Routes
 Report
-Alerts
 Profile
 ```
 
-Active journey screens are nested flows, not a permanent bottom tab.
+Route Planning is part of the Map experience. Safety Updates and Active Journey are nested flows, not permanent bottom tabs.
 
 ## Mobile shell route groups
 
@@ -18,20 +16,21 @@ Active journey screens are nested flows, not a permanent bottom tab.
 app/
 ├── _layout.tsx
 ├── index.tsx
+├── alerts.tsx
 ├── (auth)/
 │   ├── sign-in.tsx
 │   └── sign-up.tsx
 ├── (tabs)/
 │   ├── map.tsx
-│   ├── routes.tsx
 │   ├── report.tsx
-│   ├── alerts.tsx
 │   └── profile.tsx
 └── moderator/
     └── index.tsx
 ```
 
 The root layout waits for session restoration before exposing routes. Auth routes are available to anonymous actors. The moderator group is available only when the backend actor has `role = MODERATOR`; this client guard does not replace backend authorization.
+
+Safety Updates is a root-stack screen opened from the Map bell. Native stack navigation provides the back path. Routes and Alerts must not remain registered as hidden tabs.
 
 ## Startup authentication
 
@@ -44,27 +43,29 @@ App start → read native refresh token
   → ready: enter Map tab
 ```
 
-The five feature tabs are shell placeholders in PR 4. Incident reporting, map behavior, route-risk comparison, alerts, and journey functionality remain unimplemented.
+## Map and Route Planning
+
+```text
+Map → Where are you going? → From / To
+→ route alternatives → reported-risk evidence
+→ comparative explanation → select route → optionally start journey
+```
+
+Map owns the presentation container, map/location context, markers/filters, and area summaries. Routing remains separately owned and is inserted through its public feature exports. No visible reports must never be interpreted as proof that an area is safe.
+
+## Safety Updates
+
+```text
+Map bell → Safety Updates → optional future deep link → Back
+```
+
+The current shared foundation contains an empty state only. Notification delivery, unread state, preferences, and deep-link behavior are future work.
 
 ## Incident
 
 ```text
 Report → privacy notice → category → approximate location
 → date/time → severity → optional description → review → submit
-```
-
-## Map
-
-```text
-Open map → optional location permission → viewport data
-→ clusters/approximate markers → filters → incident/area detail
-```
-
-## Route
-
-```text
-Origin → destination → alternatives → safety evidence
-→ comparative explanation → select route → optionally start journey
 ```
 
 ## Journey
