@@ -3,7 +3,7 @@
 Update this through real PRs. Do not backdate progress.
 
 ## Current phase
-Mobile shell and frontend authentication integration
+Shared UX and primary-navigation foundation
 
 ## Repository
 - [x] frontend structure
@@ -34,10 +34,17 @@ Mobile shell and frontend authentication integration
 ## Mobile shell
 - [x] anonymous-first startup and session restoration
 - [x] sign-in and sign-up screens
-- [x] five-tab navigation shell
+- [x] three-tab navigation shell: Map, Report, Profile
+- [x] Map home UX shell and Routing public integration boundary
+- [x] nested Safety Updates route and accessible Map entry
 - [x] profile/auth-state placeholder
 - [x] moderator route guard and placeholder
 - [x] recoverable startup error state
+
+## UX baseline
+- [x] information architecture and screen-planning baseline
+- [x] content, accessibility, alerts, integration, and usability guidance
+- [x] ADR-004 primary-navigation decision
 
 ## Components
 ### Shiham
