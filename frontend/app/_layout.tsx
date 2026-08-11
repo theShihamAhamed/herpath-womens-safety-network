@@ -38,6 +38,15 @@ function SessionAwareNavigator() {
     <Stack screenOptions={{ headerBackTitle: 'Back' }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen
+        name="alerts"
+        options={{
+          title: 'Safety Updates',
+          headerStyle: { backgroundColor: palette.surface },
+          headerTintColor: palette.text,
+          headerShadowVisible: false,
+        }}
+      />
 
       <Stack.Protected guard={actor.accountType === 'ANONYMOUS'}>
         <Stack.Screen name="(auth)" options={{ headerShown: false }} />

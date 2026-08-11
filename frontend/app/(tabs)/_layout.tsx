@@ -8,11 +8,12 @@ import { palette } from '@/src/theme';
 export default function TabLayout() {
   return (
     <Tabs
+      initialRouteName="map"
       screenOptions={{
         tabBarActiveTintColor: palette.primary,
         tabBarInactiveTintColor: palette.textMuted,
         tabBarStyle: { backgroundColor: palette.surface, borderTopColor: palette.border },
-        tabBarLabelStyle: { fontSize: 11, fontWeight: '600' },
+        tabBarLabelStyle: { fontSize: 12, fontWeight: '600' },
         headerShown: false,
         tabBarButton: HapticTab,
         tabBarHideOnKeyboard: true,
@@ -25,27 +26,11 @@ export default function TabLayout() {
         }}
       />
       <Tabs.Screen
-        name="routes"
-        options={{
-          title: 'Routes',
-          tabBarIcon: ({ color, size }) => <MaterialIcons name="route" size={size} color={color} />,
-        }}
-      />
-      <Tabs.Screen
         name="report"
         options={{
           title: 'Report',
           tabBarIcon: ({ color, size }) => (
             <MaterialIcons name="add-circle-outline" size={size} color={color} />
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="alerts"
-        options={{
-          title: 'Alerts',
-          tabBarIcon: ({ color, size }) => (
-            <MaterialIcons name="notifications-none" size={size} color={color} />
           ),
         }}
       />
