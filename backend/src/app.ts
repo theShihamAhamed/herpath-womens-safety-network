@@ -3,6 +3,7 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
+import { createJourneyRouter } from './modules/journeys/journey.routes.js';
 
 import type { DatabaseStatus } from './config/database.js';
 import { getDatabaseStatus } from './config/database.js';
@@ -139,6 +140,8 @@ export function createApp(dependencies: AppDependencies): Express {
       database: 'connected',
     });
   });
+
+  app.use(API_PREFIX, createJourneyRouter(authService));
 
   app.use(notFound);
   app.use(errorHandler);
