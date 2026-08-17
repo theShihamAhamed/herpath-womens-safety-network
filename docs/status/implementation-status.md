@@ -3,7 +3,7 @@
 Update this through real PRs. Do not backdate progress.
 
 ## Current phase
-Shared UX and primary-navigation foundation
+Shared UX and primary-navigation foundation with initial community safety map
 
 ## Repository
 - [x] frontend structure
@@ -53,9 +53,11 @@ Shared UX and primary-navigation foundation
 - [ ] moderation
 
 ### Naji
-- [ ] map shell
-- [ ] markers/filters
-- [ ] area summary
+- [x] map shell
+- [x] markers/filters
+- [x] area summary
+- [ ] incident repository/public projection integration
+
 
 ### Sandaruwan
 - [ ] route search

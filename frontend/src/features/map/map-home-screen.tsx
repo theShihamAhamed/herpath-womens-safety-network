@@ -6,6 +6,8 @@ import { Screen } from '@/src/components/screen';
 import { RoutePlanningEntry, RouteResultsPlaceholder } from '@/src/features/routing';
 import { palette, radius, spacing } from '@/src/theme';
 
+import { MapScreen } from './map-screen';
+
 export function MapHomeScreen() {
   const router = useRouter();
 
@@ -28,15 +30,7 @@ export function MapHomeScreen() {
 
       <RoutePlanningEntry />
 
-      <View style={styles.mapSurface}>
-        <View style={styles.mapIcon}>
-          <MaterialIcons name="map" size={34} color={palette.primary} />
-        </View>
-        <Text style={styles.mapTitle}>Map and nearby reports</Text>
-        <Text style={styles.mapDescription}>
-          Community report locations and geographic context will appear here when available.
-        </Text>
-      </View>
+      <View style={styles.mapSurface}><MapScreen /></View>
 
       <View style={styles.contextCard}>
         <View style={styles.contextHeading}>
@@ -76,33 +70,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surface,
   },
   pressed: { opacity: 0.72 },
-  mapSurface: {
-    minHeight: 240,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.sm,
-    padding: spacing.lg,
-    borderRadius: radius.lg,
-    borderWidth: 1,
-    borderColor: palette.border,
-    backgroundColor: palette.surfaceMuted,
-  },
-  mapIcon: {
-    width: 64,
-    height: 64,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderRadius: 32,
-    backgroundColor: palette.surface,
-  },
-  mapTitle: { color: palette.text, fontSize: 20, lineHeight: 26, fontWeight: '800' },
-  mapDescription: {
-    maxWidth: 320,
-    color: palette.textMuted,
-    fontSize: 15,
-    lineHeight: 22,
-    textAlign: 'center',
-  },
+  mapSurface: { height: 360, overflow: 'hidden', borderRadius: radius.lg, borderWidth: 1, borderColor: palette.border },
   contextCard: {
     gap: spacing.sm,
     padding: spacing.lg,
