@@ -1,6 +1,7 @@
 import { Journey } from './journey.model.js';
 import { distanceBetween } from './geo.util.js';
-import { StartJourneyInput, Coordinate, JourneyOutcome } from './journey.types.js';
+import type { StartJourneyInput, Coordinate, JourneyOutcome } from './journey.types.js';
+import { AppError } from '../../common/errors/app-error.js';
 
 export async function startJourney(userId: string, input: StartJourneyInput) {
   const selectedRoute: {
@@ -73,10 +74,12 @@ export async function finishJourney(journeyId: string, userId: string) {
 
 export async function setOutcome(journeyId: string, userId: string, outcome: JourneyOutcome) {
   const allowed: JourneyOutcome[] = ['SAFE_CONFIRMED', 'INCIDENT_REPORTED', 'UNKNOWN'];
-  if (!allowed.includes(outcome)) {
-    const err: any = new Error(`Invalid outcome. Must be one of ${allowed.join(', ')}`);
-    err.statusCode = 400;
-    throw err;
+   if (!allowed.includes(outcome)) {
+    throw new AppError({
+      statusCode: 400,
+      code: 'INVALID_OUTCOME',
+      message: `Invalid outcome. Must be one of ${allowed.join(', ')}`,
+    });
   }
 
   const journey = await Journey.findOne({ _id: journeyId, userId });
@@ -84,10 +87,12 @@ export async function setOutcome(journeyId: string, userId: string, outcome: Jou
 
   // Domain rule: an incident already reported on this journey is never
   // downgraded to safe, even if the user later reaches the destination.
-  if (journey.outcome === 'INCIDENT_REPORTED' && outcome !== 'INCIDENT_REPORTED') {
-    const err: any = new Error('This journey already has a reported incident and cannot be marked safe.');
-    err.statusCode = 409;
-    throw err;
+    if (journey.outcome === 'INCIDENT_REPORTED' && outcome !== 'INCIDENT_REPORTED') {
+    throw new AppError({
+      statusCode: 409,
+      code: 'OUTCOME_LOCKED',
+      message: 'This journey already has a reported incident and cannot be marked safe.',
+    });
   }
 
   journey.outcome = outcome;
