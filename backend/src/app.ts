@@ -3,6 +3,7 @@ import express, { type Express } from 'express';
 import helmet from 'helmet';
 import type { Logger } from 'pino';
 import { pinoHttp } from 'pino-http';
+import { createJourneyRouter } from './modules/journeys/journey.routes.js';
 
 import type { DatabaseStatus } from './config/database.js';
 import { getDatabaseStatus } from './config/database.js';
@@ -116,6 +117,7 @@ export function createApp(dependencies: AppDependencies): Express {
       max: dependencies.config.authRateLimitMax,
     }),
   );
+  app.use(API_PREFIX, createJourneyRouter(authService));
 
   app.get(`${API_PREFIX}/health`, (_request, response, next) => {
     if (databaseStatus() !== 'connected') {
