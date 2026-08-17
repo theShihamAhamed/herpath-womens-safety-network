@@ -1,16 +1,10 @@
 import { Request, Response, NextFunction } from 'express';
 import * as journeyService from './journey.service.js';
 
-// TODO(verify): swap this for your team's actual authenticated-request type
-// from backend/src/common (whatever exposes req.user.id after JWT/anon auth).
-interface AuthedRequest extends Request {
-  auth?: { userId: string };
-}
-
 const wrap =
-  (fn: (req: AuthedRequest, res: Response, next?: NextFunction) => Promise<void>) =>
+  (fn: (req: Request, res: Response) => Promise<void>) =>
   (req: Request, res: Response, next: NextFunction) =>
-    Promise.resolve(fn(req as AuthedRequest, res, next)).catch(next);
+    fn(req, res).catch(next);
 
 export const startJourney = wrap(async (req, res) => {
   const userId = req.auth!.userId;
@@ -66,8 +60,29 @@ export const getHistory = wrap(async (req, res) => {
 });
 
 export const getJourneyById = wrap(async (req, res) => {
-  const journey = await journeyService.getJourneyById(req.params.id, req.auth!.userId);
-  if (!journey) { res.status(404).json({ success: false, message: 'Journey not found' }); return; }
+  const { id } = req.params;
+
+  if (!id || Array.isArray(id)) {
+    res.status(400).json({
+      success: false,
+      message: 'Invalid journey ID',
+    });
+    return;
+  }
+
+  const journey = await journeyService.getJourneyById(
+    id,
+    req.auth!.userId
+  );
+
+  if (!journey) {
+    res.status(404).json({
+      success: false,
+      message: 'Journey not found',
+    });
+    return;
+  }
+
   res.json({ success: true, data: journey });
 });
 

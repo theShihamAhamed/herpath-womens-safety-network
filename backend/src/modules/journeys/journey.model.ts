@@ -1,5 +1,5 @@
 import { Schema, model, Document, Types } from 'mongoose';
-import { JourneyOutcome, JourneyStatus } from './journey.types';
+import { JourneyOutcome, JourneyStatus } from './journey.types.js';
 
 export interface IJourney extends Document {
   userId: Types.ObjectId;

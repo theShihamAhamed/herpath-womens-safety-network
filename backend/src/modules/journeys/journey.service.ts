@@ -3,17 +3,23 @@ import { distanceBetween } from './geo.util.js';
 import { StartJourneyInput, Coordinate, JourneyOutcome } from './journey.types.js';
 
 export async function startJourney(userId: string, input: StartJourneyInput) {
+  const selectedRoute: {
+    polyline: string;
+    distance?: number;
+    duration?: number;
+    riskScore?: number;
+  } = { polyline: input.polyline };
+
+  if (input.distance !== undefined) selectedRoute.distance = input.distance;
+  if (input.duration !== undefined) selectedRoute.duration = input.duration;
+  if (input.riskScore !== undefined) selectedRoute.riskScore = input.riskScore;
+
   return Journey.create({
     userId,
     routeId: input.routeId,
     origin: input.origin,
     destination: input.destination,
-    selectedRoute: {
-      polyline: input.polyline,
-      distance: input.distance,
-      duration: input.duration,
-      riskScore: input.riskScore,
-    },
+    selectedRoute,
     startTime: new Date(),
     status: 'ACTIVE',
   });
