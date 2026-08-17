@@ -117,7 +117,6 @@ export function createApp(dependencies: AppDependencies): Express {
       max: dependencies.config.authRateLimitMax,
     }),
   );
-  app.use(API_PREFIX, createJourneyRouter(authService));
 
   app.get(`${API_PREFIX}/health`, (_request, response, next) => {
     if (databaseStatus() !== 'connected') {
@@ -136,6 +135,8 @@ export function createApp(dependencies: AppDependencies): Express {
       database: 'connected',
     });
   });
+
+  app.use(API_PREFIX, createJourneyRouter(authService));
 
   app.use(notFound);
   app.use(errorHandler);
