@@ -7,4 +7,9 @@ export const apiEndpoints = {
     logout: '/auth/logout',
     me: '/auth/me',
   },
+  map: {
+    incidents: '/map/incidents',
+    areaSummary: '/map/area-summary',
+  },
 } as const;
+

@@ -16,6 +16,8 @@ import { requestId } from './common/middleware/request-id.js';
 import { sendSuccess } from './common/utils/api-response.js';
 import { createAuthRouter } from './modules/auth/auth.routes.js';
 import { createAuthService, type AuthService } from './modules/auth/auth.service.js';
+import { createMapRouter } from './modules/map/map.routes.js';
+
 
 export const API_PREFIX = '/api/v1';
 
@@ -116,6 +118,9 @@ export function createApp(dependencies: AppDependencies): Express {
       max: dependencies.config.authRateLimitMax,
     }),
   );
+
+  app.use(`${API_PREFIX}/map`, createMapRouter());
+
 
   app.get(`${API_PREFIX}/health`, (_request, response, next) => {
     if (databaseStatus() !== 'connected') {
