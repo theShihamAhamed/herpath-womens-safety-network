@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 
@@ -17,6 +17,7 @@ export function MapScreen() {
   const [isMapDataUnavailable, setIsMapDataUnavailable] = useState(false);
   const [selectedAreaSummary, setSelectedAreaSummary] = useState<AreaSummary | null>(null);
   const [isSummaryVisible, setIsSummaryVisible] = useState(false);
+  const lastViewportRef = useRef<ViewportBounds | null>(null);
 
   const initialRegion = {
     latitude: location?.latitude ?? FALLBACK_LOCATION.latitude,
@@ -25,7 +26,17 @@ export function MapScreen() {
     longitudeDelta: 0.05,
   };
 
-  const handleRegionChangeComplete = async (region: {
+  const loadIncidents = useCallback(async (bounds: ViewportBounds, activeFilter: MapFilter) => {
+    try {
+      const liveIncidents = await mapApi.getIncidents(bounds, activeFilter);
+      setIncidents(liveIncidents);
+      setIsMapDataUnavailable(false);
+    } catch {
+      setIsMapDataUnavailable(true);
+    }
+  }, []);
+
+  const handleRegionChangeComplete = (region: {
     latitude: number;
     longitude: number;
     latitudeDelta: number;
@@ -37,14 +48,8 @@ export function MapScreen() {
       neLat: region.latitude + region.latitudeDelta / 2,
       neLng: region.longitude + region.longitudeDelta / 2,
     };
-
-    try {
-      const liveIncidents = await mapApi.getIncidents(bounds, filter);
-      setIncidents(liveIncidents);
-      setIsMapDataUnavailable(false);
-    } catch {
-      setIsMapDataUnavailable(true);
-    }
+    lastViewportRef.current = bounds;
+    void loadIncidents(bounds, filter);
   };
 
   const filteredIncidents = incidents.filter((inc) => {
