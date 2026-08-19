@@ -1,10 +1,17 @@
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
 import React, { useCallback, useMemo, useState } from 'react';
-import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { palette, radius, spacing } from '@/src/theme';
 
 import { CATEGORY_CONFIG, SEVERITY_CONFIG, type PublicIncidentMarker } from './map.types';
+import { clampReportSheetOffset, resolveReportSheetSnapOffset } from './report-sheet-motion';
 import { summarizeVisibleIncidents } from './report-context-summary';
+
+const COLLAPSED_SHEET_HEIGHT = 64;
+const SHEET_HEIGHT_RATIO = 0.58;
+const SETTLE_ANIMATION = { duration: 220, easing: Easing.out(Easing.cubic) };
 
 interface ReportContextSheetProps {
   incidents: PublicIncidentMarker[];
@@ -14,60 +21,80 @@ interface ReportContextSheetProps {
 
 /** A compact, map-owned summary of the public reports currently in view. */
 export function ReportContextSheet({ incidents, onSelectIncident, onExpandedChange }: ReportContextSheetProps) {
+  const { height: windowHeight } = useWindowDimensions();
   const count = incidents.length;
   const visibleSummary = summarizeVisibleIncidents(incidents);
   const summary = count === 1 ? '1 public report in this area' : `${count} public reports in this area`;
+  const sheetHeight = Math.round(windowHeight * SHEET_HEIGHT_RATIO);
+  const collapsedOffset = Math.max(sheetHeight - COLLAPSED_SHEET_HEIGHT, 0);
   const [expanded, setExpanded] = useState(false);
+  const sheetOffset = useSharedValue(collapsedOffset);
+  const dragStartOffset = useSharedValue(collapsedOffset);
   const updateExpanded = useCallback((nextExpanded: boolean) => {
     setExpanded(nextExpanded);
     onExpandedChange?.(nextExpanded);
   }, [onExpandedChange]);
-  const toggleExpanded = () => updateExpanded(!expanded);
+  const settleSheet = useCallback((nextExpanded: boolean) => {
+    sheetOffset.value = withTiming(nextExpanded ? 0 : collapsedOffset, SETTLE_ANIMATION);
+    updateExpanded(nextExpanded);
+  }, [collapsedOffset, sheetOffset, updateExpanded]);
+  const toggleExpanded = () => settleSheet(!expanded);
   const handleSelectIncident = (incident: PublicIncidentMarker) => {
-    updateExpanded(false);
+    settleSheet(false);
     onSelectIncident?.(incident);
   };
-  const panResponder = useMemo(
-    () => PanResponder.create({
-      onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dy) > 8,
-      onPanResponderRelease: (_event, gesture) => {
-        if (gesture.dy < -20) updateExpanded(true);
-        if (gesture.dy > 20) updateExpanded(false);
-      },
-    }),
-    [updateExpanded],
+  const handleGestureEnd = useCallback((offset: number, velocityY: number) => {
+    const snapOffset = resolveReportSheetSnapOffset(offset, velocityY, collapsedOffset);
+    settleSheet(snapOffset === 0);
+  }, [collapsedOffset, settleSheet]);
+  const panGesture = useMemo(
+    () => Gesture.Pan()
+      .activeOffsetY([-8, 8])
+      .failOffsetX([-32, 32])
+      .onBegin(() => {
+        dragStartOffset.value = sheetOffset.value;
+      })
+      .onUpdate((event) => {
+        sheetOffset.value = clampReportSheetOffset(dragStartOffset.value + event.translationY, collapsedOffset);
+      })
+      .onEnd((event) => runOnJS(handleGestureEnd)(sheetOffset.value, event.velocityY)),
+    [collapsedOffset, dragStartOffset, handleGestureEnd, sheetOffset],
   );
+  const animatedSheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetOffset.value }] }));
 
   return (
-    <View style={[styles.sheet, expanded && styles.expanded]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} reports in this area`}
-        accessibilityHint={expanded ? 'Collapses the report list to show more of the map' : 'Expands the visible report list'}
-        accessibilityState={{ expanded }}
-        accessibilityActions={[
-          { name: expanded ? 'collapse' : 'expand', label: expanded ? 'Collapse report list' : 'Expand report list' },
-        ]}
-        onAccessibilityAction={(event) => updateExpanded(event.nativeEvent.actionName === 'expand')}
-        onPress={toggleExpanded}
-        style={styles.header}
-        {...panResponder.panHandlers}>
-        <View style={styles.handle} />
-        <View style={styles.summaryRow}>
-          <View style={styles.copy}>
-            <Text style={styles.title}>Reports in this area</Text>
-            <Text style={styles.summary}>{count === 0 ? 'No visible public reports' : summary}</Text>
-            {visibleSummary.highSeverityCount > 0 ? (
-              <Text style={styles.prioritySummary}>
-                {visibleSummary.highSeverityCount} high-severity {visibleSummary.highSeverityCount === 1 ? 'report' : 'reports'}
-              </Text>
-            ) : null}
-          </View>
-          <Text style={styles.count}>{count}</Text>
+    <Animated.View style={[styles.sheet, { height: sheetHeight }, animatedSheetStyle]}>
+      <GestureDetector gesture={panGesture}>
+        <View collapsable={false}>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} reports in this area`}
+            accessibilityHint={expanded ? 'Collapses the report list to show more of the map' : 'Expands the visible report list'}
+            accessibilityState={{ expanded }}
+            accessibilityActions={[
+              { name: expanded ? 'collapse' : 'expand', label: expanded ? 'Collapse report list' : 'Expand report list' },
+            ]}
+            onAccessibilityAction={(event) => settleSheet(event.nativeEvent.actionName === 'expand')}
+            onPress={toggleExpanded}
+            style={styles.header}>
+            <View style={styles.handle} />
+            <View style={styles.summaryRow}>
+              <Text style={styles.title}>Reports in this area</Text>
+              <Text style={styles.count}>{count}</Text>
+            </View>
+          </Pressable>
         </View>
-      </Pressable>
-      {expanded && count > 0 ? (
-        <ScrollView contentContainerStyle={styles.reportList} showsVerticalScrollIndicator={false}>
+      </GestureDetector>
+      <View style={styles.expandedSummary}>
+        <Text style={styles.summary}>{count === 0 ? 'No visible public reports' : summary}</Text>
+        {visibleSummary.highSeverityCount > 0 ? (
+          <Text style={styles.prioritySummary}>
+            {visibleSummary.highSeverityCount} high-severity {visibleSummary.highSeverityCount === 1 ? 'report' : 'reports'}
+          </Text>
+        ) : null}
+      </View>
+      {count > 0 ? (
+        <ScrollView style={styles.reportListContainer} contentContainerStyle={styles.reportList} showsVerticalScrollIndicator={false}>
           <Text style={styles.contextNote}>
             Community-reported locations are shown as approximate areas, not exact locations.
           </Text>
@@ -101,16 +128,15 @@ export function ReportContextSheet({ incidents, onSelectIncident, onExpandedChan
             );
           })}
         </ScrollView>
-      ) : null}
-      {expanded && count === 0 ? (
+      ) : (
         <View accessible accessibilityRole="summary" accessibilityLabel="No public reports are visible in this area" style={styles.emptyState}>
           <Text style={styles.emptyTitle}>No public reports in this view</Text>
           <Text style={styles.emptyCopy}>
             This does not mean the area is safe. Move the map or adjust filters to explore available community data.
           </Text>
         </View>
-      ) : null}
-    </View>
+      )}
+    </Animated.View>
   );
 }
 
@@ -120,18 +146,17 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    minHeight: 112,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
+    paddingTop: 6,
     paddingBottom: spacing.lg,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     borderWidth: 1,
     borderColor: palette.border,
     backgroundColor: palette.surface,
+    overflow: 'hidden',
   },
-  expanded: { height: '58%' },
-  header: { minHeight: 88 },
+  header: { minHeight: 58 },
   handle: {
     alignSelf: 'center',
     width: 36,
@@ -139,12 +164,13 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: palette.border,
   },
-  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md },
-  copy: { flex: 1, gap: spacing.xs },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, marginTop: 6 },
   title: { color: palette.text, fontSize: 17, fontWeight: '800' },
   summary: { color: palette.textMuted, fontSize: 13, lineHeight: 18 },
   prioritySummary: { color: palette.text, fontSize: 12, fontWeight: '700' },
   count: { color: palette.primary, fontSize: 24, fontWeight: '800' },
+  expandedSummary: { gap: spacing.xs, marginBottom: spacing.md },
+  reportListContainer: { flex: 1 },
   reportList: { gap: spacing.sm, paddingBottom: spacing.sm },
   contextNote: { color: palette.textMuted, fontSize: 12, lineHeight: 17, marginBottom: spacing.xs },
   reportRow: {
