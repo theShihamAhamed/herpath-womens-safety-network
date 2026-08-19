@@ -13,7 +13,7 @@ export function MapHomeScreen() {
 
   return (
     <Screen contentStyle={styles.content}>
-      <MapScreen controlsTopOffset={116} />
+      <MapScreen controlsTopOffset={144} />
 
       <View pointerEvents="box-none" style={styles.topOverlay}>
         <View style={styles.header}>

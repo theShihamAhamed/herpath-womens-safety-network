@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
   },
   refreshIndicator: {
     position: 'absolute',
-    top: 64,
+    top: 204,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
