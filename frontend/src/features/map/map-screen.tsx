@@ -10,6 +10,7 @@ import { IncidentArea } from './incident-area';
 import { IncidentMarker } from './incident-marker';
 import { mapApi } from './map-api';
 import type { AreaSummary, MapFilter, PublicIncidentMarker, ViewportBounds } from './map.types';
+import { ReportContextSheet } from './report-context-sheet';
 import { FALLBACK_LOCATION, useUserLocation } from './use-user-location';
 
 export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: number }) {
@@ -167,6 +168,8 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         </View>
       ) : null}
 
+      <ReportContextSheet incidents={filteredIncidents} />
+
       <AreaSummarySheet
         visible={isSummaryVisible}
         summary={selectedAreaSummary}
@@ -187,7 +190,7 @@ const styles = StyleSheet.create({
   actionControls: {
     position: 'absolute',
     right: 16,
-    bottom: 104,
+    bottom: 128,
     gap: 8,
   },
   mapAction: {
@@ -233,7 +236,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 16,
+    bottom: 128,
     gap: 4,
     padding: 14,
     borderRadius: 14,
