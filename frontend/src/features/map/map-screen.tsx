@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { AreaSummarySheet } from './area-summary-sheet';
@@ -14,6 +14,7 @@ import { ReportContextSheet } from './report-context-sheet';
 import { FALLBACK_LOCATION, useUserLocation } from './use-user-location';
 
 export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: number }) {
+  const { height: windowHeight } = useWindowDimensions();
   const { location, isLoading: isLocationLoading } = useUserLocation();
   const [incidents, setIncidents] = useState<PublicIncidentMarker[]>([]);
   const [filter, setFilter] = useState<MapFilter>({ category: 'ALL', severity: 'ALL', dateRange: 'all', timeOfDay: 'all' });
@@ -21,6 +22,7 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
   const [isMapDataUnavailable, setIsMapDataUnavailable] = useState(false);
   const [selectedAreaSummary, setSelectedAreaSummary] = useState<AreaSummary | null>(null);
   const [isSummaryVisible, setIsSummaryVisible] = useState(false);
+  const [isReportSheetExpanded, setIsReportSheetExpanded] = useState(false);
   const lastViewportRef = useRef<ViewportBounds | null>(null);
   const mapRef = useRef<MapView>(null);
 
@@ -150,7 +152,12 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         ))}
       </MapView>
 
-      <View pointerEvents="box-none" style={styles.actionControls}>
+      <View
+        pointerEvents="box-none"
+        style={[
+          styles.actionControls,
+          { bottom: isReportSheetExpanded ? Math.round(windowHeight * 0.58) + 16 : 128 },
+        ]}>
         <Pressable accessibilityRole="button" accessibilityLabel="Use my current location" onPress={handleUseCurrentLocation} style={styles.mapAction}>
           <MaterialIcons name="my-location" size={22} color="#176B5B" />
         </Pressable>
@@ -173,7 +180,11 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         </View>
       ) : null}
 
-      <ReportContextSheet incidents={filteredIncidents} onSelectIncident={handleFocusIncident} />
+      <ReportContextSheet
+        incidents={filteredIncidents}
+        onSelectIncident={handleFocusIncident}
+        onExpandedChange={setIsReportSheetExpanded}
+      />
 
       <AreaSummarySheet
         visible={isSummaryVisible}
@@ -195,7 +206,6 @@ const styles = StyleSheet.create({
   actionControls: {
     position: 'absolute',
     right: 16,
-    bottom: 128,
     gap: 8,
   },
   mapAction: {

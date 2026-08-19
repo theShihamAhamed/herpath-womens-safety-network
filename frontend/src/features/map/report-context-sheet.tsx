@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import { PanResponder, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { palette, radius, spacing } from '@/src/theme';
@@ -9,28 +9,33 @@ import { summarizeVisibleIncidents } from './report-context-summary';
 interface ReportContextSheetProps {
   incidents: PublicIncidentMarker[];
   onSelectIncident?: (incident: PublicIncidentMarker) => void;
+  onExpandedChange?: (expanded: boolean) => void;
 }
 
 /** A compact, map-owned summary of the public reports currently in view. */
-export function ReportContextSheet({ incidents, onSelectIncident }: ReportContextSheetProps) {
+export function ReportContextSheet({ incidents, onSelectIncident, onExpandedChange }: ReportContextSheetProps) {
   const count = incidents.length;
   const visibleSummary = summarizeVisibleIncidents(incidents);
   const summary = count === 1 ? '1 public report in this area' : `${count} public reports in this area`;
   const [expanded, setExpanded] = useState(false);
-  const toggleExpanded = () => setExpanded((current) => !current);
+  const updateExpanded = useCallback((nextExpanded: boolean) => {
+    setExpanded(nextExpanded);
+    onExpandedChange?.(nextExpanded);
+  }, [onExpandedChange]);
+  const toggleExpanded = () => updateExpanded(!expanded);
   const handleSelectIncident = (incident: PublicIncidentMarker) => {
-    setExpanded(false);
+    updateExpanded(false);
     onSelectIncident?.(incident);
   };
   const panResponder = useMemo(
     () => PanResponder.create({
       onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dy) > 8,
       onPanResponderRelease: (_event, gesture) => {
-        if (gesture.dy < -20) setExpanded(true);
-        if (gesture.dy > 20) setExpanded(false);
+        if (gesture.dy < -20) updateExpanded(true);
+        if (gesture.dy > 20) updateExpanded(false);
       },
     }),
-    [],
+    [updateExpanded],
   );
 
   return (
@@ -43,7 +48,7 @@ export function ReportContextSheet({ incidents, onSelectIncident }: ReportContex
         accessibilityActions={[
           { name: expanded ? 'collapse' : 'expand', label: expanded ? 'Collapse report list' : 'Expand report list' },
         ]}
-        onAccessibilityAction={(event) => setExpanded(event.nativeEvent.actionName === 'expand')}
+        onAccessibilityAction={(event) => updateExpanded(event.nativeEvent.actionName === 'expand')}
         onPress={toggleExpanded}
         style={styles.header}
         {...panResponder.panHandlers}>
