@@ -50,14 +50,14 @@ export function ReportContextSheet({ incidents, onSelectIncident, onExpandedChan
         ]}
         onAccessibilityAction={(event) => updateExpanded(event.nativeEvent.actionName === 'expand')}
         onPress={toggleExpanded}
-        style={styles.header}
+        style={[styles.header, expanded && styles.expandedHeader]}
         {...panResponder.panHandlers}>
         <View style={styles.handle} />
         <View style={styles.summaryRow}>
           <View style={styles.copy}>
             <Text style={styles.title}>Reports in this area</Text>
-            <Text style={styles.summary}>{count === 0 ? 'No visible public reports' : summary}</Text>
-            {visibleSummary.highSeverityCount > 0 ? (
+            {expanded ? <Text style={styles.summary}>{count === 0 ? 'No visible public reports' : summary}</Text> : null}
+            {expanded && visibleSummary.highSeverityCount > 0 ? (
               <Text style={styles.prioritySummary}>
                 {visibleSummary.highSeverityCount} high-severity {visibleSummary.highSeverityCount === 1 ? 'report' : 'reports'}
               </Text>
@@ -120,18 +120,19 @@ const styles = StyleSheet.create({
     left: 0,
     right: 0,
     bottom: 0,
-    minHeight: 112,
+    minHeight: 68,
     paddingHorizontal: spacing.lg,
-    paddingTop: spacing.sm,
-    paddingBottom: spacing.lg,
+    paddingTop: 6,
+    paddingBottom: spacing.sm,
     borderTopLeftRadius: radius.lg,
     borderTopRightRadius: radius.lg,
     borderWidth: 1,
     borderColor: palette.border,
     backgroundColor: palette.surface,
   },
-  expanded: { height: '58%' },
-  header: { minHeight: 88 },
+  expanded: { height: '58%', paddingBottom: spacing.lg },
+  header: { minHeight: 54 },
+  expandedHeader: { minHeight: 88 },
   handle: {
     alignSelf: 'center',
     width: 36,
@@ -139,7 +140,7 @@ const styles = StyleSheet.create({
     borderRadius: 2,
     backgroundColor: palette.border,
   },
-  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: spacing.md },
+  summaryRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.md, marginTop: 6 },
   copy: { flex: 1, gap: spacing.xs },
   title: { color: palette.text, fontSize: 17, fontWeight: '800' },
   summary: { color: palette.textMuted, fontSize: 13, lineHeight: 18 },
