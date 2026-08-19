@@ -8,15 +8,20 @@ import { summarizeVisibleIncidents } from './report-context-summary';
 
 interface ReportContextSheetProps {
   incidents: PublicIncidentMarker[];
+  onSelectIncident?: (incident: PublicIncidentMarker) => void;
 }
 
 /** A compact, map-owned summary of the public reports currently in view. */
-export function ReportContextSheet({ incidents }: ReportContextSheetProps) {
+export function ReportContextSheet({ incidents, onSelectIncident }: ReportContextSheetProps) {
   const count = incidents.length;
   const visibleSummary = summarizeVisibleIncidents(incidents);
   const summary = count === 1 ? '1 public report in this area' : `${count} public reports in this area`;
   const [expanded, setExpanded] = useState(false);
   const toggleExpanded = () => setExpanded((current) => !current);
+  const handleSelectIncident = (incident: PublicIncidentMarker) => {
+    setExpanded(false);
+    onSelectIncident?.(incident);
+  };
   const panResponder = useMemo(
     () => PanResponder.create({
       onMoveShouldSetPanResponder: (_event, gesture) => Math.abs(gesture.dy) > 8,
@@ -67,7 +72,13 @@ export function ReportContextSheet({ incidents }: ReportContextSheetProps) {
             });
 
             return (
-              <View key={incident.id} style={styles.reportRow}>
+              <Pressable
+                key={incident.id}
+                accessibilityRole="button"
+                accessibilityLabel={`Focus approximate area for ${category.label}, ${severity.label} severity, occurred ${occurredAt}`}
+                accessibilityHint="Centers the map on this report's approximate area"
+                onPress={() => handleSelectIncident(incident)}
+                style={styles.reportRow}>
                 <Text style={styles.reportTitle}>{category.label}</Text>
                 <Text style={[styles.reportSeverity, { color: severity.color }]}>{severity.label} severity</Text>
                 <Text style={styles.reportDetail}>Occurred {occurredAt}</Text>
@@ -76,7 +87,7 @@ export function ReportContextSheet({ incidents }: ReportContextSheetProps) {
                     {incident.supportCount} community {incident.supportCount === 1 ? 'support' : 'supports'}
                   </Text>
                 ) : null}
-              </View>
+              </Pressable>
             );
           })}
         </ScrollView>
@@ -120,6 +131,8 @@ const styles = StyleSheet.create({
   contextNote: { color: palette.textMuted, fontSize: 12, lineHeight: 17, marginBottom: spacing.xs },
   reportRow: {
     gap: 3,
+    minHeight: 72,
+    justifyContent: 'center',
     padding: spacing.md,
     borderWidth: 1,
     borderColor: palette.border,

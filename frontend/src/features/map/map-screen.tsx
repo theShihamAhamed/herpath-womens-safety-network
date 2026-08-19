@@ -115,6 +115,11 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
     void showAreaSummary((bounds.swLat + bounds.neLat) / 2, (bounds.swLng + bounds.neLng) / 2);
   };
 
+  const handleFocusIncident = (incident: PublicIncidentMarker) => {
+    const [longitude, latitude] = incident.publicLocation.coordinates;
+    mapRef.current?.animateToRegion({ latitude, longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 300);
+  };
+
   if (isLocationLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -168,7 +173,7 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         </View>
       ) : null}
 
-      <ReportContextSheet incidents={filteredIncidents} />
+      <ReportContextSheet incidents={filteredIncidents} onSelectIncident={handleFocusIncident} />
 
       <AreaSummarySheet
         visible={isSummaryVisible}
