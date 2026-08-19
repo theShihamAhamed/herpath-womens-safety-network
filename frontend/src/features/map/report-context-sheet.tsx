@@ -4,6 +4,7 @@ import { PanResponder, Pressable, StyleSheet, Text, View } from 'react-native';
 import { palette, radius, spacing } from '@/src/theme';
 
 import type { PublicIncidentMarker } from './map.types';
+import { summarizeVisibleIncidents } from './report-context-summary';
 
 interface ReportContextSheetProps {
   incidents: PublicIncidentMarker[];
@@ -12,6 +13,7 @@ interface ReportContextSheetProps {
 /** A compact, map-owned summary of the public reports currently in view. */
 export function ReportContextSheet({ incidents }: ReportContextSheetProps) {
   const count = incidents.length;
+  const visibleSummary = summarizeVisibleIncidents(incidents);
   const summary = count === 1 ? '1 public report in this area' : `${count} public reports in this area`;
   const [expanded, setExpanded] = useState(false);
   const toggleExpanded = () => setExpanded((current) => !current);
@@ -40,6 +42,11 @@ export function ReportContextSheet({ incidents }: ReportContextSheetProps) {
           <View style={styles.copy}>
             <Text style={styles.title}>Reports in this area</Text>
             <Text style={styles.summary}>{count === 0 ? 'No visible public reports' : summary}</Text>
+            {visibleSummary.highSeverityCount > 0 ? (
+              <Text style={styles.prioritySummary}>
+                {visibleSummary.highSeverityCount} high-severity {visibleSummary.highSeverityCount === 1 ? 'report' : 'reports'}
+              </Text>
+            ) : null}
           </View>
           <Text style={styles.count}>{count}</Text>
         </View>
@@ -77,5 +84,6 @@ const styles = StyleSheet.create({
   copy: { flex: 1, gap: spacing.xs },
   title: { color: palette.text, fontSize: 17, fontWeight: '800' },
   summary: { color: palette.textMuted, fontSize: 13, lineHeight: 18 },
+  prioritySummary: { color: palette.text, fontSize: 12, fontWeight: '700' },
   count: { color: palette.primary, fontSize: 24, fontWeight: '800' },
 });
