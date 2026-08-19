@@ -133,7 +133,6 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         style={styles.map}
         initialRegion={initialRegion}
         showsUserLocation
-        showsMyLocationButton
         onRegionChangeComplete={handleRegionChangeComplete}
         onLongPress={handleLongPress}
       >
@@ -188,22 +187,27 @@ const styles = StyleSheet.create({
   actionControls: {
     position: 'absolute',
     right: 16,
-    bottom: 116,
-    gap: 10,
+    bottom: 104,
+    gap: 8,
   },
   mapAction: {
     width: 48,
     height: 48,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 24,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#D7DEDC',
     backgroundColor: '#FFFFFF',
+    elevation: 3,
+    shadowColor: '#18201E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.14,
+    shadowRadius: 4,
   },
   refreshIndicator: {
     position: 'absolute',
-    top: 64,
+    top: 204,
     alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
