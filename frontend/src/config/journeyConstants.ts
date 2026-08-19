@@ -1,0 +1,4 @@
+export const LOCATION_UPDATE_INTERVAL_MS = 5000;
+export const LOCATION_UPDATE_DISTANCE_M = 10;
+export const DEVIATION_THRESHOLD_M = 100;
+export const ARRIVAL_THRESHOLD_M = 50;
