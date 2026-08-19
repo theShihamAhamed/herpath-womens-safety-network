@@ -13,7 +13,7 @@ export function IncidentCallout({ incident }: IncidentCalloutProps) {
   const categoryInfo = CATEGORY_CONFIG[incident.category] || CATEGORY_CONFIG.OTHER;
   const severityInfo = SEVERITY_CONFIG[incident.severity] || SEVERITY_CONFIG.LOW;
 
-  const formattedDate = new Date(incident.createdAt).toLocaleDateString(undefined, {
+  const formattedDate = new Date(incident.occurredAt).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -33,10 +33,10 @@ export function IncidentCallout({ incident }: IncidentCalloutProps) {
         </View>
 
         <Text style={styles.statusText}>Status: {incident.status.replace('_', ' ')}</Text>
-        <Text style={styles.dateText}>Reported: {formattedDate}</Text>
+        <Text style={styles.dateText}>Occurred: {formattedDate}</Text>
         
         {incident.supportCount > 0 && (
-          <Text style={styles.supportText}>👍 {incident.supportCount} community confirmations</Text>
+          <Text style={styles.supportText}>{incident.supportCount} community support</Text>
         )}
       </View>
     </Callout>
