@@ -13,13 +13,15 @@ export function MapHomeScreen() {
 
   return (
     <Screen contentStyle={styles.content}>
-      <MapScreen controlsTopOffset={140} />
+      <MapScreen controlsTopOffset={116} />
 
       <View pointerEvents="box-none" style={styles.topOverlay}>
         <View style={styles.header}>
           <View style={styles.headerCopy}>
-            <Text style={styles.eyebrow}>COMMUNITY SAFETY</Text>
-            <Text style={styles.title}>HerPath</Text>
+            <View accessible accessibilityRole="header" accessibilityLabel="HerPath community safety map" style={styles.brandMark}>
+              <MaterialIcons name="shield" size={20} color={palette.white} />
+              <Text style={styles.brandName}>HerPath</Text>
+            </View>
           </View>
           <Pressable
             accessibilityLabel="Open safety updates"
@@ -46,9 +48,18 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.md,
   },
-  headerCopy: { flex: 1, gap: spacing.xs },
-  eyebrow: { color: palette.primary, fontSize: 12, fontWeight: '800', letterSpacing: 1.5 },
-  title: { color: palette.text, fontSize: 32, lineHeight: 38, fontWeight: '900' },
+  headerCopy: { flex: 1 },
+  brandMark: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: 12,
+    borderRadius: radius.md,
+    backgroundColor: palette.primary,
+  },
+  brandName: { color: palette.white, fontSize: 17, fontWeight: '800', letterSpacing: -0.2 },
   iconButton: {
     width: 48,
     minHeight: 48,
