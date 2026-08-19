@@ -92,6 +92,14 @@ export function ReportContextSheet({ incidents, onSelectIncident }: ReportContex
           })}
         </ScrollView>
       ) : null}
+      {expanded && count === 0 ? (
+        <View accessible accessibilityRole="summary" accessibilityLabel="No public reports are visible in this area" style={styles.emptyState}>
+          <Text style={styles.emptyTitle}>No public reports in this view</Text>
+          <Text style={styles.emptyCopy}>
+            This does not mean the area is safe. Move the map or adjust filters to explore available community data.
+          </Text>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -142,4 +150,7 @@ const styles = StyleSheet.create({
   reportTitle: { color: palette.text, fontSize: 15, fontWeight: '800' },
   reportSeverity: { fontSize: 13, fontWeight: '700' },
   reportDetail: { color: palette.textMuted, fontSize: 12, lineHeight: 17 },
+  emptyState: { gap: spacing.sm, paddingVertical: spacing.md },
+  emptyTitle: { color: palette.text, fontSize: 15, fontWeight: '800' },
+  emptyCopy: { color: palette.textMuted, fontSize: 13, lineHeight: 19 },
 });
