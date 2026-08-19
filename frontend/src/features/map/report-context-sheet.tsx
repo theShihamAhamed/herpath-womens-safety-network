@@ -38,7 +38,12 @@ export function ReportContextSheet({ incidents, onSelectIncident }: ReportContex
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} reports in this area`}
+        accessibilityHint={expanded ? 'Collapses the report list to show more of the map' : 'Expands the visible report list'}
         accessibilityState={{ expanded }}
+        accessibilityActions={[
+          { name: expanded ? 'collapse' : 'expand', label: expanded ? 'Collapse report list' : 'Expand report list' },
+        ]}
+        onAccessibilityAction={(event) => setExpanded(event.nativeEvent.actionName === 'expand')}
         onPress={toggleExpanded}
         style={styles.header}
         {...panResponder.panHandlers}>
