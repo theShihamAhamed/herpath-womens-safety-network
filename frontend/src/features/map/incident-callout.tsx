@@ -32,7 +32,8 @@ export function IncidentCallout({ incident }: IncidentCalloutProps) {
           </View>
         </View>
 
-        <Text style={styles.statusText}>Status: {incident.status.replace('_', ' ')}</Text>
+        <Text style={styles.statusText}>Unverified community report</Text>
+        <Text style={styles.areaText}>Approximate area shown</Text>
         <Text style={styles.dateText}>Occurred: {formattedDate}</Text>
         
         {incident.supportCount > 0 && (
@@ -80,6 +81,11 @@ const styles = StyleSheet.create({
     fontWeight: '700',
   },
   statusText: {
+    fontSize: 12,
+    color: '#5F6C68',
+    marginBottom: 2,
+  },
+  areaText: {
     fontSize: 12,
     color: '#5F6C68',
     marginBottom: 2,
