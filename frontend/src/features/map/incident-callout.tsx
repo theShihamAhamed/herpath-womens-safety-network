@@ -27,8 +27,12 @@ export function IncidentCallout({ incident }: IncidentCalloutProps) {
           <Text style={[styles.categoryTitle, { color: categoryInfo.color }]}>
             {categoryInfo.label}
           </Text>
-          <View style={[styles.severityBadge, { backgroundColor: severityInfo.color }]}>
-            <Text style={styles.severityText}>{severityInfo.label}</Text>
+          <View
+            accessible
+            accessibilityLabel={`Severity: ${severityInfo.label}`}
+            style={[styles.severityBadge, { backgroundColor: severityInfo.color }]}
+          >
+            <Text style={styles.severityText}>{severityInfo.label} severity</Text>
           </View>
         </View>
 
@@ -76,7 +80,7 @@ const styles = StyleSheet.create({
   },
   severityText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
   },
   contextText: {
