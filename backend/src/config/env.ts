@@ -29,6 +29,8 @@ const rawEnvironmentSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(200),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+  REPORT_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
+  REPORT_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5),
   TRUST_PROXY: z.enum(['true', 'false']).default('false'),
   ACCESS_TOKEN_SECRET: z.string().min(32, 'ACCESS_TOKEN_SECRET must contain at least 32 characters'),
   ACCESS_TOKEN_TTL: accessTokenTtlSchema.default('15m'),
@@ -74,6 +76,8 @@ export interface Environment {
   rateLimitWindowMs: number;
   rateLimitMax: number;
   authRateLimitMax: number;
+  reportRateLimitWindowMs: number;
+  reportRateLimitMax: number;
   trustProxy: boolean;
   accessTokenSecret: string;
   accessTokenTtl: string;
@@ -118,6 +122,8 @@ export function loadEnvironment(source: NodeJS.ProcessEnv = process.env): Enviro
     rateLimitWindowMs: result.data.RATE_LIMIT_WINDOW_MS,
     rateLimitMax: result.data.RATE_LIMIT_MAX,
     authRateLimitMax: result.data.AUTH_RATE_LIMIT_MAX,
+    reportRateLimitWindowMs: result.data.REPORT_RATE_LIMIT_WINDOW_MS,
+    reportRateLimitMax: result.data.REPORT_RATE_LIMIT_MAX,
     trustProxy: result.data.TRUST_PROXY === 'true',
     accessTokenSecret: result.data.ACCESS_TOKEN_SECRET,
     accessTokenTtl: result.data.ACCESS_TOKEN_TTL,

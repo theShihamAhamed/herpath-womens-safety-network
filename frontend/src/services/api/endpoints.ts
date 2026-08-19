@@ -11,5 +11,10 @@ export const apiEndpoints = {
     incidents: '/map/incidents',
     areaSummary: '/map/area-summary',
   },
+  incidents: {
+    create: '/incidents',
+    locationCells: '/incidents/location-cells',
+    mine: '/incidents/mine',
+  },
 } as const;
 

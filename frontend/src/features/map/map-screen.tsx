@@ -49,10 +49,10 @@ export function MapScreen() {
   const filteredIncidents = incidents.filter((inc) => {
     if (filter.category !== 'ALL' && inc.category !== filter.category) return false;
     if (filter.severity !== 'ALL' && inc.severity !== filter.severity) return false;
-    const ageMs = Date.now() - new Date(inc.createdAt).getTime();
+    const ageMs = Date.now() - new Date(inc.occurredAt).getTime();
     const maxAge = filter.dateRange === '24h' ? 86_400_000 : filter.dateRange === '7d' ? 604_800_000 : filter.dateRange === '30d' ? 2_592_000_000 : Infinity;
     if (ageMs > maxAge) return false;
-    const hour = new Date(inc.createdAt).getHours();
+    const hour = new Date(inc.occurredAt).getHours();
     if (filter.timeOfDay === 'daytime' && (hour < 6 || hour > 17)) return false;
     if (filter.timeOfDay === 'nighttime' && hour >= 6 && hour <= 17) return false;
     return true;
@@ -72,7 +72,7 @@ export function MapScreen() {
         totalIncidents: filteredIncidents.length,
         byCategory: Object.fromEntries(['HARASSMENT', 'THEFT', 'ASSAULT', 'STALKING', 'OTHER'].map((category) => [category, filteredIncidents.filter((incident) => incident.category === category).length])) as AreaSummary['byCategory'],
         bySeverity: Object.fromEntries(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((severity) => [severity, filteredIncidents.filter((incident) => incident.severity === severity).length])) as AreaSummary['bySeverity'],
-        recentCount: filteredIncidents.filter((incident) => Date.now() - new Date(incident.createdAt).getTime() <= 2_592_000_000).length,
+        recentCount: filteredIncidents.filter((incident) => Date.now() - new Date(incident.occurredAt).getTime() <= 2_592_000_000).length,
         dataDisclaimer: 'Based on available community data',
       });
       setIsSummaryVisible(true);

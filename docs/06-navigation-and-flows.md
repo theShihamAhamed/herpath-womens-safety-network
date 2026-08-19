@@ -64,9 +64,15 @@ The current shared foundation contains an empty state only. Notification deliver
 ## Incident
 
 ```text
-Report → privacy notice → category → approximate location
-→ date/time → severity → optional description → review → submit
+Report → privacy notice → category → location privacy choice
+→ exact-private point or approximate-only area → date/time
+→ severity → optional description → review → submit
+→ confirmation → My Reports / Map / another report
 ```
+
+Opening Report does not request location permission. Exact-private current location requests one-time foreground permission only after the explicit action; exact-private manual selection requires a map tap. Approximate-only starts from a display-only Colombo region, requests no device location, loads backend-catalogued coarse areas, and submits only the selected area cell ID.
+
+The draft and its UUIDv4 remain stable after network or server failures so a retry is idempotent. A genuinely new UUID is created only through **Report another incident**. My Reports is owner-scoped, cursor-paginated, refreshable, and never displays coordinates.
 
 ## Journey
 

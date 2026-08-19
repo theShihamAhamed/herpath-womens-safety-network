@@ -57,3 +57,7 @@ src/
 
 ## Database
 Use MongoDB GeoJSON with `[longitude, latitude]`, `2dsphere` indexes for geospatial queries, and TTL indexes for temporary journey points.
+
+## Incident location boundary
+
+The Incident backend owns H3 resolution-8 conversion and the public projection. Exact-private reports retain a separately protected private Point; approximate-only reports store no private Point. The persisted and indexed `publicLocation` is the selected/derived H3 center, while `publicArea` is derived from the internal cell when returned. Map consumes the Incident-owned public reader and never imports the Incident model or repository directly.

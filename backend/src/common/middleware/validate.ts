@@ -15,7 +15,12 @@ export function validate(schemas: RequestSchemas) {
       }
 
       if (schemas.query) {
-        request.query = schemas.query.parse(request.query) as Request['query'];
+        Object.defineProperty(request, 'query', {
+          configurable: true,
+          enumerable: true,
+          value: schemas.query.parse(request.query) as Request['query'],
+          writable: true,
+        });
       }
 
       if (schemas.body) {

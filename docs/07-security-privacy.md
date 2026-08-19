@@ -22,6 +22,17 @@
 - demo/test data excluded from real statistics
 - audit moderator actions
 
+## Incident location controls
+
+- Exact location is collected only after the reporter chooses `EXACT_PRIVATE`; current-device location requires an explicit foreground-permission action and background location is not used.
+- The exact Point is protected from default database selection and is never included in owner or public responses.
+- `APPROXIMATE_ONLY` does not request permission, call GPS, import Map's fallback-location state, or submit a Point. It sends only a server-catalogued H3 resolution-8 cell ID and persists `privateLocation: null`.
+- H3 conversion, cell validation, public center generation, and boundary generation are backend-owned.
+- `publicCellId`, `reporterId`, and `clientSubmissionId` are protected internal fields. Descriptions and `locationMode` are owner-only.
+- Public reads use an explicit status allowlist and an explicit projection. Coarsening reduces precision but is not an anonymity guarantee, especially with sparse reports, timestamps, text, or outside knowledge.
+- Report logs must not include request bodies or coordinates. The configured HTTP serializer records request metadata, not body content.
+- Actor-scoped idempotency and rate limiting reduce retry duplication and abuse. The current limiter is process-local and requires a shared store for multi-instance deployment.
+
 ## Authentication controls
 
 - Registered passwords use Argon2id and are never returned by default database projections.

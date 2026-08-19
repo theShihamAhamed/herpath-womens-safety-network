@@ -3,7 +3,7 @@
 Update this through real PRs. Do not backdate progress.
 
 ## Current phase
-Shared UX and primary-navigation foundation with initial community safety map
+Incident Reporting vertical slice with privacy-safe Map integration
 
 ## Repository
 - [x] frontend structure
@@ -48,7 +48,11 @@ Shared UX and primary-navigation foundation with initial community safety map
 
 ## Components
 ### Shiham
-- [ ] incident vertical slice
+- [x] privacy-aware incident persistence and H3 resolution-8 public projection
+- [x] authenticated exact-private and approximate-only submission
+- [x] owner-scoped idempotency, new-report rate limiting, and My Reports API
+- [x] mobile staged report flow and owner history
+- [x] public Incident reader integrated with Map endpoints
 - [ ] community actions
 - [ ] moderation
 
@@ -56,7 +60,9 @@ Shared UX and primary-navigation foundation with initial community safety map
 - [x] map shell
 - [x] markers/filters
 - [x] area summary
-- [ ] incident repository/public projection integration
+- [x] incident repository/public projection integration
+- [ ] approximate public-area polygon rendering
+- [ ] refresh Map after successful report return
 
 
 ### Sandaruwan
