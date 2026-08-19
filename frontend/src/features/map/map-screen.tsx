@@ -4,6 +4,7 @@ import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { AreaSummarySheet } from './area-summary-sheet';
 import { FilterBar } from './filter-bar';
+import { IncidentArea } from './incident-area';
 import { IncidentMarker } from './incident-marker';
 import { mapApi } from './map-api';
 import type { AreaSummary, MapFilter, PublicIncidentMarker, ViewportBounds } from './map.types';
@@ -102,7 +103,10 @@ export function MapScreen() {
         onLongPress={handleLongPress}
       >
         {filteredIncidents.map((incident) => (
-          <IncidentMarker key={incident.id} incident={incident} />
+          <IncidentArea key={`area-${incident.id}`} incident={incident} />
+        ))}
+        {filteredIncidents.map((incident) => (
+          <IncidentMarker key={`marker-${incident.id}`} incident={incident} />
         ))}
       </MapView>
 
