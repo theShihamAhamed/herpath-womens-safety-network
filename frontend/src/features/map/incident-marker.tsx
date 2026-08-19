@@ -4,7 +4,7 @@ import { Marker } from 'react-native-maps';
 
 import { IncidentCallout } from './incident-callout';
 import type { PublicIncidentMarker } from './map.types';
-import { CATEGORY_CONFIG } from './map.types';
+import { CATEGORY_CONFIG, SEVERITY_CONFIG } from './map.types';
 
 interface IncidentMarkerProps {
   incident: PublicIncidentMarker;
@@ -14,7 +14,14 @@ interface IncidentMarkerProps {
 export function IncidentMarker({ incident, onSelect }: IncidentMarkerProps) {
   const [longitude, latitude] = incident.publicLocation.coordinates;
   const config = CATEGORY_CONFIG[incident.category] || CATEGORY_CONFIG.OTHER;
-  const accessibilityLabel = `Approximate area center for ${config.label}. Unverified community report.`;
+  const severity = SEVERITY_CONFIG[incident.severity] || SEVERITY_CONFIG.LOW;
+  const occurredAt = new Date(incident.occurredAt).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const accessibilityLabel = `Approximate area center for ${config.label}. ${severity.label} severity. Community report. Occurred ${occurredAt}.`;
 
   return (
     <Marker

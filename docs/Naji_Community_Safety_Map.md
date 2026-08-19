@@ -69,6 +69,8 @@ Implemented: Expo SDK 54-compatible map and foreground location dependencies, ma
 
 `publicArea` is an approximate public area, not an incident boundary or the reported person's location. The Map neither generates its geometry nor receives private coordinates, H3 cell IDs, or Incident descriptions.
 
+Incident callouts use a compact hierarchy: category first, then an explicit text severity label and occurrence time. A single `Community report · Approximate area` line preserves the public status and privacy context without implying confirmation or an exact location. Screen-reader marker labels include the same category, severity, occurrence time, and approximate-area semantics.
+
 When the Map regains focus after a successful report returns the user to `/map`, it reloads the retained visible viewport with the active filters. The refresh keeps the current map context intact and announces a short loading state while public reports are updated.
 
 Place search, safe places, clustering, and heatmap await their approved provider/data contracts or sufficient real data.

@@ -27,13 +27,16 @@ export function IncidentCallout({ incident }: IncidentCalloutProps) {
           <Text style={[styles.categoryTitle, { color: categoryInfo.color }]}>
             {categoryInfo.label}
           </Text>
-          <View style={[styles.severityBadge, { backgroundColor: severityInfo.color }]}>
-            <Text style={styles.severityText}>{severityInfo.label}</Text>
+          <View
+            accessible
+            accessibilityLabel={`Severity: ${severityInfo.label}`}
+            style={[styles.severityBadge, { backgroundColor: severityInfo.color }]}
+          >
+            <Text style={styles.severityText}>{severityInfo.label} severity</Text>
           </View>
         </View>
 
-        <Text style={styles.statusText}>Unverified community report</Text>
-        <Text style={styles.areaText}>Approximate area shown</Text>
+        <Text style={styles.contextText}>Community report · Approximate area</Text>
         <Text style={styles.dateText}>Occurred: {formattedDate}</Text>
         
         {incident.supportCount > 0 && (
@@ -77,18 +80,13 @@ const styles = StyleSheet.create({
   },
   severityText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
   },
-  statusText: {
+  contextText: {
     fontSize: 12,
     color: '#5F6C68',
-    marginBottom: 2,
-  },
-  areaText: {
-    fontSize: 12,
-    color: '#5F6C68',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   dateText: {
     fontSize: 11,
