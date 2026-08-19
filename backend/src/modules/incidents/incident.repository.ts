@@ -4,11 +4,38 @@ import {
   IncidentModel,
   type IncidentDocument,
 } from './incident.model.js';
+import {
+  PUBLIC_INCIDENT_STATUSES,
+  type PublicIncidentReadFilters,
+  type PublicIncidentRadiusRead,
+  type PublicIncidentViewportRead,
+} from './incident.public.js';
 import type {
   CreateIncidentPersistenceInput,
   OwnerIncidentCursor,
 } from './incident.types.js';
 import { normalizeIncidentLocation } from './location-privacy.service.js';
+
+const PUBLIC_READ_PROJECTION =
+  '_id category severity status occurredAt createdAt supportCount publicLocation +publicCellId';
+
+function publicIncidentFilter(filters: PublicIncidentReadFilters) {
+  const hasOccurredRange = filters.occurredFrom !== undefined || filters.occurredTo !== undefined;
+
+  return {
+    status: { $in: [...PUBLIC_INCIDENT_STATUSES] },
+    ...(filters.category === undefined ? {} : { category: filters.category }),
+    ...(filters.severity === undefined ? {} : { severity: filters.severity }),
+    ...(hasOccurredRange
+      ? {
+          occurredAt: {
+            ...(filters.occurredFrom === undefined ? {} : { $gte: filters.occurredFrom }),
+            ...(filters.occurredTo === undefined ? {} : { $lte: filters.occurredTo }),
+          },
+        }
+      : {}),
+  };
+}
 
 export class IncidentRepository {
   public async create(input: CreateIncidentPersistenceInput): Promise<IncidentDocument> {
@@ -58,5 +85,48 @@ export class IncidentRepository {
       : { reporterId: reporterObjectId };
 
     return IncidentModel.find(filter).sort({ createdAt: -1, _id: -1 }).limit(limit).exec();
+  }
+
+  public async findPublicInViewport(
+    query: PublicIncidentViewportRead,
+  ): Promise<IncidentDocument[]> {
+    const polygon = [[
+      [query.west, query.south],
+      [query.east, query.south],
+      [query.east, query.north],
+      [query.west, query.north],
+      [query.west, query.south],
+    ]];
+
+    return IncidentModel.find({
+      ...publicIncidentFilter(query),
+      publicLocation: {
+        $geoWithin: {
+          $geometry: { type: 'Polygon', coordinates: polygon },
+        },
+      },
+    })
+      .select(PUBLIC_READ_PROJECTION)
+      .sort({ occurredAt: -1, _id: -1 })
+      .exec();
+  }
+
+  public async findPublicWithinRadius(
+    query: PublicIncidentRadiusRead,
+  ): Promise<IncidentDocument[]> {
+    return IncidentModel.find({
+      ...publicIncidentFilter(query),
+      publicLocation: {
+        $near: {
+          $geometry: {
+            type: 'Point',
+            coordinates: [query.longitude, query.latitude],
+          },
+          $maxDistance: query.radiusMeters,
+        },
+      },
+    })
+      .select(PUBLIC_READ_PROJECTION)
+      .exec();
   }
 }

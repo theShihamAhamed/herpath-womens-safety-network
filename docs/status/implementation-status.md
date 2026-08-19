@@ -56,7 +56,7 @@ Shared UX and primary-navigation foundation with initial community safety map
 - [x] map shell
 - [x] markers/filters
 - [x] area summary
-- [ ] incident repository/public projection integration
+- [x] incident repository/public projection integration
 
 
 ### Sandaruwan

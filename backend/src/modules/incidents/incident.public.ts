@@ -23,6 +23,26 @@ export interface PublicIncident {
   publicArea: GeoJsonPolygon;
 }
 
+export interface PublicIncidentReadFilters {
+  category?: IncidentCategory;
+  severity?: IncidentSeverity;
+  occurredFrom?: Date;
+  occurredTo?: Date;
+}
+
+export interface PublicIncidentViewportRead extends PublicIncidentReadFilters {
+  south: number;
+  west: number;
+  north: number;
+  east: number;
+}
+
+export interface PublicIncidentRadiusRead extends PublicIncidentReadFilters {
+  latitude: number;
+  longitude: number;
+  radiusMeters: number;
+}
+
 export function toPublicIncident(incident: IncidentDocument): PublicIncident {
   if (!PUBLIC_INCIDENT_STATUSES.some((status) => status === incident.status)) {
     throw new Error('Incident status is not eligible for public projection');

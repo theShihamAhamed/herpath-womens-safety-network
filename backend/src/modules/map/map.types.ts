@@ -1,31 +1,26 @@
+import type {
+  IncidentCategory,
+  IncidentSeverity,
+} from '../incidents/incident.types.js';
+import type { PublicIncident } from '../incidents/incident.public.js';
+
 export interface ViewportQuery {
   swLat: number;
   swLng: number;
   neLat: number;
   neLng: number;
-  category?: 'HARASSMENT' | 'THEFT' | 'ASSAULT' | 'STALKING' | 'OTHER';
-  severity?: 'LOW' | 'MEDIUM' | 'HIGH' | 'CRITICAL';
-  dateFrom?: string;
-  dateTo?: string;
-  startHour?: number;
-  endHour?: number;
+  category?: IncidentCategory;
+  severity?: IncidentSeverity;
+  occurredFrom?: Date;
+  occurredTo?: Date;
 }
 
 export interface AreaSummaryQuery {
   lat: number;
   lng: number;
   radius: number;
+  occurredFrom?: Date;
+  occurredTo?: Date;
 }
 
-export interface PublicIncidentProjection {
-  id: string;
-  category: string;
-  severity: string;
-  status: string;
-  publicLocation: {
-    type: 'Point';
-    coordinates: [number, number];
-  };
-  createdAt: Date;
-  supportCount: number;
-}
+export type PublicIncidentProjection = PublicIncident;
