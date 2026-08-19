@@ -65,4 +65,6 @@ Implemented: Expo SDK 54-compatible map and foreground location dependencies, ma
 
 `publicArea` is an approximate public area, not an incident boundary or the reported person's location. The Map neither generates its geometry nor receives private coordinates, H3 cell IDs, or Incident descriptions.
 
-Pending Map-owner work: refresh Map data after returning from a successful report. Place search, safe places, clustering, and heatmap await their approved provider/data contracts or sufficient real data.
+When the Map regains focus after a successful report returns the user to `/map`, it reloads the retained visible viewport with the active filters. The refresh keeps the current map context intact and announces a short loading state while public reports are updated.
+
+Place search, safe places, clustering, and heatmap await their approved provider/data contracts or sufficient real data.
