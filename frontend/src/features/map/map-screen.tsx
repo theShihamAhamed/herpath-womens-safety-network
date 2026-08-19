@@ -1,7 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { AreaSummarySheet } from './area-summary-sheet';
@@ -10,9 +10,11 @@ import { IncidentArea } from './incident-area';
 import { IncidentMarker } from './incident-marker';
 import { mapApi } from './map-api';
 import type { AreaSummary, MapFilter, PublicIncidentMarker, ViewportBounds } from './map.types';
+import { ReportContextSheet } from './report-context-sheet';
 import { FALLBACK_LOCATION, useUserLocation } from './use-user-location';
 
 export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: number }) {
+  const { height: windowHeight } = useWindowDimensions();
   const { location, isLoading: isLocationLoading } = useUserLocation();
   const [incidents, setIncidents] = useState<PublicIncidentMarker[]>([]);
   const [filter, setFilter] = useState<MapFilter>({ category: 'ALL', severity: 'ALL', dateRange: 'all', timeOfDay: 'all' });
@@ -20,6 +22,7 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
   const [isMapDataUnavailable, setIsMapDataUnavailable] = useState(false);
   const [selectedAreaSummary, setSelectedAreaSummary] = useState<AreaSummary | null>(null);
   const [isSummaryVisible, setIsSummaryVisible] = useState(false);
+  const [isReportSheetExpanded, setIsReportSheetExpanded] = useState(false);
   const lastViewportRef = useRef<ViewportBounds | null>(null);
   const mapRef = useRef<MapView>(null);
 
@@ -114,6 +117,11 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
     void showAreaSummary((bounds.swLat + bounds.neLat) / 2, (bounds.swLng + bounds.neLng) / 2);
   };
 
+  const handleFocusIncident = (incident: PublicIncidentMarker) => {
+    const [longitude, latitude] = incident.publicLocation.coordinates;
+    mapRef.current?.animateToRegion({ latitude, longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 300);
+  };
+
   if (isLocationLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -144,7 +152,12 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         ))}
       </MapView>
 
-      <View pointerEvents="box-none" style={styles.actionControls}>
+      <View
+        pointerEvents="box-none"
+        style={[
+          styles.actionControls,
+          { bottom: isReportSheetExpanded ? Math.round(windowHeight * 0.58) + 16 : 128 },
+        ]}>
         <Pressable accessibilityRole="button" accessibilityLabel="Use my current location" onPress={handleUseCurrentLocation} style={styles.mapAction}>
           <MaterialIcons name="my-location" size={22} color="#176B5B" />
         </Pressable>
@@ -167,6 +180,12 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         </View>
       ) : null}
 
+      <ReportContextSheet
+        incidents={filteredIncidents}
+        onSelectIncident={handleFocusIncident}
+        onExpandedChange={setIsReportSheetExpanded}
+      />
+
       <AreaSummarySheet
         visible={isSummaryVisible}
         summary={selectedAreaSummary}
@@ -187,7 +206,6 @@ const styles = StyleSheet.create({
   actionControls: {
     position: 'absolute',
     right: 16,
-    bottom: 104,
     gap: 8,
   },
   mapAction: {
@@ -233,7 +251,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     left: 16,
     right: 16,
-    bottom: 16,
+    bottom: 128,
     gap: 4,
     padding: 14,
     borderRadius: 14,
