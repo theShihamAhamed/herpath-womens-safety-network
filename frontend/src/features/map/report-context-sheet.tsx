@@ -6,6 +6,7 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 import { palette, radius, spacing } from '@/src/theme';
 
 import { CATEGORY_CONFIG, SEVERITY_CONFIG, type PublicIncidentMarker } from './map.types';
+import { clampReportSheetOffset, resolveReportSheetSnapOffset } from './report-sheet-motion';
 import { summarizeVisibleIncidents } from './report-context-summary';
 
 const COLLAPSED_SHEET_HEIGHT = 72;
@@ -42,8 +43,9 @@ export function ReportContextSheet({ incidents, onSelectIncident, onExpandedChan
     settleSheet(false);
     onSelectIncident?.(incident);
   };
-  const handleGestureEnd = useCallback((offset: number) => {
-    settleSheet(offset < collapsedOffset / 2);
+  const handleGestureEnd = useCallback((offset: number, velocityY: number) => {
+    const snapOffset = resolveReportSheetSnapOffset(offset, velocityY, collapsedOffset);
+    settleSheet(snapOffset === 0);
   }, [collapsedOffset, settleSheet]);
   const panGesture = useMemo(
     () => Gesture.Pan()
@@ -53,9 +55,9 @@ export function ReportContextSheet({ incidents, onSelectIncident, onExpandedChan
         dragStartOffset.value = sheetOffset.value;
       })
       .onUpdate((event) => {
-        sheetOffset.value = Math.min(Math.max(dragStartOffset.value + event.translationY, 0), collapsedOffset);
+        sheetOffset.value = clampReportSheetOffset(dragStartOffset.value + event.translationY, collapsedOffset);
       })
-      .onEnd(() => runOnJS(handleGestureEnd)(sheetOffset.value)),
+      .onEnd((event) => runOnJS(handleGestureEnd)(sheetOffset.value, event.velocityY)),
     [collapsedOffset, dragStartOffset, handleGestureEnd, sheetOffset],
   );
   const animatedSheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetOffset.value }] }));

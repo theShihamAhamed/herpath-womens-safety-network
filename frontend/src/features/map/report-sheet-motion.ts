@@ -2,6 +2,8 @@ const SNAP_VELOCITY = 650;
 
 /** Keeps the sheet within its expanded (0) and collapsed travel bounds. */
 export function clampReportSheetOffset(offset: number, collapsedOffset: number) {
+  'worklet';
+
   return Math.min(Math.max(offset, 0), collapsedOffset);
 }
 
