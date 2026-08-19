@@ -1,3 +1,4 @@
+import { useFocusEffect } from '@react-navigation/native';
 import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
@@ -35,6 +36,13 @@ export function MapScreen() {
       setIsMapDataUnavailable(true);
     }
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      const bounds = lastViewportRef.current;
+      if (bounds) void loadIncidents(bounds, filter);
+    }, [filter, loadIncidents]),
+  );
 
   const handleRegionChangeComplete = (region: {
     latitude: number;
