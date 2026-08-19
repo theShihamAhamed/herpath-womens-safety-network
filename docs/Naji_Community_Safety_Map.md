@@ -61,6 +61,8 @@ Verify map loading, pan/zoom, permitted and denied location states, empty/networ
 
 ## Implementation status
 
-Implemented: Expo SDK 54-compatible map and foreground location dependencies, map surface, viewport and summary endpoints, category/severity filters, privacy-safe persisted Incident integration, occurrence-range filtering through `occurredFrom`/`occurredTo`, permission fallback, explicit empty state, neutral community-support wording, and the component integration boundary. The frontend contract consumes `occurredAt`, `createdAt`, `publicLocation`, and `publicArea`; time-of-day filtering is applied locally to `occurredAt`.
+Implemented: Expo SDK 54-compatible map and foreground location dependencies, map surface, viewport and summary endpoints, category/severity filters, privacy-safe persisted Incident integration, occurrence-range filtering through `occurredFrom`/`occurredTo`, permission fallback, explicit empty state, neutral community-support wording, and the component integration boundary. The frontend contract consumes `occurredAt`, `createdAt`, `publicLocation`, and `publicArea`; time-of-day filtering is applied locally to `occurredAt`. The map renders the API-supplied `publicArea` polygon with a subtle outline and fill, plus a clearly labelled coarse center indicator.
 
-Pending Map-owner work: render `publicArea` as an honest approximate-area overlay and refresh Map data after returning from a successful report. Current markers remain centered on the representative public point. Place search, safe places, clustering, and heatmap await their approved provider/data contracts or sufficient real data.
+`publicArea` is an approximate public area, not an incident boundary or the reported person's location. The Map neither generates its geometry nor receives private coordinates, H3 cell IDs, or Incident descriptions.
+
+Pending Map-owner work: refresh Map data after returning from a successful report. Place search, safe places, clustering, and heatmap await their approved provider/data contracts or sufficient real data.
