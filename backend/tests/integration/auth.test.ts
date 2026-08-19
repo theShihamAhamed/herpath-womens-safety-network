@@ -27,6 +27,8 @@ const config: AppRuntimeConfig = {
   rateLimitWindowMs: 60_000,
   rateLimitMax: 10_000,
   authRateLimitMax: 10_000,
+  reportRateLimitWindowMs: 900_000,
+  reportRateLimitMax: 5,
   trustProxy: false,
   accessTokenSecret: 'test-only-access-token-secret-at-least-32-chars',
   accessTokenTtl: '15m',

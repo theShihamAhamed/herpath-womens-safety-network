@@ -1,7 +1,13 @@
 import { Types } from 'mongoose';
 
-import { IncidentModel, type IncidentDocument } from './incident.model.js';
-import type { CreateIncidentPersistenceInput } from './incident.types.js';
+import {
+  IncidentModel,
+  type IncidentDocument,
+} from './incident.model.js';
+import type {
+  CreateIncidentPersistenceInput,
+  OwnerIncidentCursor,
+} from './incident.types.js';
 import { normalizeIncidentLocation } from './location-privacy.service.js';
 
 export class IncidentRepository {
@@ -18,5 +24,39 @@ export class IncidentRepository {
     };
 
     return IncidentModel.create(incident);
+  }
+
+  public async findByIdempotencyKey(
+    reporterId: string,
+    clientSubmissionId: string,
+  ): Promise<IncidentDocument | null> {
+    return IncidentModel.findOne({
+      reporterId: new Types.ObjectId(reporterId),
+      clientSubmissionId,
+    })
+      .select('+reporterId +clientSubmissionId +privateLocation +publicCellId')
+      .exec();
+  }
+
+  public async findOwnedPage(
+    reporterId: string,
+    limit: number,
+    cursor?: OwnerIncidentCursor,
+  ): Promise<IncidentDocument[]> {
+    const reporterObjectId = new Types.ObjectId(reporterId);
+    const filter = cursor
+      ? {
+          reporterId: reporterObjectId,
+          $or: [
+            { createdAt: { $lt: cursor.createdAt } },
+            {
+              createdAt: cursor.createdAt,
+              _id: { $lt: new Types.ObjectId(cursor.id) },
+            },
+          ],
+        }
+      : { reporterId: reporterObjectId };
+
+    return IncidentModel.find(filter).sort({ createdAt: -1, _id: -1 }).limit(limit).exec();
   }
 }

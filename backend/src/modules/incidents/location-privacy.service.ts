@@ -4,17 +4,32 @@ import {
   getResolution,
   isValidCell,
   latLngToCell,
+  POLYGON_TO_CELLS_FLAGS,
+  polygonToCellsExperimental,
 } from 'h3-js';
 
 import type {
   GeoJsonPoint,
   GeoJsonPolygon,
+  IncidentViewport,
   IncidentLocationInput,
   NormalizedIncidentLocation,
   Position,
+  PublicLocationCell,
 } from './incident.types.js';
 
 export const INCIDENT_PUBLIC_H3_RESOLUTION = 8;
+export const MAX_SELECTABLE_LOCATION_CELLS = 200;
+
+export class SelectableLocationCellLimitError extends Error {
+  public constructor(
+    public readonly cellCount: number,
+    public readonly maximum: number,
+  ) {
+    super('The selected viewport contains too many public location cells');
+    this.name = 'SelectableLocationCellLimitError';
+  }
+}
 
 function locationError(message: string): TypeError {
   return new TypeError(message);
@@ -116,4 +131,33 @@ export function normalizeIncidentLocation(
     publicCellId,
     publicLocation: publicPointFromCell(publicCellId),
   };
+}
+
+export function selectableLocationCells(
+  viewport: IncidentViewport,
+  maximum = MAX_SELECTABLE_LOCATION_CELLS,
+): PublicLocationCell[] {
+  const polygon = [
+    [viewport.west, viewport.south],
+    [viewport.east, viewport.south],
+    [viewport.east, viewport.north],
+    [viewport.west, viewport.north],
+    [viewport.west, viewport.south],
+  ];
+  const cellIds = polygonToCellsExperimental(
+    polygon,
+    INCIDENT_PUBLIC_H3_RESOLUTION,
+    POLYGON_TO_CELLS_FLAGS.containmentOverlapping,
+    true,
+  ).sort();
+
+  if (cellIds.length > maximum) {
+    throw new SelectableLocationCellLimitError(cellIds.length, maximum);
+  }
+
+  return cellIds.map((cellId) => ({
+    cellId,
+    publicLocation: publicPointFromCell(cellId),
+    publicArea: publicAreaFromCell(cellId),
+  }));
 }

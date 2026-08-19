@@ -65,3 +65,21 @@ export interface CreateIncidentPersistenceInput {
   description?: string;
   location: IncidentLocationInput;
 }
+
+export interface IncidentViewport {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+}
+
+export interface PublicLocationCell {
+  cellId: string;
+  publicLocation: GeoJsonPoint;
+  publicArea: GeoJsonPolygon;
+}
+
+export interface OwnerIncidentCursor {
+  createdAt: Date;
+  id: string;
+}
