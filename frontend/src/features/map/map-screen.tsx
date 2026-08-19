@@ -11,7 +11,7 @@ import { mapApi } from './map-api';
 import type { AreaSummary, MapFilter, PublicIncidentMarker, ViewportBounds } from './map.types';
 import { FALLBACK_LOCATION, useUserLocation } from './use-user-location';
 
-export function MapScreen() {
+export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: number }) {
   const { location, isLoading: isLocationLoading } = useUserLocation();
   const [incidents, setIncidents] = useState<PublicIncidentMarker[]>([]);
   const [filter, setFilter] = useState<MapFilter>({ category: 'ALL', severity: 'ALL', dateRange: 'all', timeOfDay: 'all' });
@@ -108,7 +108,7 @@ export function MapScreen() {
 
   return (
     <View style={styles.container}>
-      <FilterBar filter={filter} onChangeFilter={setFilter} />
+      <FilterBar filter={filter} onChangeFilter={setFilter} topOffset={controlsTopOffset} />
 
       <MapView
         provider={PROVIDER_GOOGLE}
