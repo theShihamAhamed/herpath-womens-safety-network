@@ -9,7 +9,7 @@ import { CATEGORY_CONFIG, SEVERITY_CONFIG, type PublicIncidentMarker } from './m
 import { clampReportSheetOffset, resolveReportSheetSnapOffset } from './report-sheet-motion';
 import { summarizeVisibleIncidents } from './report-context-summary';
 
-const COLLAPSED_SHEET_HEIGHT = 72;
+const COLLAPSED_SHEET_HEIGHT = 64;
 const SHEET_HEIGHT_RATIO = 0.58;
 const SETTLE_ANIMATION = { duration: 220, easing: Easing.out(Easing.cubic) };
 
