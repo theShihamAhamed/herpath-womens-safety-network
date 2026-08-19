@@ -39,6 +39,11 @@ export interface PublicIncidentMarker {
     type: 'Point';
     coordinates: [longitude: number, latitude: number];
   };
+  publicArea: {
+    type: 'Polygon';
+    coordinates: [longitude: number, latitude: number][][];
+  };
+  occurredAt: string;
   createdAt: string;
   supportCount: number;
 }

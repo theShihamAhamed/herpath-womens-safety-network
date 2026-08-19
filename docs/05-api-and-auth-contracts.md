@@ -92,3 +92,86 @@ Native Android is the first assessed platform. Full authenticated web support ca
 The Expo client keeps access tokens and the current actor in memory. On native platforms it persists only the refresh token through Expo SecureStore. Startup rotates any stored refresh token and verifies the actor through `/auth/me`; otherwise it creates an anonymous session. Invalid or revoked stored tokens are removed before creating a replacement anonymous identity.
 
 Sign-in and registration replace the anonymous session. Logout attempts server revocation, clears local session material, then creates a fresh anonymous session. The client never derives moderator status locally; route visibility uses the role returned by the backend.
+
+## Incident reporting endpoints
+
+All Incident routes require a Bearer access token. Anonymous and registered actors use the same backend-owned `request.auth.userId`; clients cannot supply a reporter ID. Request bodies and query objects are strict and reject unknown properties.
+
+### `POST /api/v1/incidents`
+
+Creates an owner-scoped report. A new report returns HTTP 201. An identical idempotent replay returns the existing owner projection with HTTP 200. Reusing the same `clientSubmissionId` for different normalized content returns HTTP 409 `IDEMPOTENCY_CONFLICT`.
+
+Shared request fields:
+
+```json
+{
+  "clientSubmissionId": "6ba7b810-9dad-4f71-80b4-00c04fd430c8",
+  "category": "HARASSMENT",
+  "severity": "HIGH",
+  "occurredAt": "2026-08-18T20:15:00+05:30",
+  "description": "Optional non-identifying description"
+}
+```
+
+`clientSubmissionId` must be UUIDv4. `occurredAt` must include `Z` or an explicit numeric offset and cannot exceed the server clock by more than five minutes. `description` is trimmed, optional, and limited to 500 characters.
+
+Exact-private location:
+
+```json
+{
+  "location": {
+    "mode": "EXACT_PRIVATE",
+    "privateLocation": {
+      "type": "Point",
+      "coordinates": [79.8612, 6.9271]
+    }
+  }
+}
+```
+
+Approximate-only location:
+
+```json
+{
+  "location": {
+    "mode": "APPROXIMATE_ONLY",
+    "selectedAreaCellId": "88644d9659fffff"
+  }
+}
+```
+
+The cell ID must be an H3 resolution-8 cell supplied by the location-cell catalog. Approximate-only requests contain no Point. Server-controlled reporter, status, support count, timestamps, `publicCellId`, `publicLocation`, and `publicArea` fields are rejected if added to the body.
+
+The owner response contains:
+
+```text
+id, category, severity, status, occurredAt, createdAt, supportCount,
+locationMode, optional description
+```
+
+It never returns coordinates or an H3 cell ID. The default new-report limit is five distinct submission IDs per authenticated actor per 15 minutes. Existing idempotent replays are resolved before that quota is consumed.
+
+### `GET /api/v1/incidents/location-cells`
+
+Returns selectable public areas for approximate-only reporting. Required query parameters are `north`, `south`, `east`, and `west`. Latitude and longitude spans must each be at most 0.1 degrees, wrapped viewports are rejected, and no more than 200 cells are returned.
+
+Each item contains `cellId`, `publicLocation`, and `publicArea`. The Point is the representative H3 center and the Polygon contains a closed GeoJSON ring.
+
+### `GET /api/v1/incidents/mine`
+
+Returns only reports owned by the authenticated actor, newest submission first. `limit` defaults to 20 and must be 1-50. `cursor` is an opaque continuation value. The response data is `{ items, nextCursor }` using the owner projection above.
+
+Anonymous reports remain with the pseudonymous account/session that created them; sign-in, registration, or logout does not silently transfer ownership.
+
+## Public Map incident endpoints
+
+`GET /api/v1/map/incidents` accepts required `swLat`, `swLng`, `neLat`, `neLng`, with optional `category`, `severity`, `occurredFrom`, and `occurredTo`. `GET /api/v1/map/area-summary` accepts `lat`, `lng`, optional `radius` from 100 to 10,000 metres, and optional `occurredFrom`/`occurredTo`. Time bounds are inclusive absolute instants and require `Z` or an explicit numeric offset.
+
+Each public incident contains only:
+
+```text
+id, category, severity, status, occurredAt, createdAt, supportCount,
+publicLocation, publicArea
+```
+
+It never contains `privateLocation`, `reporterId`, `locationMode`, `publicCellId`, `clientSubmissionId`, `description`, or account/session data. V1 uses the H3 center for viewport/radius inclusion and supports non-wrapping viewports only.

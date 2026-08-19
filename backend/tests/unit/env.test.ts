@@ -29,6 +29,8 @@ describe('authentication environment validation', () => {
       jwtIssuer: 'herpath-api',
       jwtAudience: 'herpath-mobile',
       authRateLimitMax: 10,
+      reportRateLimitWindowMs: 900_000,
+      reportRateLimitMax: 5,
       rateLimitMax: 200,
     });
   });

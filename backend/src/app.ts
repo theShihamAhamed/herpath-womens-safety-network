@@ -17,6 +17,8 @@ import { requestId } from './common/middleware/request-id.js';
 import { sendSuccess } from './common/utils/api-response.js';
 import { createAuthRouter } from './modules/auth/auth.routes.js';
 import { createAuthService, type AuthService } from './modules/auth/auth.service.js';
+import { createIncidentRouter } from './modules/incidents/incident.routes.js';
+import { createIncidentService } from './modules/incidents/incident.service.js';
 import { createMapRouter } from './modules/map/map.routes.js';
 
 
@@ -29,6 +31,8 @@ export interface AppRuntimeConfig {
   rateLimitWindowMs: number;
   rateLimitMax: number;
   authRateLimitMax: number;
+  reportRateLimitWindowMs: number;
+  reportRateLimitMax: number;
   trustProxy: boolean;
   accessTokenSecret: string;
   accessTokenTtl: string;
@@ -121,6 +125,12 @@ export function createApp(dependencies: AppDependencies): Express {
   );
 
   app.use(`${API_PREFIX}/map`, createMapRouter());
+
+  const incidentService = createIncidentService({
+    windowMs: dependencies.config.reportRateLimitWindowMs,
+    max: dependencies.config.reportRateLimitMax,
+  });
+  app.use(`${API_PREFIX}/incidents`, createIncidentRouter(authService, incidentService));
 
 
   app.get(`${API_PREFIX}/health`, (_request, response, next) => {

@@ -20,7 +20,7 @@ export default function JourneyControls({ status, onStart, onCheckIn, onEnd, loa
       {status === 'ACTIVE' && (
         <>
           <Pressable style={[styles.btn, styles.outline]} onPress={onCheckIn} disabled={loading}>
-            <Text style={styles.outlineText}>I'm Safe</Text>
+            <Text style={styles.outlineText}>I&apos;m Safe</Text>
           </Pressable>
           <Pressable style={[styles.btn, styles.danger]} onPress={onEnd} disabled={loading}>
             <Text style={styles.btnText}>End Journey</Text>

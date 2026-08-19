@@ -19,17 +19,8 @@ export const mapApi = {
     const now = new Date();
     const days = filter?.dateRange === '24h' ? 1 : filter?.dateRange === '7d' ? 7 : filter?.dateRange === '30d' ? 30 : 0;
     if (days) {
-      const dateFrom = new Date(now);
-      dateFrom.setDate(now.getDate() - days);
-      params.append('dateFrom', dateFrom.toISOString().slice(0, 10));
-      params.append('dateTo', now.toISOString().slice(0, 10));
-    }
-    if (filter?.timeOfDay === 'daytime') {
-      params.append('startHour', '6');
-      params.append('endHour', '17');
-    } else if (filter?.timeOfDay === 'nighttime') {
-      params.append('startHour', '18');
-      params.append('endHour', '5');
+      params.append('occurredFrom', new Date(now.getTime() - days * 86_400_000).toISOString());
+      params.append('occurredTo', now.toISOString());
     }
 
     return apiRequest<PublicIncidentMarker[]>(`/map/incidents?${params.toString()}`);

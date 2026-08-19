@@ -7,10 +7,12 @@ export const apiEndpoints = {
     logout: '/auth/logout',
     me: '/auth/me',
   },
+
   map: {
     incidents: '/map/incidents',
     areaSummary: '/map/area-summary',
   },
+
   journeys: {
     start: '/journeys/start',
     location: '/journeys/location',
@@ -21,8 +23,14 @@ export const apiEndpoints = {
     history: '/journeys/history',
     byId: (id: string) => `/journeys/${id}`,
   },
+
   analytics: {
     summary: '/analytics/summary',
   },
-} as const;
 
+  incidents: {
+    create: '/incidents',
+    locationCells: '/incidents/location-cells',
+    mine: '/incidents/mine',
+  },
+} as const;

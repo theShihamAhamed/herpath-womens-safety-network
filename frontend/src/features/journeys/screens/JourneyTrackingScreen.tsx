@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
 import JourneyMap from '../components/JourneyMap';
@@ -21,9 +21,22 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
   const [travelledPath, setTravelledPath] = useState<Coordinate[]>([]);
   const [deviated, setDeviated] = useState(false);
   const [loading, setLoading] = useState(false);
+  const stopTrackingRef = useRef<() => void>(() => undefined);
 
   const routePath = useMemo(() => decodePolyline(params.polyline), [params.polyline]);
 
+  
+  const handleEnd = useCallback(async () => {
+    if (!journeyId || !accessToken) return;
+    stopTrackingRef.current();
+    setJourneyStatus('COMPLETED');
+    try {
+      await journeyApi.finish(accessToken, journeyId);
+    } catch (e) {
+      console.warn('Failed to finish journey', e);
+    }
+    router.push({ pathname: '/journey/outcome', params: { journeyId } });
+  }, [accessToken, journeyId, router]);
   const handleLocation = useCallback(
     async (point: Coordinate) => {
       setCurrentLocation(point);
@@ -53,10 +66,11 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
         await handleEnd();
       }
     },
-    [journeyId, routePath, deviated, accessToken]
+    [journeyId, routePath, deviated, accessToken, handleEnd, params.destination]
   );
 
   const { start: startTracking, stop: stopTracking } = useLocationTracking(handleLocation);
+  stopTrackingRef.current = stopTracking;
 
   const handleStart = async () => {
     if (!accessToken) {
@@ -69,7 +83,7 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
       setJourneyId(journey._id);
       setJourneyStatus('ACTIVE');
       await startTracking();
-    } catch (e) {
+    } catch {
       Alert.alert('Error', 'Could not start the journey. Please try again.');
     } finally {
       setLoading(false);
@@ -89,17 +103,7 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
     }
   };
 
-  const handleEnd = async () => {
-    if (!journeyId || !accessToken) return;
-    stopTracking();
-    setJourneyStatus('COMPLETED');
-    try {
-      await journeyApi.finish(accessToken, journeyId);
-    } catch (e) {
-      console.warn('Failed to finish journey', e);
-    }
-    router.push({ pathname: '/journey/outcome', params: { journeyId } });
-  };
+
 
   useEffect(() => stopTracking, [stopTracking]);
 

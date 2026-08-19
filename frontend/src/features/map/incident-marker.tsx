@@ -4,7 +4,7 @@ import { Marker } from 'react-native-maps';
 
 import { IncidentCallout } from './incident-callout';
 import type { PublicIncidentMarker } from './map.types';
-import { CATEGORY_CONFIG } from './map.types';
+import { CATEGORY_CONFIG, SEVERITY_CONFIG } from './map.types';
 
 interface IncidentMarkerProps {
   incident: PublicIncidentMarker;
@@ -14,6 +14,14 @@ interface IncidentMarkerProps {
 export function IncidentMarker({ incident, onSelect }: IncidentMarkerProps) {
   const [longitude, latitude] = incident.publicLocation.coordinates;
   const config = CATEGORY_CONFIG[incident.category] || CATEGORY_CONFIG.OTHER;
+  const severity = SEVERITY_CONFIG[incident.severity] || SEVERITY_CONFIG.LOW;
+  const occurredAt = new Date(incident.occurredAt).toLocaleDateString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+  const accessibilityLabel = `Approximate area center for ${config.label}. ${severity.label} severity. Community report. Occurred ${occurredAt}.`;
 
   return (
     <Marker
@@ -21,8 +29,12 @@ export function IncidentMarker({ incident, onSelect }: IncidentMarkerProps) {
       onPress={() => onSelect?.(incident)}
       tracksViewChanges={false}
     >
-      <View style={[styles.markerPin, { backgroundColor: config.color }]}>
-        <View style={styles.innerDot} />
+      <View
+        accessible
+        accessibilityLabel={accessibilityLabel}
+        style={[styles.markerPin, { borderColor: config.color }]}
+      >
+        <View style={[styles.innerDot, { backgroundColor: config.color }]} />
       </View>
       <IncidentCallout incident={incident} />
     </Marker>
@@ -31,23 +43,17 @@ export function IncidentMarker({ incident, onSelect }: IncidentMarkerProps) {
 
 const styles = StyleSheet.create({
   markerPin: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 28,
+    height: 28,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFFFFF',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.3,
-    shadowRadius: 2,
+    borderWidth: 3,
+    backgroundColor: 'rgba(255,255,255,0.86)',
   },
   innerDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FFFFFF',
+    width: 10,
+    height: 10,
+    borderRadius: 5,
   },
 });

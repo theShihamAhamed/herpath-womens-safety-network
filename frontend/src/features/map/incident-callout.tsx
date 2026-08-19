@@ -13,7 +13,7 @@ export function IncidentCallout({ incident }: IncidentCalloutProps) {
   const categoryInfo = CATEGORY_CONFIG[incident.category] || CATEGORY_CONFIG.OTHER;
   const severityInfo = SEVERITY_CONFIG[incident.severity] || SEVERITY_CONFIG.LOW;
 
-  const formattedDate = new Date(incident.createdAt).toLocaleDateString(undefined, {
+  const formattedDate = new Date(incident.occurredAt).toLocaleDateString(undefined, {
     month: 'short',
     day: 'numeric',
     hour: '2-digit',
@@ -27,16 +27,20 @@ export function IncidentCallout({ incident }: IncidentCalloutProps) {
           <Text style={[styles.categoryTitle, { color: categoryInfo.color }]}>
             {categoryInfo.label}
           </Text>
-          <View style={[styles.severityBadge, { backgroundColor: severityInfo.color }]}>
-            <Text style={styles.severityText}>{severityInfo.label}</Text>
+          <View
+            accessible
+            accessibilityLabel={`Severity: ${severityInfo.label}`}
+            style={[styles.severityBadge, { backgroundColor: severityInfo.color }]}
+          >
+            <Text style={styles.severityText}>{severityInfo.label} severity</Text>
           </View>
         </View>
 
-        <Text style={styles.statusText}>Status: {incident.status.replace('_', ' ')}</Text>
-        <Text style={styles.dateText}>Reported: {formattedDate}</Text>
+        <Text style={styles.contextText}>Community report · Approximate area</Text>
+        <Text style={styles.dateText}>Occurred: {formattedDate}</Text>
         
         {incident.supportCount > 0 && (
-          <Text style={styles.supportText}>👍 {incident.supportCount} community confirmations</Text>
+          <Text style={styles.supportText}>{incident.supportCount} community support</Text>
         )}
       </View>
     </Callout>
@@ -76,13 +80,13 @@ const styles = StyleSheet.create({
   },
   severityText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 11,
     fontWeight: '700',
   },
-  statusText: {
+  contextText: {
     fontSize: 12,
     color: '#5F6C68',
-    marginBottom: 2,
+    marginBottom: 4,
   },
   dateText: {
     fontSize: 11,
