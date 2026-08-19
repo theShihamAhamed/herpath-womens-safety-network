@@ -18,7 +18,7 @@ Ask the participant to check for recent reports around an area. Observe marker/f
 
 ### Report
 
-Ask the participant to report an incident from yesterday. Observe privacy, category, location, severity, review, and submission understanding.
+Ask the participant to report an incident from yesterday, first with an exact point kept private and then with only an approximate area. Observe whether they understand permission timing, what the server stores, what the public Map shows, category/severity selection, editable time, identifying-information guidance, review, retry behavior, confirmation, and My Reports. Confirm they do not interpret the H3 center or public area as an exact incident point and do not interpret `PUBLISHED_UNVERIFIED` or community support as proof.
 
 ### Journey
 

@@ -22,10 +22,20 @@
 
 ## Incident → Map
 
-- [ ] incident submission works
-- [ ] private/public coordinates separated
-- [ ] map endpoint exposes public location only
+- [x] authenticated anonymous and registered incident submission implemented
+- [x] exact-private and approximate-only location paths separated
+- [x] approximate-only POST contains only a selected server-catalogued cell ID
+- [x] H3 resolution-8 public center is persisted/indexed and public area is derived
+- [x] owner history is actor-scoped and cursor-paginated
+- [x] idempotent replay/conflict and per-actor new-report rate limit implemented
+- [x] private/public coordinates separated
+- [x] map endpoint exposes the explicit public projection only
+- [x] occurrence-range filters use offset-aware `occurredFrom`/`occurredTo`
 - [ ] newly submitted public incident can render
+- [ ] Map renders `publicArea` as an honest approximate area rather than only a precise-looking pin
+- [ ] Android physical-device incident flow verified
+- [ ] iOS physical-device incident flow verified
+- [ ] increased-text and screen-reader checks completed on a device
 
 ## Map/Incidents → Route
 

@@ -61,6 +61,6 @@ Verify map loading, pan/zoom, permitted and denied location states, empty/networ
 
 ## Implementation status
 
-Implemented: Expo SDK 54-compatible map and foreground location dependencies, map surface, viewport and summary endpoints, category/severity filters, privacy-safe persisted Incident integration, occurrence-range filtering, permission fallback, explicit empty state, and component integration boundary.
+Implemented: Expo SDK 54-compatible map and foreground location dependencies, map surface, viewport and summary endpoints, category/severity filters, privacy-safe persisted Incident integration, occurrence-range filtering through `occurredFrom`/`occurredTo`, permission fallback, explicit empty state, neutral community-support wording, and the component integration boundary. The frontend contract consumes `occurredAt`, `createdAt`, `publicLocation`, and `publicArea`; time-of-day filtering is applied locally to `occurredAt`.
 
-Pending frontend alignment: consume `occurredAt` and `publicArea`, replace `dateFrom`/`dateTo` with offset-aware `occurredFrom`/`occurredTo`, remove `startHour`/`endHour`, and replace the callout phrase "community confirmations" with neutral community-support wording. Place search, safe places, clustering, and heatmap await their approved provider/data contracts or sufficient real data.
+Pending Map-owner work: render `publicArea` as an honest approximate-area overlay and refresh Map data after returning from a successful report. Current markers remain centered on the representative public point. Place search, safe places, clustering, and heatmap await their approved provider/data contracts or sufficient real data.

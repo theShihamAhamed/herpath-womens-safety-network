@@ -57,6 +57,10 @@ Description helper: **Do not include names, phone numbers, addresses, or other i
 
 Submission uses **Submit report** and success uses **Report submitted**. Do not imply immediate proof or verification.
 
+Location choices are **Use exact location privately** and **Choose an approximate area**. Explain exact-private as **Your selected point is stored privately. HerPath publishes only an approximate area.** Explain approximate-only as **This map starts in Colombo for display only. It does not request or capture your device location.** Review must say either **Exact location stored privately** or **Approximate area only** without showing coordinates.
+
+Confirmation identifies the submission as an **unverified community report** and says that only an approximate public location is visible. Map support counts use **community support**, never confirmation or verification.
+
 ## Safety Updates
 
 - Screen title: **Safety Updates**

@@ -13,7 +13,7 @@ Map | Report | Profile
 ```
 
 - **Map** is the central workspace for destination search, geographic context, nearby reports, route comparison, and future journey entry.
-- **Report** provides incident reporting and, later, the user's report history/status.
+- **Report** provides staged incident reporting and the current authenticated actor's My Reports history/status.
 - **Profile** provides identity, authentication, preferences, history, privacy information, and eligible moderator access.
 
 ## Nested destinations

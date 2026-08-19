@@ -29,7 +29,9 @@ Users should understand the evidence behind comparisons in plain language. Inter
 
 ## Report
 
-Report remains a primary tab. The full incident feature should progressively cover privacy explanation, category, location, date/time, severity, optional description, review, submit, and confirmation/status. Users must understand what is public and private before submission.
+Report remains a primary tab. The implemented staged screen covers privacy explanation, category, location privacy choice, location selection, editable date/time, severity, optional description, review, submission, confirmation, and My Reports.
+
+**Use exact location privately** allows either an explicit one-time current-location request or a manual map tap. **Choose an approximate area** starts from a display-only region, never requests device location, and requires the user to pan/zoom, load server-generated areas, and select one. Review shows the privacy mode but no coordinates or H3 identifiers. Recoverable submission failures preserve the draft and retry UUID.
 
 ## Safety Updates
 
