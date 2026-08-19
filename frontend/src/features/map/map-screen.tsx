@@ -1,6 +1,7 @@
 import { useFocusEffect } from '@react-navigation/native';
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
 
 import { AreaSummarySheet } from './area-summary-sheet';
@@ -20,6 +21,7 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
   const [selectedAreaSummary, setSelectedAreaSummary] = useState<AreaSummary | null>(null);
   const [isSummaryVisible, setIsSummaryVisible] = useState(false);
   const lastViewportRef = useRef<ViewportBounds | null>(null);
+  const mapRef = useRef<MapView>(null);
 
   const initialRegion = {
     latitude: location?.latitude ?? FALLBACK_LOCATION.latitude,
@@ -76,8 +78,7 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
     return true;
   });
 
-  const handleLongPress = async (event: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) => {
-    const { latitude, longitude } = event.nativeEvent.coordinate;
+  const showAreaSummary = async (latitude: number, longitude: number) => {
     try {
       const summary = await mapApi.getAreaSummary(latitude, longitude);
       setSelectedAreaSummary(summary);
@@ -97,6 +98,22 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
     }
   };
 
+  const handleLongPress = (event: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) => {
+    const { latitude, longitude } = event.nativeEvent.coordinate;
+    void showAreaSummary(latitude, longitude);
+  };
+
+  const handleUseCurrentLocation = () => {
+    const center = location ?? FALLBACK_LOCATION;
+    mapRef.current?.animateToRegion({ ...center, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 300);
+  };
+
+  const handleCurrentAreaSummary = () => {
+    const bounds = lastViewportRef.current;
+    if (!bounds) return;
+    void showAreaSummary((bounds.swLat + bounds.neLat) / 2, (bounds.swLng + bounds.neLng) / 2);
+  };
+
   if (isLocationLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -111,6 +128,7 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
       <FilterBar filter={filter} onChangeFilter={setFilter} topOffset={controlsTopOffset} />
 
       <MapView
+        ref={mapRef}
         provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={initialRegion}
@@ -126,6 +144,15 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
           <IncidentMarker key={`marker-${incident.id}`} incident={incident} />
         ))}
       </MapView>
+
+      <View pointerEvents="box-none" style={styles.actionControls}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Use my current location" onPress={handleUseCurrentLocation} style={styles.mapAction}>
+          <MaterialIcons name="my-location" size={22} color="#176B5B" />
+        </Pressable>
+        <Pressable accessibilityRole="button" accessibilityLabel="Show area safety context" onPress={handleCurrentAreaSummary} style={styles.mapAction}>
+          <MaterialIcons name="analytics" size={22} color="#176B5B" />
+        </Pressable>
+      </View>
 
       {isRefreshing ? (
         <View accessible accessibilityRole="progressbar" accessibilityLabel="Refreshing incident reports" style={styles.refreshIndicator}>
@@ -157,6 +184,22 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  actionControls: {
+    position: 'absolute',
+    right: 16,
+    bottom: 116,
+    gap: 10,
+  },
+  mapAction: {
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: '#D7DEDC',
+    backgroundColor: '#FFFFFF',
   },
   refreshIndicator: {
     position: 'absolute',
