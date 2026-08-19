@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { AreaSummary } from './map.types';
 import { CATEGORY_CONFIG } from './map.types';
@@ -24,9 +24,14 @@ export function AreaSummarySheet({ visible, summary, onClose }: AreaSummarySheet
         <View style={styles.sheetContainer}>
           <View style={styles.header}>
             <Text style={styles.title}>Area Safety Context</Text>
-            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Close area safety context"
+              hitSlop={8}
+              onPress={onClose}
+              style={styles.closeButton}>
               <Text style={styles.closeText}>✕</Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
 
           <Text style={styles.disclaimerText}>{summary.dataDisclaimer}</Text>
@@ -87,7 +92,10 @@ const styles = StyleSheet.create({
     color: '#18201E',
   },
   closeButton: {
-    padding: 4,
+    width: 48,
+    height: 48,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   closeText: {
     fontSize: 18,
