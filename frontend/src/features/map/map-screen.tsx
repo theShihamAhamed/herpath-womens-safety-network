@@ -15,6 +15,7 @@ export function MapScreen() {
   const { location, isLoading: isLocationLoading } = useUserLocation();
   const [incidents, setIncidents] = useState<PublicIncidentMarker[]>([]);
   const [filter, setFilter] = useState<MapFilter>({ category: 'ALL', severity: 'ALL', dateRange: 'all', timeOfDay: 'all' });
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMapDataUnavailable, setIsMapDataUnavailable] = useState(false);
   const [selectedAreaSummary, setSelectedAreaSummary] = useState<AreaSummary | null>(null);
   const [isSummaryVisible, setIsSummaryVisible] = useState(false);
@@ -28,12 +29,15 @@ export function MapScreen() {
   };
 
   const loadIncidents = useCallback(async (bounds: ViewportBounds, activeFilter: MapFilter) => {
+    setIsRefreshing(true);
     try {
       const liveIncidents = await mapApi.getIncidents(bounds, activeFilter);
       setIncidents(liveIncidents);
       setIsMapDataUnavailable(false);
     } catch {
       setIsMapDataUnavailable(true);
+    } finally {
+      setIsRefreshing(false);
     }
   }, []);
 
@@ -123,6 +127,13 @@ export function MapScreen() {
         ))}
       </MapView>
 
+      {isRefreshing ? (
+        <View accessible accessibilityRole="progressbar" accessibilityLabel="Refreshing incident reports" style={styles.refreshIndicator}>
+          <ActivityIndicator size="small" color="#176B5B" />
+          <Text style={styles.refreshText}>Refreshing reports</Text>
+        </View>
+      ) : null}
+
       {filteredIncidents.length === 0 ? (
         <View accessible accessibilityRole="summary" style={styles.emptyCard}>
           <Text style={styles.emptyTitle}>{isMapDataUnavailable ? 'Safety information is unavailable' : 'No reports are visible in this area'}</Text>
@@ -147,6 +158,19 @@ const styles = StyleSheet.create({
   map: {
     flex: 1,
   },
+  refreshIndicator: {
+    position: 'absolute',
+    top: 64,
+    alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 18,
+    backgroundColor: '#FFFFFF',
+  },
+  refreshText: { color: '#176B5B', fontSize: 13, fontWeight: '700' },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
