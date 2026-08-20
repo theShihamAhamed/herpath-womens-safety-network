@@ -21,6 +21,7 @@ import { ApiError } from '@/src/services/api/errors';
 import { palette, radius, spacing } from '@/src/theme';
 
 import { incidentApi } from './incident-api';
+import { IncidentPrivacySheet } from './incident-privacy-sheet';
 import type {
   CreateIncidentInput,
   IncidentCategory,
@@ -82,8 +83,10 @@ export function IncidentReportScreen() {
   const [locationErrors, setLocationErrors] = useState<LocationErrors>({});
   const [submission, setSubmission] = useState<SubmissionState>({ status: 'idle' });
   const [myReportsVisible, setMyReportsVisible] = useState(false);
+  const [privacySheetVisible, setPrivacySheetVisible] = useState(false);
   const submissionInFlight = useRef(false);
   const descriptionInputRef = useRef<TextInput>(null);
+  const privacyTriggerRef = useRef<View>(null);
 
   useEffect(() => {
     if (stage !== 'DETAILS' || editContext?.target !== 'DESCRIPTION') return;
@@ -97,6 +100,14 @@ export function IncidentReportScreen() {
   function changeLocationMode(mode: IncidentLocationMode): void {
     dispatch({ type: 'SET_LOCATION_MODE', mode });
     setLocationErrors({});
+  }
+
+  function closePrivacySheet(): void {
+    setPrivacySheetVisible(false);
+    requestAnimationFrame(() => {
+      const node = findNodeHandle(privacyTriggerRef.current);
+      if (node) AccessibilityInfo.setAccessibilityFocus(node);
+    });
   }
 
   function completeDetails(): void {
@@ -245,11 +256,13 @@ export function IncidentReportScreen() {
           editTarget={editContext?.target ?? null}
           errors={detailsErrors}
           pickerMode={pickerMode}
+          privacyTriggerRef={privacyTriggerRef}
           returningToReview={editContext?.returnToReview === true}
           onContinue={completeDetails}
           onClearError={(field) => setDetailsErrors((current) => ({ ...current, [field]: undefined }))}
           onPickerModeChange={setPickerMode}
           onDescriptionExpandedChange={setDescriptionExpanded}
+          onShowPrivacyDetails={() => setPrivacySheetVisible(true)}
         />
       ) : null}
 
@@ -259,11 +272,13 @@ export function IncidentReportScreen() {
           draft={draft}
           dispatch={dispatch}
           errors={locationErrors}
+          privacyTriggerRef={privacyTriggerRef}
           returningToReview={editContext?.returnToReview === true}
           onBack={goBack}
           onChangeMode={changeLocationMode}
           onClearSelectionError={() => setLocationErrors((current) => ({ ...current, selection: undefined }))}
           onContinue={completeLocation}
+          onShowPrivacyDetails={() => setPrivacySheetVisible(true)}
         />
       ) : null}
 
@@ -276,6 +291,8 @@ export function IncidentReportScreen() {
           onSubmit={() => void submitReport()}
         />
       ) : null}
+
+      <IncidentPrivacySheet visible={privacySheetVisible} onClose={closePrivacySheet} />
 
     </Screen>
   );
@@ -312,11 +329,13 @@ function DetailsStage({
   editTarget,
   errors,
   pickerMode,
+  privacyTriggerRef,
   returningToReview,
   onContinue,
   onClearError,
   onPickerModeChange,
   onDescriptionExpandedChange,
+  onShowPrivacyDetails,
 }: {
   draft: ReportDraft;
   dispatch: Dispatch<ReportDraftAction>;
@@ -325,11 +344,13 @@ function DetailsStage({
   editTarget: EditTarget | null;
   errors: DetailsErrors;
   pickerMode: PickerMode;
+  privacyTriggerRef: RefObject<View | null>;
   returningToReview: boolean;
   onContinue(): void;
   onClearError(field: keyof DetailsErrors): void;
   onPickerModeChange(mode: PickerMode): void;
   onDescriptionExpandedChange(expanded: boolean): void;
+  onShowPrivacyDetails(): void;
 }) {
   const categoryHeadingRef = useRef<Text>(null);
   const severityHeadingRef = useRef<Text>(null);
@@ -361,7 +382,11 @@ function DetailsStage({
 
   return (
     <StepLayout title="What happened?">
-      <InfoCard text="Public map views use an approximate area and never show your exact reporting location." />
+      <PrivacyGuidance
+        triggerRef={privacyTriggerRef}
+        onPress={onShowPrivacyDetails}
+        showMessage
+      />
 
       <FormSection
         headingRef={categoryHeadingRef}
@@ -466,21 +491,25 @@ function LocationStage({
   draft,
   dispatch,
   errors,
+  privacyTriggerRef,
   returningToReview,
   onBack,
   onChangeMode,
   onClearSelectionError,
   onContinue,
+  onShowPrivacyDetails,
 }: {
   accessToken: string;
   draft: ReportDraft;
   dispatch: Dispatch<ReportDraftAction>;
   errors: LocationErrors;
+  privacyTriggerRef: RefObject<View | null>;
   returningToReview: boolean;
   onBack(): void;
   onChangeMode(mode: IncidentLocationMode): void;
   onClearSelectionError(): void;
   onContinue(): void;
+  onShowPrivacyDetails(): void;
 }) {
   const modeHeadingRef = useRef<Text>(null);
   const selectionHeadingRef = useRef<Text>(null);
@@ -514,6 +543,8 @@ function LocationStage({
         />
         <ValidationMessage message={errors.mode} />
       </FormSection>
+
+      <PrivacyGuidance triggerRef={privacyTriggerRef} onPress={onShowPrivacyDetails} />
 
       {draft.locationMode ? (
         <FormSection
@@ -597,7 +628,7 @@ function ReviewStage({
       />
       <InfoCard
         text={draft.locationMode === 'EXACT_PRIVATE'
-          ? 'Your exact location is stored privately. The public map uses only an approximate area.'
+          ? 'Your exact location is stored privately. The public map shows only an approximate area.'
           : 'Only the approximate area you selected will be submitted.'}
       />
       <ValidationMessage message={submissionError ?? undefined} />
@@ -698,6 +729,30 @@ function ChoiceCard({ label, description, selected, compact = false, onPress }: 
 
 function InfoCard({ text }: { text: string }) {
   return <View style={styles.infoCard}><Text style={styles.infoText}>{text}</Text></View>;
+}
+
+function PrivacyGuidance({ triggerRef, showMessage = false, onPress }: {
+  triggerRef: RefObject<View | null>;
+  showMessage?: boolean;
+  onPress(): void;
+}) {
+  return (
+    <View style={[styles.privacyGuidance, !showMessage && styles.privacyGuidanceCompact]}>
+      {showMessage ? (
+        <Text style={styles.privacyGuidanceText}>Public map views always use an approximate area.</Text>
+      ) : null}
+      <Pressable
+        ref={triggerRef}
+        accessibilityHint="Opens privacy details without changing your report"
+        accessibilityLabel="How location privacy works"
+        accessibilityRole="button"
+        onPress={onPress}
+        style={({ pressed }) => [styles.privacyTrigger, pressed && styles.pressed]}>
+        <MaterialIcons name="privacy-tip" size={20} color={palette.primary} />
+        <Text style={styles.privacyTriggerText}>How location privacy works</Text>
+      </Pressable>
+    </View>
+  );
 }
 
 function ReviewSection({ title, value, buttonLabel = 'Change', actionLabel, onChange }: {
@@ -818,6 +873,27 @@ const styles = StyleSheet.create({
   bodyText: { color: palette.text, fontSize: 16, lineHeight: 24 },
   infoCard: { padding: spacing.md, borderRadius: radius.md, backgroundColor: palette.surfaceMuted },
   infoText: { color: palette.text, fontSize: 14, lineHeight: 21 },
+  privacyGuidance: {
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: palette.surfaceMuted,
+  },
+  privacyGuidanceCompact: { alignItems: 'flex-start', padding: 0, backgroundColor: 'transparent' },
+  privacyGuidanceText: { color: palette.text, fontSize: 14, lineHeight: 21 },
+  privacyTrigger: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderWidth: 1,
+    borderColor: palette.primary,
+    borderRadius: radius.md,
+    backgroundColor: palette.surface,
+  },
+  privacyTriggerText: { flexShrink: 1, color: palette.primary, fontSize: 14, lineHeight: 20, fontWeight: '800' },
   choice: {
     minHeight: 58,
     justifyContent: 'center',
