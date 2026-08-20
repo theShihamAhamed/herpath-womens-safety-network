@@ -93,7 +93,7 @@ export function IncidentPrivacySheet({ visible, onClose }: IncidentPrivacySheetP
       .onFinalize((_event, succeeded) => {
         if (!succeeded) runOnJS(settleOpen)();
       }),
-    [backdropOpacity, dragStartY, finishGesture, translateY, windowHeight],
+    [backdropOpacity, dragStartY, finishGesture, settleOpen, translateY, windowHeight],
   );
 
   const animatedSheetStyle = useAnimatedStyle(() => ({
