@@ -64,11 +64,17 @@ The current shared foundation contains an empty state only. Notification deliver
 ## Incident
 
 ```text
-Report → privacy notice → category → location privacy choice
-→ exact-private point or approximate-only area → date/time
-→ severity → optional description → review → submit
-→ confirmation → My Reports / Map / another report
+Report tab → DETAILS (What happened?)
+→ LOCATION (Where did it happen?)
+→ REVIEW (Review & submit)
+→ submit → Confirmation
 ```
+
+From Confirmation, users can return to Map, view My Reports, or start another report. Confirmation is not a fourth reporting stage.
+
+Review Change actions open the relevant DETAILS or LOCATION section. Completing the edit returns directly to Review without forcing traversal through intervening stages. Back navigation and direct editing preserve the draft.
+
+The privacy sheet opens over DETAILS or LOCATION and closes back to the same stage without modifying the draft, location selection, submission state, or retry UUID. My Reports opens as a secondary surface and closes back to the exact previous reporting or confirmation state.
 
 Opening Report does not request location permission. Exact-private current location requests one-time foreground permission only after the explicit action; exact-private manual selection requires a map tap. Approximate-only starts from a display-only Colombo region, requests no device location, loads backend-catalogued coarse areas, and submits only the selected area cell ID.
 
