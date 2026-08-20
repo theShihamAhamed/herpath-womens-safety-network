@@ -34,7 +34,10 @@ export default function JourneyHistoryScreen() {
       keyExtractor={(j) => j._id}
       ListEmptyComponent={<Text style={{ textAlign: 'center', marginTop: 40 }}>No journeys yet.</Text>}
       renderItem={({ item }) => (
-        <JourneyHistoryCard item={item} onPress={() => router.push(`/journey/${item._id}`)} />
+        <JourneyHistoryCard
+          item={item}
+          onPress={() => router.push({ pathname: '/journey/[id]', params: { id: item._id } })}
+        />
       )}
     />
   );
