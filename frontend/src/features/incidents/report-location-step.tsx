@@ -87,6 +87,7 @@ export function ExactLocationSelector({
       <PrimaryButton
         label={isLocating ? 'Finding current location…' : 'Use my current location'}
         loading={isLocating}
+        variant="secondary"
         onPress={() => void locateCurrentPosition()}
       />
       <PrimaryButton
@@ -222,6 +223,7 @@ export function ApproximateLocationSelector({
       <PrimaryButton
         label={isLoading ? 'Loading approximate areas…' : 'Load areas in this view'}
         loading={isLoading}
+        variant="secondary"
         onPress={() => void loadVisibleAreas()}
       />
 
@@ -238,13 +240,18 @@ export function ApproximateLocationSelector({
               return (
                 <Pressable
                   key={cell.cellId}
-                  accessibilityRole="button"
-                  accessibilityState={{ selected }}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
                   onPress={() => onSelectCell(cell.cellId)}
                   style={[styles.areaChoice, selected && styles.areaChoiceSelected]}>
                   <Text style={[styles.areaChoiceText, selected && styles.areaChoiceTextSelected]}>
                     Area {index + 1}
                   </Text>
+                  <MaterialIcons
+                    name={selected ? 'radio-button-checked' : 'radio-button-unchecked'}
+                    size={20}
+                    color={selected ? palette.white : palette.textMuted}
+                  />
                 </Pressable>
               );
             })}
@@ -291,6 +298,9 @@ const styles = StyleSheet.create({
   areaListContent: { gap: spacing.sm, paddingRight: spacing.md },
   areaChoice: {
     minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     justifyContent: 'center',
     paddingHorizontal: spacing.md,
     borderWidth: 1,

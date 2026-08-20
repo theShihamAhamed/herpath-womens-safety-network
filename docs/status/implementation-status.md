@@ -51,7 +51,8 @@ Incident Reporting vertical slice with privacy-safe Map integration
 - [x] privacy-aware incident persistence and H3 resolution-8 public projection
 - [x] authenticated exact-private and approximate-only submission
 - [x] owner-scoped idempotency, new-report rate limiting, and My Reports API
-- [x] mobile staged report flow and owner history
+- [x] consolidated three-stage mobile report flow with direct Review editing and owner history
+- [x] contextual Incident privacy guidance and accessible draggable privacy sheet
 - [x] public Incident reader integrated with Map endpoints
 - [ ] community actions
 - [ ] moderation
@@ -61,8 +62,8 @@ Incident Reporting vertical slice with privacy-safe Map integration
 - [x] markers/filters
 - [x] area summary
 - [x] incident repository/public projection integration
-- [ ] approximate public-area polygon rendering
-- [ ] refresh Map after successful report return
+- [x] approximate public-area polygon rendering
+- [x] refresh Map after successful report return
 
 
 ### Sandaruwan

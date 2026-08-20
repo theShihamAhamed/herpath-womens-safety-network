@@ -29,7 +29,13 @@ Users should understand the evidence behind comparisons in plain language. Inter
 
 ## Report
 
-Report remains a primary tab. The implemented staged screen covers privacy explanation, category, location privacy choice, location selection, editable date/time, severity, optional description, review, submission, confirmation, and My Reports.
+Report remains a primary tab. The implemented flow has exactly three numbered stages:
+
+1. **DETAILS — What happened?** combines category, severity, editable occurrence time, and an optional description that is collapsed until requested.
+2. **LOCATION — Where did it happen?** combines the location privacy choice with either exact-private selection or approximate-area selection. Contextual privacy guidance opens in a bottom sheet without leaving the stage or changing the draft.
+3. **REVIEW — Review & submit** presents a scannable summary, provides direct editing of each section, and submits the report.
+
+Confirmation is a result state, not Step 4. My Reports is a secondary owner-history surface, not a reporting stage. The privacy bottom sheet is an educational overlay, not a reporting stage.
 
 **Use exact location privately** allows either an explicit one-time current-location request or a manual map tap. **Choose an approximate area** starts from a display-only region, never requests device location, and requires the user to pan/zoom, load server-generated areas, and select one. Review shows the privacy mode but no coordinates or H3 identifiers. Recoverable submission failures preserve the draft and retry UUID.
 
