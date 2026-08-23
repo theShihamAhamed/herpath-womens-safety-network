@@ -11,6 +11,7 @@ import { IncomingRouteParams, Coordinate } from '../types';
 import { DEVIATION_THRESHOLD_M, ARRIVAL_THRESHOLD_M } from '../../../config/journeyConstants';
 // TODO(verify): confirm this import path for useAuth matches the real auth-provider location.
 import { useAuth } from '../../auth/auth-provider';
+import { requestNotificationPermission, sendDeviationNotification, sendArrivalNotification } from '../utils/notifications';
 
 export default function JourneyTrackingScreen({ params }: { params: IncomingRouteParams }) {
   const router = useRouter();
@@ -25,7 +26,6 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
 
   const routePath = useMemo(() => decodePolyline(params.polyline), [params.polyline]);
 
-  
   const handleEnd = useCallback(async () => {
     if (!journeyId || !accessToken) return;
     stopTrackingRef.current();
@@ -37,6 +37,7 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
     }
     router.push({ pathname: '/journey/outcome', params: { journeyId } });
   }, [accessToken, journeyId, router]);
+
   const handleLocation = useCallback(
     async (point: Coordinate) => {
       setCurrentLocation(point);
@@ -54,6 +55,7 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
       if (distFromRoute > DEVIATION_THRESHOLD_M && !deviated) {
         setDeviated(true);
         Alert.alert('Route deviation', 'You have deviated from the recommended route.');
+        await sendDeviationNotification();
         try {
           await journeyApi.reportDeviation(accessToken, journeyId, point);
         } catch (e) {
@@ -63,6 +65,7 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
 
       const distToDestination = distanceBetween(point, params.destination);
       if (distToDestination <= ARRIVAL_THRESHOLD_M) {
+        await sendArrivalNotification();
         await handleEnd();
       }
     },
@@ -70,13 +73,17 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
   );
 
   const { start: startTracking, stop: stopTracking } = useLocationTracking(handleLocation);
-  stopTrackingRef.current = stopTracking;
+
+  useEffect(() => {
+    stopTrackingRef.current = stopTracking;
+  }, [stopTracking]);
 
   const handleStart = async () => {
     if (!accessToken) {
       Alert.alert('Not signed in', 'Please wait for your session to be ready.');
       return;
     }
+    await requestNotificationPermission();
     setLoading(true);
     try {
       const journey = await journeyApi.start(accessToken, params);
@@ -102,8 +109,6 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
       setLoading(false);
     }
   };
-
-
 
   useEffect(() => stopTracking, [stopTracking]);
 
