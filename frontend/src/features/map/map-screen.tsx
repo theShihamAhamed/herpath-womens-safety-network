@@ -47,7 +47,7 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         400,
       );
     }
-  }, [selectedDestination?.latitude, selectedDestination?.longitude]);
+  }, [selectedDestination]);
 
   const initialRegion = {
     latitude: location?.latitude ?? FALLBACK_LOCATION.latitude,
