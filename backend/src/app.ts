@@ -20,6 +20,7 @@ import { createAuthService, type AuthService } from './modules/auth/auth.service
 import { createIncidentRouter } from './modules/incidents/incident.routes.js';
 import { createIncidentService } from './modules/incidents/incident.service.js';
 import { createMapRouter } from './modules/map/map.routes.js';
+import { createRoutesRouter } from './modules/routes/routes.routes.js';
 
 
 export const API_PREFIX = '/api/v1';
@@ -131,6 +132,7 @@ export function createApp(dependencies: AppDependencies): Express {
     max: dependencies.config.reportRateLimitMax,
   });
   app.use(`${API_PREFIX}/incidents`, createIncidentRouter(authService, incidentService));
+  app.use(`${API_PREFIX}/routes`, createRoutesRouter());
 
 
   app.get(`${API_PREFIX}/health`, (_request, response, next) => {

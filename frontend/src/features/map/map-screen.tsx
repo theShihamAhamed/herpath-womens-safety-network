@@ -11,6 +11,7 @@ import { IncidentMarker } from './incident-marker';
 import { mapApi } from './map-api';
 import type { AreaSummary, MapFilter, PublicIncidentMarker, ViewportBounds } from './map.types';
 import { ReportContextSheet } from './report-context-sheet';
+import { DestinationMarker, useRouteContext } from '@/src/features/routing';
 import { FALLBACK_LOCATION, useUserLocation } from './use-user-location';
 
 export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: number }) {
@@ -25,6 +26,28 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
   const [isReportSheetExpanded, setIsReportSheetExpanded] = useState(false);
   const lastViewportRef = useRef<ViewportBounds | null>(null);
   const mapRef = useRef<MapView>(null);
+
+  let selectedDestination = null;
+  try {
+    const routeContext = useRouteContext();
+    selectedDestination = routeContext.selectedDestination;
+  } catch {
+    // Graceful fallback if rendered without RouteProvider
+  }
+
+  React.useEffect(() => {
+    if (selectedDestination && mapRef.current) {
+      mapRef.current.animateToRegion(
+        {
+          latitude: selectedDestination.latitude,
+          longitude: selectedDestination.longitude,
+          latitudeDelta: 0.04,
+          longitudeDelta: 0.04,
+        },
+        400,
+      );
+    }
+  }, [selectedDestination?.latitude, selectedDestination?.longitude]);
 
   const initialRegion = {
     latitude: location?.latitude ?? FALLBACK_LOCATION.latitude,
@@ -150,6 +173,9 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         {filteredIncidents.map((incident) => (
           <IncidentMarker key={`marker-${incident.id}`} incident={incident} />
         ))}
+        {selectedDestination ? (
+          <DestinationMarker destination={selectedDestination} />
+        ) : null}
       </MapView>
 
       <View
