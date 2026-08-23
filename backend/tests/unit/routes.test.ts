@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
+import type { Request, Response } from 'express';
 
 import { GeocodingService } from '../../src/modules/routes/geocoding.service.js';
 import { RoutesController } from '../../src/modules/routes/routes.controller.js';
@@ -90,18 +91,20 @@ describe('RoutesController', () => {
     } as unknown as GeocodingService;
 
     const controller = new RoutesController(mockService);
+
     const mockRequest = {
       query: { q: 'Test Place', lat: 6.9, lng: 79.8 },
-    } as any;
+    } as unknown as Request;
 
-    let responseData: any;
+    let responseData: unknown;
+
     const mockResponse = {
       status: vi.fn().mockReturnThis(),
-      json: vi.fn().mockImplementation((data) => {
+      json: vi.fn().mockImplementation((data: unknown) => {
         responseData = data;
         return mockResponse;
       }),
-    } as any;
+    } as unknown as Response;
 
     await controller.searchDestinations(mockRequest, mockResponse);
 
@@ -110,6 +113,7 @@ describe('RoutesController', () => {
       lat: 6.9,
       lng: 79.8,
     });
+
     expect(responseData).toMatchObject({
       success: true,
       data: [
