@@ -1,6 +1,4 @@
 import { randomUUID } from 'node:crypto';
-import { existsSync, readdirSync } from 'node:fs';
-import path from 'node:path';
 
 import { MongoMemoryServer } from 'mongodb-memory-server';
 import mongoose, { Types } from 'mongoose';
@@ -41,18 +39,6 @@ const repository = new IncidentRepository();
 const colombo: GeoJsonPoint = { type: 'Point', coordinates: [79.8612, 6.9271] };
 const nearby: GeoJsonPoint = { type: 'Point', coordinates: [79.87, 6.935] };
 const outside: GeoJsonPoint = { type: 'Point', coordinates: [80.2, 7.2] };
-
-function findLocalMongoBinary(): string | undefined {
-  if (process.platform !== 'win32') return undefined;
-  const serverDirectory = 'C:\\Program Files\\MongoDB\\Server';
-  if (!existsSync(serverDirectory)) return undefined;
-
-  for (const version of readdirSync(serverDirectory).sort().reverse()) {
-    const candidate = path.join(serverDirectory, version, 'bin', 'mongod.exe');
-    if (existsSync(candidate)) return candidate;
-  }
-  return undefined;
-}
 
 function incidentInput(options: {
   point?: GeoJsonPoint;
@@ -110,10 +96,9 @@ describe('persisted incidents through public Map APIs', () => {
   let app: ReturnType<typeof createApp>;
 
   beforeAll(async () => {
-    const systemBinary = findLocalMongoBinary();
-    mongo = await MongoMemoryServer.create(
-      systemBinary ? { binary: { systemBinary } } : undefined,
-    );
+    mongo = await MongoMemoryServer.create({
+      binary: { version: '7.0.14' },
+    });
     await mongoose.connect(mongo.getUri());
     await IncidentModel.syncIndexes();
   }, 120_000);

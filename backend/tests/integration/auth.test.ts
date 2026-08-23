@@ -1,6 +1,4 @@
 import { createHash } from 'node:crypto';
-import { existsSync, readdirSync } from 'node:fs';
-import path from 'node:path';
 
 import express from 'express';
 import { decodeJwt } from 'jose';
@@ -53,29 +51,15 @@ function assertNoSecrets(value: unknown): void {
   expect(serialized).not.toMatch(/passwordHash|refreshTokenHash/);
 }
 
-function findLocalMongoBinary(): string | undefined {
-  if (process.platform !== 'win32') return undefined;
-  const serverDirectory = 'C:\\Program Files\\MongoDB\\Server';
-  if (!existsSync(serverDirectory)) return undefined;
-
-  const versions = readdirSync(serverDirectory).sort().reverse();
-  for (const version of versions) {
-    const candidate = path.join(serverDirectory, version, 'bin', 'mongod.exe');
-    if (existsSync(candidate)) return candidate;
-  }
-  return undefined;
-}
-
 describe('authentication and session foundation', () => {
   let mongo: MongoMemoryServer | undefined;
   let auth: AuthService;
   let app: ReturnType<typeof createApp>;
 
   beforeAll(async () => {
-    const systemBinary = findLocalMongoBinary();
-    mongo = await MongoMemoryServer.create(
-      systemBinary ? { binary: { systemBinary } } : undefined,
-    );
+    mongo = await MongoMemoryServer.create({
+      binary: { version: '7.0.14' },
+    });
     await mongoose.connect(mongo.getUri());
   }, 120_000);
 
