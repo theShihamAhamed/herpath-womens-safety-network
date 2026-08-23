@@ -1,15 +1,26 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
+import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { Screen } from '@/src/components/screen';
-import { RoutePlanningEntry } from '@/src/features/routing';
+import { RoutePlanningEntry, RouteProvider } from '@/src/features/routing';
 import { palette, radius, spacing } from '@/src/theme';
 
 import { MapScreen } from './map-screen';
+import { useUserLocation } from './use-user-location';
 
 export function MapHomeScreen() {
+  return (
+    <RouteProvider>
+      <MapHomeContent />
+    </RouteProvider>
+  );
+}
+
+function MapHomeContent() {
   const router = useRouter();
+  const { location } = useUserLocation();
 
   return (
     <Screen contentStyle={styles.content}>
@@ -18,7 +29,11 @@ export function MapHomeScreen() {
       <View pointerEvents="box-none" style={styles.topOverlay}>
         <View style={styles.header}>
           <View style={styles.headerCopy}>
-            <View accessible accessibilityRole="header" accessibilityLabel="HerPath community safety map" style={styles.brandMark}>
+            <View
+              accessible
+              accessibilityRole="header"
+              accessibilityLabel="HerPath community safety map"
+              style={styles.brandMark}>
               <MaterialIcons name="shield" size={20} color={palette.white} />
               <Text style={styles.brandName}>HerPath</Text>
             </View>
@@ -33,7 +48,7 @@ export function MapHomeScreen() {
           </Pressable>
         </View>
 
-        <RoutePlanningEntry />
+        <RoutePlanningEntry userLocation={location} />
       </View>
     </Screen>
   );

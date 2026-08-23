@@ -67,8 +67,9 @@ Incident Reporting vertical slice with privacy-safe Map integration
 
 
 ### Sandaruwan
-- [ ] route search
-- [ ] provider alternatives
+- [x] destination search and geocoding integration
+- [x] selected destination display and coordinates handoff to route planning
+- [ ] provider route alternatives
 - [ ] risk comparison
 
 ### Eshan

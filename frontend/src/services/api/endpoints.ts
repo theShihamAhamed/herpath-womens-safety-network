@@ -33,4 +33,8 @@ export const apiEndpoints = {
     locationCells: '/incidents/location-cells',
     mine: '/incidents/mine',
   },
+  routes: {
+    search: '/routes/destinations/search',
+  },
+  
 } as const;
