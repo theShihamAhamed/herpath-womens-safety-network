@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import type { Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
 
 import { GeocodingService } from '../../src/modules/routes/geocoding.service.js';
 import { RoutesController } from '../../src/modules/routes/routes.controller.js';
@@ -106,13 +106,16 @@ describe('RoutesController', () => {
       }),
     } as unknown as Response;
 
-    await controller.searchDestinations(mockRequest, mockResponse);
+    const mockNext = vi.fn() as unknown as NextFunction;
+
+    await controller.searchDestinations(mockRequest, mockResponse, mockNext);
 
     expect(mockService.searchPlaces).toHaveBeenCalledWith({
       q: 'Test Place',
       lat: 6.9,
       lng: 79.8,
     });
+    expect(mockNext).not.toHaveBeenCalled();
 
     expect(responseData).toMatchObject({
       success: true,
@@ -126,5 +129,26 @@ describe('RoutesController', () => {
         },
       ],
     });
+  });
+
+  it('forwards error to next function if service fails', async () => {
+    const error = new Error('Geocoding failure');
+    const mockService = {
+      searchPlaces: vi.fn().mockRejectedValue(error),
+    } as unknown as GeocodingService;
+
+    const controller = new RoutesController(mockService);
+    const mockRequest = {
+      query: { q: 'Test Place' },
+    } as unknown as Request;
+    const mockResponse = {
+      status: vi.fn().mockReturnThis(),
+      json: vi.fn(),
+    } as unknown as Response;
+    const mockNext = vi.fn() as unknown as NextFunction;
+
+    await controller.searchDestinations(mockRequest, mockResponse, mockNext);
+
+    expect(mockNext).toHaveBeenCalledWith(error);
   });
 });
