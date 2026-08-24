@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from 'react-native';
+import { palette, radius, spacing } from '@/src/theme';
 
 interface Props {
   status: 'IDLE' | 'ACTIVE' | 'COMPLETED';
@@ -14,7 +15,7 @@ export default function JourneyControls({ status, onStart, onCheckIn, onEnd, loa
     <View style={styles.row}>
       {status === 'IDLE' && (
         <Pressable style={[styles.btn, styles.primary]} onPress={onStart} disabled={loading}>
-          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.btnText}>Start Journey</Text>}
+          {loading ? <ActivityIndicator color={palette.white} /> : <Text style={styles.btnText}>Start Journey</Text>}
         </Pressable>
       )}
       {status === 'ACTIVE' && (
@@ -32,11 +33,11 @@ export default function JourneyControls({ status, onStart, onCheckIn, onEnd, loa
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', justifyContent: 'space-around', padding: 16, gap: 12 },
-  btn: { flex: 1, paddingVertical: 14, borderRadius: 10, alignItems: 'center', justifyContent: 'center' },
-  primary: { backgroundColor: '#6C5CE7' },
-  danger: { backgroundColor: '#D63031' },
-  outline: { borderWidth: 1, borderColor: '#6C5CE7', backgroundColor: '#fff' },
-  btnText: { color: '#fff', fontWeight: '600' },
-  outlineText: { color: '#6C5CE7', fontWeight: '600' },
+  row: { flexDirection: 'row', justifyContent: 'space-around', padding: spacing.md, gap: spacing.sm, backgroundColor: palette.surface },
+  btn: { flex: 1, paddingVertical: 14, borderRadius: radius.md, alignItems: 'center', justifyContent: 'center' },
+  primary: { backgroundColor: palette.primary },
+  danger: { backgroundColor: palette.error },
+  outline: { borderWidth: 1.5, borderColor: palette.primary, backgroundColor: palette.surface },
+  btnText: { color: palette.white, fontWeight: '700', fontSize: 15 },
+  outlineText: { color: palette.primary, fontWeight: '700', fontSize: 15 },
 });

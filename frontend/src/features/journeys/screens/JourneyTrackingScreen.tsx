@@ -12,6 +12,8 @@ import { DEVIATION_THRESHOLD_M, ARRIVAL_THRESHOLD_M } from '../../../config/jour
 // TODO(verify): confirm this import path for useAuth matches the real auth-provider location.
 import { useAuth } from '../../auth/auth-provider';
 import { requestNotificationPermission, sendDeviationNotification, sendArrivalNotification } from '../utils/notifications';
+import FeedbackOverlay from '../components/FeedbackOverlay';
+import { palette } from '@/src/theme';
 
 export default function JourneyTrackingScreen({ params }: { params: IncomingRouteParams }) {
   const router = useRouter();
@@ -22,7 +24,9 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
   const [travelledPath, setTravelledPath] = useState<Coordinate[]>([]);
   const [deviated, setDeviated] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showCheckInFeedback, setShowCheckInFeedback] = useState(false);
   const stopTrackingRef = useRef<() => void>(() => undefined);
+
 
   const routePath = useMemo(() => decodePolyline(params.polyline), [params.polyline]);
 
@@ -73,7 +77,6 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
   );
 
   const { start: startTracking, stop: stopTracking } = useLocationTracking(handleLocation);
-
   useEffect(() => {
     stopTrackingRef.current = stopTracking;
   }, [stopTracking]);
@@ -97,18 +100,18 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
     }
   };
 
-  const handleCheckIn = async () => {
-    if (!journeyId || !currentLocation || !accessToken) return;
-    setLoading(true);
-    try {
-      await journeyApi.checkIn(accessToken, journeyId, currentLocation);
-      Alert.alert('Checked in', 'Your check-in was recorded.');
-    } catch {
-      Alert.alert('Error', 'Could not record check-in.');
-    } finally {
-      setLoading(false);
-    }
-  };
+ const handleCheckIn = async () => {
+  if (!journeyId || !currentLocation || !accessToken) return;
+  setLoading(true);
+  try {
+    await journeyApi.checkIn(accessToken, journeyId, currentLocation);
+    setShowCheckInFeedback(true);
+  } catch {
+    Alert.alert('Error', 'Could not record check-in.');
+  } finally {
+    setLoading(false);
+  }
+};
 
   useEffect(() => stopTracking, [stopTracking]);
 
@@ -132,6 +135,14 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
         onEnd={handleEnd}
         loading={loading}
       />
+      <FeedbackOverlay
+  visible={showCheckInFeedback}
+  icon="check-circle"
+  iconColor={palette.primary}
+  title="Checked in"
+  message="Your check-in was recorded."
+  onHide={() => setShowCheckInFeedback(false)}
+/>
     </View>
   );
 }
