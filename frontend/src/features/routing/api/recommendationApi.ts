@@ -1,7 +1,7 @@
 // frontend/src/features/routing/api/recommendationApi.ts
 
-import { apiClient } from '../../../services/apiClient';
-import { LatLng, RouteRecommendationApiResponse } from '../types/routing.types';
+import { apiClient } from '../../../services/api/apiClient';
+import type { LatLng, RouteRecommendationApiResponse } from '../types/routing.types';
 
 export async function fetchRouteRecommendation(
   origin: LatLng,
