@@ -64,6 +64,21 @@ export class CommunityVerificationRepository {
       .exec();
   }
 
+  public async findLatestForActor(
+    incidentId: string,
+    actorId: string,
+    session?: ClientSession,
+  ): Promise<IncidentFeedbackDocument | null> {
+    return IncidentFeedbackModel.findOne({
+      incidentId: new Types.ObjectId(incidentId),
+      actorId: new Types.ObjectId(actorId),
+    })
+      .select('+actorId +clientFeedbackId')
+      .sort({ updatedAt: -1, _id: -1 })
+      .session(session ?? null)
+      .exec();
+  }
+
   public async findActiveForIncident(
     incidentId: string,
     session?: ClientSession,
