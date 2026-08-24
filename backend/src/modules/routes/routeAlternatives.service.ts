@@ -5,14 +5,14 @@
 import { randomUUID } from 'crypto';
 
 import { AppError } from '../../common/errors/app-error.js';
-import { fetchDirections } from './googleDirections.service.js';
+import { fetchDirections } from './openStreetMapDirections.service.js';
 import type {
-    GoogleRawRoute,
+    RoutingRawRoute,
     RouteAlternativesRequest,
     RouteSummary,
 } from './routes.types.js';
 
-function toRouteSummary(raw: GoogleRawRoute): RouteSummary {
+function toRouteSummary(raw: RoutingRawRoute): RouteSummary {
     // Sum across legs defensively (waypoints would create multiple legs;
     // a simple origin -> destination trip has exactly one).
     const distanceMeters = raw.legs.reduce((sum, leg) => sum + leg.distance.value, 0);
