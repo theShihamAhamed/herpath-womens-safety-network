@@ -36,7 +36,6 @@ const SEVERITY_MAP: Record<string, number> = {
   high: 4,
   critical: 5,
 };
-const EARTH_RADIUS_METERS = 6_378_100;
 
 function toSeverityNumber(raw: unknown): number {
   if (typeof raw === 'number') return raw;

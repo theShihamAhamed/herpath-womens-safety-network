@@ -17,7 +17,6 @@ import type { RouteSummary, RouteWithRiskContext } from './routes.types.js';
 
 const CORRIDOR_RADIUS_METERS = 150;
 const SAMPLE_POINTS_PER_ROUTE = 15;
-const EARTH_RADIUS_METERS = 6_378_100;
 
 async function countNearbyIncidents(
   lat: number,
