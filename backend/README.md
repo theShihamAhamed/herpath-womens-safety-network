@@ -50,6 +50,8 @@ Authentication also requires:
 - `REFRESH_TOKEN_TTL_DAYS` (default `30`)
 - `JWT_ISSUER` and `JWT_AUDIENCE`
 - `AUTH_RATE_LIMIT_MAX` (default `10` per general rate-limit window)
+- `FEEDBACK_RATE_LIMIT_WINDOW_MS` (default `900000`, or 15 minutes)
+- `FEEDBACK_RATE_LIMIT_MAX` (default `10` distinct feedback mutation IDs per actor/window)
 
 ## Commands
 
@@ -64,6 +66,8 @@ npm run test:watch # Run Vitest in watch mode
 npm run incident:lifecycle:migrate -- --dry-run  # Inspect lifecycle migration counts
 npm run incident:lifecycle:migrate -- --apply    # Backfill missing lifecycle defaults
 npm run incident:lifecycle:migrate -- --rollback # Remove only safe default lifecycle fields
+npm run community:evidence:reconcile -- --dry-run # Inspect due evidence snapshots
+npm run community:evidence:reconcile -- --apply   # Recalculate due evidence snapshots
 npm run user:promote -- user@example.com # Promote an active registered user
 ```
 
@@ -72,6 +76,11 @@ Apply stops if legacy incidents have an unexpected status or invalid lifecycle v
 existing report fields and timestamps, and is safe to repeat. Rollback removes lifecycle fields
 only from `PUBLISHED_UNVERIFIED` incidents that remain on all initial defaults at revision zero;
 progressed lifecycle records are counted and left unchanged.
+
+Community feedback writes use MongoDB transactions, so the deployment must use MongoDB Atlas or
+another replica-set-capable MongoDB configuration. Evidence reconciliation reports aggregate
+counts only, defaults to `--dry-run`, and is safe to repeat because applied snapshots receive their
+next evaluation time from the current active evidence.
 
 ## Authentication endpoints
 

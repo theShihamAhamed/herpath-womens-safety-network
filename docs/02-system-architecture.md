@@ -73,3 +73,17 @@ foundation for later moderated changes.
 The persisted `status` field remains a derived compatibility projection for existing consumers.
 Owner and Map response shapes remain unchanged during Phase 1 and do not expose lifecycle fields.
 No moderation or community-verification API/module is introduced by this foundation.
+
+## Community verification boundary
+
+Community verification stores actor-private feedback events separately from Incident reports.
+The module evaluates current active feedback deterministically into a per-incident evidence
+snapshot, then updates only the Incident compatibility fields owned by that evaluation:
+`communityState`, `supportCount`, derived `status`, and lifecycle revision.
+
+Incident visibility remains authoritative and independent. Feedback APIs consume a protected
+Incident target projection for eligibility, while Map and Routing consume only the Incident public
+reader. Neither public consumer imports feedback records, actor identities, or verification storage.
+
+Evidence ageing is reconciled by an explicit dry-run/apply command. No background scheduler is
+introduced in this phase.

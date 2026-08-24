@@ -68,8 +68,12 @@
 ## Moderation
 
 - [x] incident lifecycle and revision foundation exists
-- [ ] community feedback and abuse-flag records implemented
-- [ ] evidence evaluation implemented
+- [x] community feedback records and actor-scoped abuse controls implemented
+- [x] deterministic evidence evaluation and current support count implemented
+- [x] authenticated feedback, verification status, and eligibility APIs implemented
+- [x] due evidence reconciliation supports aggregate dry-run and idempotent apply
+- [x] Routing consumes the visibility-authoritative Incident public reader
+- [ ] abuse-flag records implemented
 - [ ] moderation case/queue APIs implemented
 - [ ] moderation audit record created
 - [ ] rejected/duplicate evidence is recalculated as designed

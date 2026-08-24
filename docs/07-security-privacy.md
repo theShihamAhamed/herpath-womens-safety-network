@@ -59,3 +59,20 @@ Frontend `EXPO_PUBLIC_*` values are visible in the client bundle and must not co
 - Web refresh-token persistence is deferred beyond the first assessed milestone; there is no insecure storage fallback.
 - Client route guards prevent normal navigation only. Every privileged backend operation must still authenticate and authorize the request.
 - Device-specific API addresses belong in ignored local environment files, never source control.
+
+## Community verification controls
+
+- Every feedback route authenticates the actor server-side; actor IDs and evidence weights are
+  never accepted from request bodies.
+- Feedback actor IDs and client mutation IDs are excluded from default database selection and all
+  public projections.
+- Owners cannot provide feedback on their own reports. Only public incidents accept new or
+  replacement feedback.
+- Strict UUIDv4 idempotency, a 15-minute mutation cooldown, and a configurable actor quota limit
+  accidental duplication and basic abuse. The quota is process-local and needs a shared store in a
+  multi-instance deployment.
+- Evidence is deliberately baseline-weighted; account type does not grant extra influence.
+- Community state is evidence, not verification or truth. It cannot independently publish, hide,
+  archive, or resolve moderation workflow.
+- Feedback, evidence snapshot, and Incident compatibility updates use a MongoDB transaction.
+- Verification responses expose only aggregate counts and state, never raw feedback or actor data.

@@ -5,6 +5,7 @@ Primary:
 - `frontend/src/features/incidents`
 - incident and moderator routes
 - `backend/src/modules/incidents`
+- `backend/src/modules/community-verification`
 - `backend/src/modules/moderation`
 
 Supporting foundation:
