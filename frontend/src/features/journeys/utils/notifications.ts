@@ -1,5 +1,4 @@
 import Constants from 'expo-constants';
-import * as ExpoNotifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
 type NotificationsModule = {
@@ -15,7 +14,11 @@ function getNotifications(): NotificationsModule | null {
     return null;
   }
 
-  return ExpoNotifications as NotificationsModule;
+  try {
+    return require('expo-notifications') as NotificationsModule;
+  } catch {
+    return null;
+  }
 }
 
 const Notifications = getNotifications();
