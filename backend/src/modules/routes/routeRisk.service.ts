@@ -34,13 +34,9 @@ export async function prepareRoutesForRiskEvaluation(
       const sampledPoints = downsamplePoints(decoded, SAMPLE_POINTS_PER_ROUTE);
 
       const incidentCounts = await Promise.all(
-<<<<<<< HEAD
         sampledPoints.map((p) =>
           countNearbyIncidents(p.lat, p.lng, incidents),
         ),
-=======
-        sampledPoints.map((p) => countNearbyIncidents(p.lat, p.lng, incidents))
->>>>>>> origin/develop
       );
 
       const nearbyIncidentCount = incidentCounts.reduce((a, b) => a + b, 0);
