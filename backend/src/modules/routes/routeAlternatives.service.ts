@@ -13,8 +13,7 @@ import type {
 } from './routes.types.js';
 
 function toRouteSummary(raw: RoutingRawRoute): RouteSummary {
-    // Sum across legs defensively (waypoints would create multiple legs;
-    // a simple origin -> destination trip has exactly one).
+    
     const distanceMeters = raw.legs.reduce((sum, leg) => sum + leg.distance.value, 0);
     const durationSeconds = raw.legs.reduce((sum, leg) => sum + leg.duration.value, 0);
 

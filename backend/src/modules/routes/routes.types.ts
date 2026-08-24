@@ -12,8 +12,6 @@ export interface DestinationSearchQuery {
   lng?: number | undefined;
 }
 
-// backend/src/modules/routes/routes.types.ts
-// Owner: Sandaruwan — Safe Route Planning & Route-Risk Evaluation
 
 export interface LatLng {
   lat: number;
@@ -26,7 +24,6 @@ export interface RouteAlternativesRequest {
   mode?: 'walking' | 'driving' | 'bicycling'; // default: walking
 }
 
-// Normalized shape returned by the OpenStreetMap routing adapter.
 export interface RoutingRawRoute {
   summary: string;
   overview_polyline: { points: string };
@@ -50,8 +47,7 @@ export interface RouteSummary {
   polyline: string; // encoded polyline, for the map module to render
 }
 
-// Route data prepared for risk evaluation (consumed by a later, deterministic
-// scoring step — this module only prepares the inputs)
+
 export interface RouteWithRiskContext extends RouteSummary {
   sampledPoints: LatLng[];
   corridorRadiusMeters: number;

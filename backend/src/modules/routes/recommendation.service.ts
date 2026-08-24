@@ -1,10 +1,4 @@
 // backend/src/modules/routes/recommendation.service.ts
-// HS-87: Generate recommendation (pick the lower-risk route)
-// HS-86: Display safety explanation (build the explanation text)
-//
-// Explanation text is template-based and deterministic — not LLM-generated —
-// so it stays consistent with the "safety context, not certainty" philosophy
-// and never overclaims.
 
 import { scoreAllRoutes, type RouteRiskScore } from './riskScoring.service.js';
 import type { RouteWithRiskContext } from './routes.types.js';
@@ -52,11 +46,6 @@ function buildSafetyExplanation(sortedRoutes: RouteRiskScore[]): string {
   return `This route was recommended because it ${reasonText}. This reflects community-reported context, not a guarantee of safety — please stay alert.`;
 }
 
-/**
- * HS-87 + HS-88: scores every route, sorts safest-first, and picks the
- * lowest-risk one as the recommendation.
- * HS-86: attaches a human-readable explanation for why it was picked.
- */
 export async function getRouteRecommendation(
   routes: RouteWithRiskContext[]
 ): Promise<RouteRecommendation> {

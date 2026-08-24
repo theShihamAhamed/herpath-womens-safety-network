@@ -1,9 +1,3 @@
-// frontend/src/features/routing/screens/RouteComparisonScreen.tsx
-// Updated to use the backend's HS-87 recommendation + HS-88 risk scores
-// instead of the earlier placeholder "lowest incident count" heuristic.
-// Business logic lives here; the Expo Router page in frontend/app/journey/
-// stays thin and just renders this component.
-
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
