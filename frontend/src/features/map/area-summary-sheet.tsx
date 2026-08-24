@@ -2,7 +2,7 @@ import React from 'react';
 import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { AreaSummary } from './map.types';
-import { CATEGORY_CONFIG } from './map.types';
+import { CATEGORY_CONFIG, SEVERITY_CONFIG, SEVERITY_LEVELS } from './map.types';
 
 interface AreaSummarySheetProps {
   visible: boolean;
@@ -61,6 +61,31 @@ export function AreaSummarySheet({ visible, summary, onClose }: AreaSummarySheet
               </View>
             );
           })}
+
+          {summary.totalIncidents > 0 ? (
+            <>
+              <Text style={styles.sectionTitle}>Severity</Text>
+              {SEVERITY_LEVELS.slice().reverse().map((severity) => {
+                const count = summary.bySeverity[severity];
+                const config = SEVERITY_CONFIG[severity];
+                if (count === 0) return null;
+
+                return (
+                  <View
+                    key={severity}
+                    accessible
+                    accessibilityLabel={`${config.label}: ${count} reports`}
+                    style={styles.severityRow}>
+                    <View style={styles.categoryInfo}>
+                      <View style={[styles.dot, { backgroundColor: config.color }]} />
+                      <Text style={styles.categoryName}>{config.label}</Text>
+                    </View>
+                    <Text style={styles.categoryCount}>{count}</Text>
+                  </View>
+                );
+              })}
+            </>
+          ) : null}
         </View>
       </View>
     </Modal>
@@ -161,5 +186,13 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#5F6C68',
+  },
+  severityRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEF2F1',
   },
 });

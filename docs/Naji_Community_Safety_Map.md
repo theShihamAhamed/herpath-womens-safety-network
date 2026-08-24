@@ -59,6 +59,8 @@ Shiham supplies public incident projections through the Incident-owned public re
 
 The Map tab keeps the safety map as the primary workspace instead of placing it in a fixed-height card. The existing destination entry remains a Map-side integration point for the Routing feature; it does not calculate routes or perform geocoding itself. Incident filters live behind a compact overlay button, while current-location and area-context actions remain as labelled 48 dp floating controls. Long-pressing the map still opens area context, and the same context is available from the floating action at the current map center.
 
+The area-context sheet presents total and recent public-report counts, followed by available category and text-labelled severity breakdowns. It omits those breakdowns when there are no public reports, retaining the available-community-data disclaimer rather than inferring that the area is safe.
+
 ### Report context sheet
 
 The Map includes a bottom report-context sheet for the incidents visible in the current viewport and active filters. Its compact state is limited to a grab handle, title, and visible public-report count so the map remains dominant. Users can tap the labelled header or drag its handle upward; the sheet follows the gesture continuously within its collapsed and expanded bounds, then settles to the nearest state with the release direction considered. Dragging the header downward from the expanded state uses the same interaction. The expanded state lists only the public category, text severity, occurrence time, and community-support count already returned by the public Map API. Selecting a row centers the Map on that report's approximate public-area center and returns the sheet to its compact state.
