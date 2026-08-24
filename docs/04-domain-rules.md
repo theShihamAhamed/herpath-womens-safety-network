@@ -69,7 +69,24 @@ documents fail closed.
 
 Submission retries use a UUIDv4 `clientSubmissionId` scoped to the authenticated `reporterId`. An identical replay returns the original report; reuse with different normalized content conflicts. Geographic proximity is never an idempotency or duplicate key.
 
-Phase 1 exposes no community-feedback, flagging, evidence-evaluation, or moderation endpoints.
+Authenticated anonymous and registered actors may submit one current feedback position per public
+incident, except on their own reports. Supported responses are `SUPPORT`, `RESOLVED`, `DISPUTE`,
+and `UNSURE`. Feedback actor identity and client mutation IDs are never public.
+
+Baseline evidence weight is always one. Only active, unexpired directional responses contribute to
+community state. Directional evidence expires at 30 days; `UNSURE` is non-directional and carries
+zero evidence weight. `supportCount` is the current number of contributing `SUPPORT` responses,
+not a cumulative vote total and not proof that a report is true.
+
+`SUPPORTED` and `LIKELY_RESOLVED` require at least three matching directional responses, at least
+two-thirds dominance, and opposing weight below two. `CONFLICTED` requires at least two response
+positions with weight two or greater. If directional feedback exists but all of it has expired, the
+state is `STALE`; otherwise insufficient evidence remains `UNVERIFIED`.
+
+Feedback mutation IDs are actor-scoped UUIDv4 idempotency keys. Identical replays are safe, reuse
+with different content conflicts, and mutations are subject to a 15-minute actor cooldown and a
+configurable per-actor quota. Community feedback does not alter `visibilityState` or
+`moderationState`.
 
 ## Journeys
 Status and safety outcome are separate.

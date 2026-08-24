@@ -22,6 +22,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "incident:lifecycle:migrate": "tsx src/scripts/migrate-incident-lifecycle.ts",
+    "community:evidence:reconcile": "tsx src/scripts/reconcile-community-evidence.ts",
     "user:promote": "tsx src/scripts/promote-user.ts"
   },
   "dependencies": {

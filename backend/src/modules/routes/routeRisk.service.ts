@@ -9,37 +9,32 @@
 //   4. Attach that context to the route for the next step to score
 
 import { decodePolyline, downsamplePoints } from '../../common/utils/polyline.js';
+import {
+  IncidentPublicReader,
+  type PublicIncidentReader,
+} from '../incidents/incident.public-reader.js';
 import type { RouteSummary, RouteWithRiskContext } from './routes.types.js';
-import { IncidentModel } from '../incidents/incident.model.js';
 
 const CORRIDOR_RADIUS_METERS = 150;
 const SAMPLE_POINTS_PER_ROUTE = 15;
-const EARTH_RADIUS_METERS = 6_378_100;
 
-/**
- * Assumes backend/src/modules/incidents has an Incident model with a
- * `publicLocation` GeoJSON Point field (2dsphere indexed), per
- * docs/07-security-privacy.md's public/private location split. Update this
- * import path to match the real export from the incidents module:
- *
- *   import { Incident } from '../incidents/incident.model';
- */
-async function countNearbyIncidents(lat: number, lng: number): Promise<number> {
-  return IncidentModel.countDocuments({
-    publicLocation: {
-      $geoWithin: {
-        $centerSphere: [
-          [lng, lat],
-          CORRIDOR_RADIUS_METERS / EARTH_RADIUS_METERS,
-        ],
-      },
-    },
-    status: 'PUBLISHED_UNVERIFIED',
-  });
+async function countNearbyIncidents(
+  lat: number,
+  lng: number,
+  incidents: PublicIncidentReader,
+): Promise<number> {
+  return (
+    await incidents.findWithinRadius({
+      latitude: lat,
+      longitude: lng,
+      radiusMeters: CORRIDOR_RADIUS_METERS,
+    })
+  ).length;
 }
 
 export async function prepareRoutesForRiskEvaluation(
-  routes: RouteSummary[]
+  routes: RouteSummary[],
+  incidents: PublicIncidentReader = new IncidentPublicReader(),
 ): Promise<RouteWithRiskContext[]> {
   return Promise.all(
     routes.map(async (route) => {
@@ -47,7 +42,7 @@ export async function prepareRoutesForRiskEvaluation(
       const sampledPoints = downsamplePoints(decoded, SAMPLE_POINTS_PER_ROUTE);
 
       const incidentCounts = await Promise.all(
-        sampledPoints.map((p) => countNearbyIncidents(p.lat, p.lng))
+        sampledPoints.map((p) => countNearbyIncidents(p.lat, p.lng, incidents))
       );
       const nearbyIncidentCount = incidentCounts.reduce((a, b) => a + b, 0);
 

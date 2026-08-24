@@ -1,4 +1,4 @@
-import { Types, type QueryFilter } from 'mongoose';
+import { Types, type ClientSession, type QueryFilter } from 'mongoose';
 
 import {
   IncidentModel,
@@ -74,6 +74,33 @@ export class IncidentRepository {
     })
       .select('+reporterId +clientSubmissionId +privateLocation +publicCellId')
       .exec();
+  }
+
+  public async findCommunityFeedbackTarget(
+    incidentId: string,
+    session?: ClientSession,
+  ): Promise<IncidentDocument | null> {
+    return IncidentModel.findById(new Types.ObjectId(incidentId))
+      .select('+reporterId +privateLocation +publicCellId')
+      .session(session ?? null)
+      .exec();
+  }
+
+  public async saveCommunityEvidence(
+    incident: IncidentDocument,
+    input: {
+      communityState: IncidentDocument['communityState'];
+      status: IncidentDocument['status'];
+      supportCount: number;
+      lifecycleRevision: number;
+    },
+    session?: ClientSession,
+  ): Promise<IncidentDocument> {
+    incident.communityState = input.communityState;
+    incident.status = input.status;
+    incident.supportCount = input.supportCount;
+    incident.lifecycleRevision = input.lifecycleRevision;
+    return incident.save(session === undefined ? {} : { session });
   }
 
   public async findOwnedPage(
