@@ -2,11 +2,11 @@
 
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
-import type { RouteWithRiskContext } from '../types/routing.types';
+import { RouteWithRiskContext } from '../types/routing.types';
 
 interface RouteCardProps {
   route: RouteWithRiskContext;
-  isLowestIncidentCount: boolean;
+  isRecommended: boolean;
   selected: boolean;
   onPress: () => void;
 }
@@ -21,7 +21,7 @@ function getIndicatorLevel(count: number): { label: string; color: string } {
 
 export function RouteCard({
   route,
-  isLowestIncidentCount,
+  isRecommended,
   selected,
   onPress,
 }: RouteCardProps) {
@@ -33,7 +33,7 @@ export function RouteCard({
         <Text style={styles.summaryLabel} numberOfLines={1}>
           {route.summaryLabel}
         </Text>
-        {isLowestIncidentCount && (
+        {isRecommended && (
           <View style={styles.recommendedBadge}>
             <Text style={styles.recommendedBadgeText}>Recommended</Text>
           </View>

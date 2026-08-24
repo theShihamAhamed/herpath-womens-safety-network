@@ -1,0 +1,150 @@
+// backend/src/modules/routes/riskScoring.service.ts
+// HS-88: Select lower-risk route (scoring engine that makes selection possible)
+//
+// Deterministic, not ML-based — per docs/04-domain-rules.md, route-risk
+// evaluation must be deterministic and based on available incident data.
+
+import mongoose from 'mongoose';
+import { LatLng, RouteWithRiskContext } from './routes.types';
+
+// Assumes backend/src/modules/incidents/incident.model.ts exports Incident
+// with `publicLocation` (GeoJSON Point), `severity` (1-5 number), and
+// `occurredAt` (Date). Adjust field names/types below if yours differ —
+// e.g. if severity is a string enum ('low'|'medium'|'high'|'critical'),
+// swap SEVERITY_MAP in for the raw number.
+type IncidentModel = mongoose.Model<any>;
+let Incident: IncidentModel;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  Incident = require('../incidents/incident.model').Incident;
+} catch {
+  Incident = null as unknown as IncidentModel;
+}
+
+export interface IncidentSample {
+  id: string;
+  severity: number; // 1 (low) .. 5 (critical)
+  occurredAt: string; // ISO date string
+}
+
+export interface RiskFactors {
+  incidentCount: number;
+  severityWeightedScore: number;
+  recencyWeightedScore: number;
+}
+
+export interface RouteRiskScore extends RouteWithRiskContext {
+  riskScore: number; // lower = safer. Normalized per km so longer routes
+                      // aren't unfairly penalized just for covering more ground.
+  riskFactors: RiskFactors;
+}
+
+// If severity is stored as a string enum in your Incident model, use this
+// instead of the raw numeric field:
+const SEVERITY_MAP: Record<string, number> = {
+  low: 1,
+  medium: 3,
+  high: 4,
+  critical: 5,
+};
+
+function toSeverityNumber(raw: unknown): number {
+  if (typeof raw === 'number') return raw;
+  if (typeof raw === 'string') return SEVERITY_MAP[raw.toLowerCase()] ?? 2;
+  return 2; // safe default if missing
+}
+
+/**
+ * Fetches nearby *approved* incidents (with severity + occurredAt) around a
+ * route's sampled points, deduplicated across points.
+ */
+async function fetchNearbyIncidentDetails(
+  sampledPoints: LatLng[],
+  radiusMeters: number
+): Promise<IncidentSample[]> {
+  if (!Incident) return [];
+
+  const seen = new Map<string, IncidentSample>();
+
+  await Promise.all(
+    sampledPoints.map(async (point) => {
+      const docs = await Incident.find({
+        publicLocation: {
+          $near: {
+            $geometry: { type: 'Point', coordinates: [point.lng, point.lat] },
+            $maxDistance: radiusMeters,
+          },
+        },
+        status: 'approved',
+      })
+        .select('_id severity occurredAt')
+        .lean();
+
+      for (const doc of docs) {
+        const id = String(doc._id);
+        if (!seen.has(id)) {
+          seen.set(id, {
+            id,
+            severity: toSeverityNumber(doc.severity),
+            occurredAt: doc.occurredAt,
+          });
+        }
+      }
+    })
+  );
+
+  return Array.from(seen.values());
+}
+
+/** Recency weight: recent incidents count more, decaying toward 0 over time. */
+function recencyWeight(occurredAt: string): number {
+  const daysSince = (Date.now() - new Date(occurredAt).getTime()) / (1000 * 60 * 60 * 24);
+  if (Number.isNaN(daysSince) || daysSince < 0) return 1;
+  return Math.exp(-daysSince / 30); // ~37% weight at 30 days, ~14% at 60 days
+}
+
+/** Severity weight: normalized 0..1 against a 5-point scale. */
+function severityWeight(severity: number): number {
+  return Math.min(Math.max(severity, 1), 5) / 5;
+}
+
+/**
+ * Computes a deterministic, per-km-normalized risk score for one route.
+ */
+export async function scoreRouteRisk(
+  route: RouteWithRiskContext
+): Promise<RouteRiskScore> {
+  const incidents = await fetchNearbyIncidentDetails(
+    route.sampledPoints,
+    route.corridorRadiusMeters
+  );
+
+  let severityWeightedScore = 0;
+  let recencyWeightedScore = 0;
+
+  for (const incident of incidents) {
+    const sw = severityWeight(incident.severity);
+    const rw = recencyWeight(incident.occurredAt);
+    severityWeightedScore += sw;
+    recencyWeightedScore += sw * rw;
+  }
+
+  const distanceKm = Math.max(route.distanceMeters / 1000, 0.1); // avoid /0 on very short routes
+  const riskScore = recencyWeightedScore / distanceKm;
+
+  return {
+    ...route,
+    riskScore,
+    riskFactors: {
+      incidentCount: incidents.length,
+      severityWeightedScore,
+      recencyWeightedScore,
+    },
+  };
+}
+
+export async function scoreAllRoutes(
+  routes: RouteWithRiskContext[]
+): Promise<RouteRiskScore[]> {
+  return Promise.all(routes.map(scoreRouteRisk));
+}
