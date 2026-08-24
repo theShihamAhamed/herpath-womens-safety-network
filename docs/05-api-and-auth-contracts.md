@@ -181,6 +181,56 @@ It never contains `privateLocation`, `reporterId`, `locationMode`, `publicCellId
 
 Public availability is controlled by `visibilityState`, not the compatibility `status`. During the
 backfill period, a legacy document is eligible only when all lifecycle fields are absent and its
-status is `PUBLISHED_UNVERIFIED`. Community and moderation APIs do not exist in Phase 1; later
-phases will add feedback, flags, evidence evaluation, and moderation cases without changing the
-current reporting endpoints in this foundation.
+status is `PUBLISHED_UNVERIFIED`. Community verification extends these lifecycle fields without
+changing the reporting or public Map response shapes. Abuse flags and moderation cases remain
+future work.
+
+## Community verification endpoints
+
+All Community Verification routes require a Bearer access token and operate only on incidents
+whose `visibilityState` is `PUBLIC`. Anonymous and registered actors use the authenticated backend
+actor identity; clients cannot supply an actor ID. Report owners cannot provide feedback on their
+own incidents.
+
+### `POST /api/v1/incidents/:incidentId/feedback`
+
+Creates or replaces the actor's current feedback position. The strict body is:
+
+```json
+{
+  "clientFeedbackId": "6ba7b810-9dad-4f71-80b4-00c04fd430c8",
+  "response": "SUPPORT"
+}
+```
+
+`clientFeedbackId` must be UUIDv4 and `response` must be `SUPPORT`, `RESOLVED`, `DISPUTE`, or
+`UNSURE`. A first position returns HTTP 201; a replacement or identical idempotent replay returns
+HTTP 200. Reusing an actor-scoped mutation ID with different content returns HTTP 409
+`IDEMPOTENCY_CONFLICT`. Mutations are limited by an actor cooldown and configurable actor quota.
+
+### `DELETE /api/v1/incidents/:incidentId/feedback`
+
+Withdraws the actor's active position. The request has no body. Withdrawal recalculates the
+evidence snapshot and Incident compatibility projection in the same transaction. Repeating a
+withdrawal when no active position remains is safe.
+
+### `GET /api/v1/incidents/:incidentId/verification`
+
+Returns the public-safe evidence summary:
+
+```text
+communityState, supportCount, activeFeedbackCount, contributingFeedbackCount,
+weightedScores, evidenceRevision, evaluatedAt
+```
+
+It never returns actor IDs, client mutation IDs, evidence weights, or raw feedback records.
+
+### `GET /api/v1/incidents/:incidentId/feedback/eligibility`
+
+Returns whether the current actor may create, replace, or withdraw feedback, the actor's current
+response when present, cooldown timing, and a stable reason code when unavailable. It does not
+expose any other actor's feedback.
+
+Evidence writes use MongoDB transactions so the feedback event, snapshot, and Incident lifecycle
+projection cannot diverge. Public Map and Routing contracts remain unchanged; their compatibility
+`status` and `supportCount` values are derived from current Incident lifecycle state.

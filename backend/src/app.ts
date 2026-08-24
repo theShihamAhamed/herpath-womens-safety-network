@@ -19,6 +19,8 @@ import { createAuthRouter } from './modules/auth/auth.routes.js';
 import { createAuthService, type AuthService } from './modules/auth/auth.service.js';
 import { createIncidentRouter } from './modules/incidents/incident.routes.js';
 import { createIncidentService } from './modules/incidents/incident.service.js';
+import { createCommunityVerificationRouter } from './modules/community-verification/community-verification.routes.js';
+import { createCommunityVerificationService } from './modules/community-verification/community-verification.service.js';
 import { createMapRouter } from './modules/map/map.routes.js';
 import { createRoutesRouter } from './modules/routes/routes.routes.js';
 
@@ -34,6 +36,8 @@ export interface AppRuntimeConfig {
   authRateLimitMax: number;
   reportRateLimitWindowMs: number;
   reportRateLimitMax: number;
+  feedbackRateLimitWindowMs?: number;
+  feedbackRateLimitMax?: number;
   trustProxy: boolean;
   accessTokenSecret: string;
   accessTokenTtl: string;
@@ -132,6 +136,14 @@ export function createApp(dependencies: AppDependencies): Express {
     max: dependencies.config.reportRateLimitMax,
   });
   app.use(`${API_PREFIX}/incidents`, createIncidentRouter(authService, incidentService));
+  const communityVerificationService = createCommunityVerificationService({
+    windowMs: dependencies.config.feedbackRateLimitWindowMs ?? 900_000,
+    max: dependencies.config.feedbackRateLimitMax ?? 10,
+  });
+  app.use(
+    `${API_PREFIX}/incidents`,
+    createCommunityVerificationRouter(authService, communityVerificationService),
+  );
   app.use(`${API_PREFIX}/routes`, createRoutesRouter());
 
 

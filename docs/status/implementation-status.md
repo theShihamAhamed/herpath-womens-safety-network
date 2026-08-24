@@ -3,7 +3,7 @@
 Update this through real PRs. Do not backdate progress.
 
 ## Current phase
-Moderation lifecycle and database foundation
+Community verification system
 
 ## Repository
 - [x] frontend structure
@@ -57,8 +57,11 @@ Moderation lifecycle and database foundation
 - [x] independent visibility, community evidence, and moderation workflow state foundation
 - [x] lifecycle compatibility projection and legacy public-read fallback
 - [x] aggregate-only lifecycle dry-run, idempotent backfill, and restricted rollback
-- [ ] community actions
-- [ ] abuse flagging and evidence evaluation
+- [x] actor-private community feedback persistence and replacement history
+- [x] deterministic evidence evaluation, current support count, and ageing
+- [x] authenticated feedback, verification status, and eligibility APIs
+- [x] aggregate-only evidence reconciliation dry-run/apply command
+- [ ] abuse flagging
 - [ ] moderation cases and queue APIs
 - [ ] moderation
 

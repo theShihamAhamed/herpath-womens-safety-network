@@ -6,24 +6,19 @@
 
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-// Mock IncidentModel before importing scoring service.
-// The real code chains .select(...).lean() on the return value of find(),
-// so the mock must return a chainable query object.
-function makeQueryMock(docs: unknown[]) {
-  return {
-    select: vi.fn().mockReturnThis(),
-    lean: vi.fn().mockResolvedValue(docs),
-  };
-}
+const incidentReaderMocks = vi.hoisted(() => ({
+  findInViewport: vi.fn(),
+  findWithinRadius: vi.fn(),
+}));
 
-vi.mock('../../src/modules/incidents/incident.model.js', () => ({
-  IncidentModel: {
-    find: vi.fn().mockReturnValue(makeQueryMock([])),
-    countDocuments: vi.fn().mockResolvedValue(0),
+vi.mock('../../src/modules/incidents/incident.public-reader.js', () => ({
+  IncidentPublicReader: class {
+    public findInViewport = incidentReaderMocks.findInViewport;
+    public findWithinRadius = incidentReaderMocks.findWithinRadius;
   },
 }));
 
-import { IncidentModel } from '../../src/modules/incidents/incident.model.js';
+import type { PublicIncident } from '../../src/modules/incidents/incident.public.js';
 import {
   scoreAllRoutes,
   scoreRouteRisk,
@@ -53,30 +48,40 @@ function makeRoute(overrides: Partial<RouteWithRiskContext> = {}): RouteWithRisk
   };
 }
 
-function makeMockIncidentDoc(opts: {
+function makePublicIncident(opts: {
   id: string;
-  severity: string;
+  severity: PublicIncident['severity'];
   daysAgo: number;
-}): { _id: string; severity: string; occurredAt: Date } {
+  status?: PublicIncident['status'];
+}): PublicIncident {
   return {
-    _id: opts.id,
+    id: opts.id,
+    category: 'HARASSMENT',
     severity: opts.severity,
-    occurredAt: new Date(Date.now() - opts.daysAgo * 24 * 60 * 60 * 1000),
+    status: opts.status ?? 'PUBLISHED_UNVERIFIED',
+    occurredAt: new Date(Date.now() - opts.daysAgo * 24 * 60 * 60 * 1000).toISOString(),
+    createdAt: new Date().toISOString(),
+    supportCount: 0,
+    publicLocation: { type: 'Point', coordinates: [79.8612, 6.9271] },
+    publicArea: {
+      type: 'Polygon',
+      coordinates: [[[79.86, 6.92], [79.87, 6.92], [79.87, 6.93], [79.86, 6.92]]],
+    },
   };
 }
 
-/** Helper: make IncidentModel.find return docs via the chained .select().lean() pattern */
-function mockFind(docs: unknown[]) {
-  vi.mocked(IncidentModel.find).mockReturnValue(makeQueryMock(docs) as ReturnType<typeof IncidentModel.find>);
+/** Helper: make the visibility-authoritative public reader return incidents. */
+function mockPublicIncidentRead(incidents: PublicIncident[]) {
+  incidentReaderMocks.findWithinRadius.mockResolvedValue(incidents);
 }
 
-/** Helper: make each successive .find() call return different docs */
-function mockFindSequence(...docsPerCall: unknown[][]) {
+/** Helper: make successive public-reader calls return different incidents. */
+function mockPublicIncidentReadSequence(...incidentsPerCall: PublicIncident[][]) {
   let callIndex = 0;
-  vi.mocked(IncidentModel.find).mockImplementation(() => {
-    const docs = docsPerCall[callIndex] ?? [];
+  incidentReaderMocks.findWithinRadius.mockImplementation(() => {
+    const incidents = incidentsPerCall[callIndex] ?? [];
     callIndex++;
-    return makeQueryMock(docs) as ReturnType<typeof IncidentModel.find>;
+    return Promise.resolve(incidents);
   });
 }
 
@@ -84,7 +89,8 @@ function mockFindSequence(...docsPerCall: unknown[][]) {
 
 describe('HS-88 scoreRouteRisk', () => {
   beforeEach(() => {
-    mockFind([]);
+    incidentReaderMocks.findWithinRadius.mockReset();
+    mockPublicIncidentRead([]);
   });
 
   it('returns riskScore of 0 and incidentCount 0 for a clean route', async () => {
@@ -98,7 +104,7 @@ describe('HS-88 scoreRouteRisk', () => {
   });
 
   it('returns riskScore > 0 when nearby incidents are found', async () => {
-    mockFind([makeMockIncidentDoc({ id: 'inc-1', severity: 'HIGH', daysAgo: 5 })]);
+    mockPublicIncidentRead([makePublicIncident({ id: 'inc-1', severity: 'HIGH', daysAgo: 5 })]);
 
     const route = makeRoute();
     const scored = await scoreRouteRisk(route);
@@ -108,9 +114,9 @@ describe('HS-88 scoreRouteRisk', () => {
   });
 
   it('deduplicates incidents that appear near multiple sampled points', async () => {
-    const sharedDoc = makeMockIncidentDoc({ id: 'shared-inc', severity: 'MEDIUM', daysAgo: 3 });
+    const sharedIncident = makePublicIncident({ id: 'shared-inc', severity: 'MEDIUM', daysAgo: 3 });
     // Every sampled point returns the same incident
-    mockFind([sharedDoc]);
+    mockPublicIncidentRead([sharedIncident]);
 
     const route = makeRoute({
       sampledPoints: [
@@ -126,8 +132,8 @@ describe('HS-88 scoreRouteRisk', () => {
   });
 
   it('normalizes riskScore per km so shorter routes are not unfairly penalized', async () => {
-    const incident = makeMockIncidentDoc({ id: 'inc-1', severity: 'HIGH', daysAgo: 5 });
-    mockFind([incident]);
+    const incident = makePublicIncident({ id: 'inc-1', severity: 'HIGH', daysAgo: 5 });
+    mockPublicIncidentRead([incident]);
 
     const shortRoute = makeRoute({ routeId: 'short', distanceMeters: 500 });
     const longRoute = makeRoute({ routeId: 'long', distanceMeters: 5000 });
@@ -142,7 +148,7 @@ describe('HS-88 scoreRouteRisk', () => {
   });
 
   it('scoreAllRoutes scores every route in the array', async () => {
-    mockFind([]);
+    mockPublicIncidentRead([]);
     const routes = [
       makeRoute({ routeId: 'r1' }),
       makeRoute({ routeId: 'r2' }),
@@ -159,7 +165,8 @@ describe('HS-88 scoreRouteRisk', () => {
 
 describe('HS-87 getRouteRecommendation', () => {
   beforeEach(() => {
-    mockFind([]);
+    incidentReaderMocks.findWithinRadius.mockReset();
+    mockPublicIncidentRead([]);
   });
 
   it('throws when routes array is empty', async () => {
@@ -178,9 +185,9 @@ describe('HS-87 getRouteRecommendation', () => {
 
   it('recommends the route with the lowest risk score when multiple routes exist', async () => {
     // riskyRoute points all return an incident; safeRoute points return none
-    const incident = makeMockIncidentDoc({ id: 'inc-1', severity: 'HIGH', daysAgo: 2 });
+    const incident = makePublicIncident({ id: 'inc-1', severity: 'HIGH', daysAgo: 2 });
     // routes are processed in order: riskyRoute (2 points), then safeRoute (2 points)
-    mockFindSequence([incident], [incident], [], []);
+    mockPublicIncidentReadSequence([incident], [incident], [], []);
 
     const riskyRoute = makeRoute({ routeId: 'risky', distanceMeters: 2000 });
     const safeRoute = makeRoute({ routeId: 'safe', distanceMeters: 2200 });
@@ -192,7 +199,7 @@ describe('HS-87 getRouteRecommendation', () => {
   });
 
   it('includes all routes in the response sorted by riskScore ascending', async () => {
-    mockFind([]);
+    mockPublicIncidentRead([]);
 
     const routes = [
       makeRoute({ routeId: 'r1', distanceMeters: 1000 }),
@@ -213,7 +220,8 @@ describe('HS-87 getRouteRecommendation', () => {
 
 describe('HS-86 safety explanation', () => {
   beforeEach(() => {
-    mockFind([]);
+    incidentReaderMocks.findWithinRadius.mockReset();
+    mockPublicIncidentRead([]);
   });
 
   it('explains "only route, no incidents" for a single clean route', async () => {
@@ -225,9 +233,9 @@ describe('HS-86 safety explanation', () => {
   });
 
   it('explains "only route, has N reports" for a single route with incidents', async () => {
-    mockFind([
-      makeMockIncidentDoc({ id: 'i1', severity: 'LOW', daysAgo: 10 }),
-      makeMockIncidentDoc({ id: 'i2', severity: 'LOW', daysAgo: 15 }),
+    mockPublicIncidentRead([
+      makePublicIncident({ id: 'i1', severity: 'LOW', daysAgo: 10 }),
+      makePublicIncident({ id: 'i2', severity: 'LOW', daysAgo: 15 }),
     ]);
 
     const route = makeRoute({ routeId: 'only-risky' });
@@ -239,9 +247,9 @@ describe('HS-86 safety explanation', () => {
 
   it('mentions "fewer recent reports" when winner has fewer incidents than runner-up', async () => {
     // safeRoute: all points return no incidents; riskyRoute: points return 1 distinct incident each
-    const i1 = makeMockIncidentDoc({ id: 'i1', severity: 'MEDIUM', daysAgo: 5 });
-    const i2 = makeMockIncidentDoc({ id: 'i2', severity: 'HIGH', daysAgo: 3 });
-    mockFindSequence([], [], [i1], [i2]);
+    const i1 = makePublicIncident({ id: 'i1', severity: 'MEDIUM', daysAgo: 5 });
+    const i2 = makePublicIncident({ id: 'i2', severity: 'HIGH', daysAgo: 3 });
+    mockPublicIncidentReadSequence([], [], [i1], [i2]);
 
     const safeRoute = makeRoute({ routeId: 'safe' });
     const riskyRoute = makeRoute({ routeId: 'risky' });
@@ -252,7 +260,7 @@ describe('HS-86 safety explanation', () => {
   });
 
   it('ends explanation with the safety disclaimer', async () => {
-    mockFind([]);
+    mockPublicIncidentRead([]);
     const routes = [makeRoute({ routeId: 'r1' }), makeRoute({ routeId: 'r2' })];
     const result = await getRouteRecommendation(routes);
 

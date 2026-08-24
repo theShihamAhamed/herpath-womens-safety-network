@@ -1,6 +1,9 @@
 // backend/src/modules/routes/riskScoring.service.ts
 
-import { IncidentModel } from '../incidents/incident.model.js';
+import {
+  IncidentPublicReader,
+  type PublicIncidentReader,
+} from '../incidents/incident.public-reader.js';
 import type { LatLng, RouteWithRiskContext } from './routes.types.js';
 
 export interface IncidentSample {
@@ -28,7 +31,6 @@ const SEVERITY_MAP: Record<string, number> = {
   high: 4,
   critical: 5,
 };
-const EARTH_RADIUS_METERS = 6_378_100;
 
 function toSeverityNumber(raw: unknown): number {
   if (typeof raw === 'number') return raw;
@@ -38,34 +40,26 @@ function toSeverityNumber(raw: unknown): number {
 
 async function fetchNearbyIncidentDetails(
   sampledPoints: LatLng[],
-  radiusMeters: number
+  radiusMeters: number,
+  reader: PublicIncidentReader,
 ): Promise<IncidentSample[]> {
   const seen = new Map<string, IncidentSample>();
 
   await Promise.all(
     sampledPoints.map(async (point) => {
-      const docs = await IncidentModel.find({
-        publicLocation: {
-          $geoWithin: {
-            $centerSphere: [
-              [point.lng, point.lat],
-              radiusMeters / EARTH_RADIUS_METERS,
-            ],
-          },
-        },
-        status: { $in: ['PUBLISHED_UNVERIFIED', 'COMMUNITY_SUPPORTED', 'MODERATOR_REVIEWED'] },
-      })
-        .select('_id severity occurredAt')
-        .lean();
+      const docs = await reader.findWithinRadius({
+        latitude: point.lat,
+        longitude: point.lng,
+        radiusMeters,
+      });
 
       for (const doc of docs) {
-        const id = String(doc._id);
+        const id = doc.id;
         if (!seen.has(id)) {
-          const occurredAtIso = doc.occurredAt instanceof Date ? doc.occurredAt.toISOString() : String(doc.occurredAt);
           seen.set(id, {
             id,
             severity: toSeverityNumber(doc.severity),
-            occurredAt: occurredAtIso,
+            occurredAt: doc.occurredAt,
           });
         }
       }
@@ -88,11 +82,13 @@ function severityWeight(severity: number): number {
 
 
 export async function scoreRouteRisk(
-  route: RouteWithRiskContext
+  route: RouteWithRiskContext,
+  reader: PublicIncidentReader = new IncidentPublicReader(),
 ): Promise<RouteRiskScore> {
   const incidents = await fetchNearbyIncidentDetails(
     route.sampledPoints,
-    route.corridorRadiusMeters
+    route.corridorRadiusMeters,
+    reader,
   );
 
   let severityWeightedScore = 0;
@@ -120,7 +116,8 @@ export async function scoreRouteRisk(
 }
 
 export async function scoreAllRoutes(
-  routes: RouteWithRiskContext[]
+  routes: RouteWithRiskContext[],
+  reader: PublicIncidentReader = new IncidentPublicReader(),
 ): Promise<RouteRiskScore[]> {
-  return Promise.all(routes.map(scoreRouteRisk));
+  return Promise.all(routes.map((route) => scoreRouteRisk(route, reader)));
 }
