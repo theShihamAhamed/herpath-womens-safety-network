@@ -4,7 +4,10 @@
 // Deterministic, not ML-based — per docs/04-domain-rules.md, route-risk
 // evaluation must be deterministic and based on available incident data.
 
-import { IncidentModel } from '../incidents/incident.model.js';
+import {
+  IncidentPublicReader,
+  type PublicIncidentReader,
+} from '../incidents/incident.public-reader.js';
 import type { LatLng, RouteWithRiskContext } from './routes.types.js';
 
 export interface IncidentSample {
@@ -46,32 +49,26 @@ function toSeverityNumber(raw: unknown): number {
  */
 async function fetchNearbyIncidentDetails(
   sampledPoints: LatLng[],
-  radiusMeters: number
+  radiusMeters: number,
+  reader: PublicIncidentReader,
 ): Promise<IncidentSample[]> {
   const seen = new Map<string, IncidentSample>();
 
   await Promise.all(
     sampledPoints.map(async (point) => {
-      const docs = await IncidentModel.find({
-        publicLocation: {
-          $near: {
-            $geometry: { type: 'Point', coordinates: [point.lng, point.lat] },
-            $maxDistance: radiusMeters,
-          },
-        },
-        status: { $in: ['PUBLISHED_UNVERIFIED', 'COMMUNITY_SUPPORTED', 'MODERATOR_REVIEWED'] },
-      })
-        .select('_id severity occurredAt')
-        .lean();
+      const docs = await reader.findWithinRadius({
+        latitude: point.lat,
+        longitude: point.lng,
+        radiusMeters,
+      });
 
       for (const doc of docs) {
-        const id = String(doc._id);
+        const id = doc.id;
         if (!seen.has(id)) {
-          const occurredAtIso = doc.occurredAt instanceof Date ? doc.occurredAt.toISOString() : String(doc.occurredAt);
           seen.set(id, {
             id,
             severity: toSeverityNumber(doc.severity),
-            occurredAt: occurredAtIso,
+            occurredAt: doc.occurredAt,
           });
         }
       }
@@ -97,11 +94,13 @@ function severityWeight(severity: number): number {
  * Computes a deterministic, per-km-normalized risk score for one route.
  */
 export async function scoreRouteRisk(
-  route: RouteWithRiskContext
+  route: RouteWithRiskContext,
+  reader: PublicIncidentReader = new IncidentPublicReader(),
 ): Promise<RouteRiskScore> {
   const incidents = await fetchNearbyIncidentDetails(
     route.sampledPoints,
-    route.corridorRadiusMeters
+    route.corridorRadiusMeters,
+    reader,
   );
 
   let severityWeightedScore = 0;
@@ -129,7 +128,8 @@ export async function scoreRouteRisk(
 }
 
 export async function scoreAllRoutes(
-  routes: RouteWithRiskContext[]
+  routes: RouteWithRiskContext[],
+  reader: PublicIncidentReader = new IncidentPublicReader(),
 ): Promise<RouteRiskScore[]> {
-  return Promise.all(routes.map(scoreRouteRisk));
+  return Promise.all(routes.map((route) => scoreRouteRisk(route, reader)));
 }

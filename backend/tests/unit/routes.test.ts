@@ -4,6 +4,11 @@ import type { NextFunction, Request, Response } from 'express';
 import { GeocodingService } from '../../src/modules/routes/geocoding.service.js';
 import { RoutesController } from '../../src/modules/routes/routes.controller.js';
 import { destinationSearchQuerySchema } from '../../src/modules/routes/routes.validation.js';
+import type { PublicIncidentReader } from '../../src/modules/incidents/incident.public-reader.js';
+import type { PublicIncident } from '../../src/modules/incidents/incident.public.js';
+import { prepareRoutesForRiskEvaluation } from '../../src/modules/routes/routeRisk.service.js';
+import { scoreRouteRisk } from '../../src/modules/routes/riskScoring.service.js';
+import type { RouteWithRiskContext } from '../../src/modules/routes/routes.types.js';
 
 describe('destination search validation contracts', () => {
   it('accepts valid query strings with optional coordinates', () => {
@@ -150,5 +155,79 @@ describe('RoutesController', () => {
     await controller.searchDestinations(mockRequest, mockResponse, mockNext);
 
     expect(mockNext).toHaveBeenCalledWith(error);
+  });
+});
+
+function publicIncident(id: string, status: PublicIncident['status']): PublicIncident {
+  return {
+    id,
+    category: 'HARASSMENT',
+    severity: 'HIGH',
+    status,
+    occurredAt: new Date().toISOString(),
+    createdAt: new Date().toISOString(),
+    supportCount: status === 'COMMUNITY_SUPPORTED' ? 3 : 0,
+    publicLocation: { type: 'Point', coordinates: [79.8612, 6.9271] },
+    publicArea: {
+      type: 'Polygon',
+      coordinates: [[[79.86, 6.92], [79.87, 6.92], [79.87, 6.93], [79.86, 6.92]]],
+    },
+  };
+}
+
+describe('visibility-authoritative route incident reads', () => {
+  it('uses the Incident public reader for route preview counts', async () => {
+    const findWithinRadius = vi.fn().mockResolvedValue([
+      publicIncident('supported', 'COMMUNITY_SUPPORTED'),
+      publicIncident('disputed', 'DISPUTED'),
+    ]);
+    const reader = { findWithinRadius } as unknown as PublicIncidentReader;
+    const routes = await prepareRoutesForRiskEvaluation(
+      [
+        {
+          routeId: 'route-a',
+          summaryLabel: 'Route A',
+          distanceMeters: 1_000,
+          distanceText: '1 km',
+          durationSeconds: 600,
+          durationText: '10 min',
+          polyline: '_p~iF~ps|U_ulLnnqC_mqNvxq`@',
+        },
+      ],
+      reader,
+    );
+
+    expect(findWithinRadius).toHaveBeenCalled();
+    expect(routes[0]?.nearbyIncidentCount).toBeGreaterThanOrEqual(2);
+  });
+
+  it('scores every incident returned by the privacy-safe reader and deduplicates overlaps', async () => {
+    const findWithinRadius = vi.fn().mockResolvedValue([
+      publicIncident('supported', 'COMMUNITY_SUPPORTED'),
+      publicIncident('disputed', 'DISPUTED'),
+    ]);
+    const reader = { findWithinRadius } as unknown as PublicIncidentReader;
+    const route: RouteWithRiskContext = {
+      routeId: 'route-a',
+      summaryLabel: 'Route A',
+      distanceMeters: 1_000,
+      distanceText: '1 km',
+      durationSeconds: 600,
+      durationText: '10 min',
+      polyline: '',
+      sampledPoints: [
+        { lat: 6.9271, lng: 79.8612 },
+        { lat: 6.928, lng: 79.862 },
+      ],
+      corridorRadiusMeters: 150,
+      nearbyIncidentCount: 0,
+      riskEvaluationStatus: 'ready_for_evaluation',
+    };
+
+    const result = await scoreRouteRisk(route, reader);
+
+    expect(findWithinRadius).toHaveBeenCalledTimes(2);
+    expect(result.riskFactors.incidentCount).toBe(2);
+    expect(result.riskFactors.severityWeightedScore).toBeGreaterThan(0);
   });
 });
