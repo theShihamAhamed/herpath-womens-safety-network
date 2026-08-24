@@ -3,6 +3,8 @@
 // HS-121: Format distance and travel time for display
 
 import { randomUUID } from 'crypto';
+
+import { AppError } from '../../common/errors/app-error.js';
 import { fetchDirections } from './googleDirections.service.js';
 import type {
     GoogleRawRoute,
@@ -33,8 +35,13 @@ export async function getRouteAlternatives(
     const rawRoutes = await fetchDirections(request);
 
     if (rawRoutes.length === 0) {
-        throw new Error('No routes found between the given origin and destination.');
+        throw new AppError({
+            statusCode: 422,
+            code: 'DIRECTIONS_NO_RESULTS',
+            message: 'No route could be found between the given origin and destination.',
+        });
     }
 
     return rawRoutes.map(toRouteSummary);
 }
+
