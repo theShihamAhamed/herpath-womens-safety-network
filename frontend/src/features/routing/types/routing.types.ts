@@ -20,6 +20,28 @@ export interface RouteWithRiskContext extends RouteSummary {
 	riskEvaluationStatus: 'ready_for_evaluation';
 }
 
+export interface RouteRiskFactors {
+	incidentCount: number;
+	severityWeightedScore: number;
+	recencyWeightedScore: number;
+}
+
+export interface RouteRiskScore extends RouteWithRiskContext {
+	riskScore: number;
+	riskFactors: RouteRiskFactors;
+}
+
+export interface RouteRecommendation {
+	recommendedRouteId: string;
+	routes: RouteRiskScore[];
+	explanation: string;
+}
+
+export interface RouteRecommendationApiResponse {
+	success: true;
+	data: RouteRecommendation;
+}
+
 export interface RouteAlternativesApiResponse {
 	success: true;
 	data: {

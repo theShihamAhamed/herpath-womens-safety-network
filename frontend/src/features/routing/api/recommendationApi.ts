@@ -1,6 +1,6 @@
 // frontend/src/features/routing/api/recommendationApi.ts
 
-import { apiClient } from '../../../services/api/apiClient';
+import { apiClient } from '../../../services/apiClient';
 import type { LatLng, RouteRecommendationApiResponse } from '../types/routing.types';
 
 export async function fetchRouteRecommendation(
@@ -9,7 +9,7 @@ export async function fetchRouteRecommendation(
   mode: 'walking' | 'driving' | 'bicycling' = 'walking'
 ) {
   const { data } = await apiClient.get<RouteRecommendationApiResponse>(
-    '/api/routes/recommendation',
+    '/routes/recommendation',
     {
       params: {
         origin: `${origin.lat},${origin.lng}`,

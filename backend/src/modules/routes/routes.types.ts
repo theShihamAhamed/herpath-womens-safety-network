@@ -26,8 +26,8 @@ export interface RouteAlternativesRequest {
   mode?: 'walking' | 'driving' | 'bicycling'; // default: walking
 }
 
-// Slimmed-down shape of a single "route" from Google Directions API
-export interface GoogleRawRoute {
+// Normalized shape returned by the OpenStreetMap routing adapter.
+export interface RoutingRawRoute {
   summary: string;
   overview_polyline: { points: string };
   legs: Array<{
