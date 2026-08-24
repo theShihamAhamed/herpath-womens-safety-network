@@ -84,6 +84,10 @@ function expectPublicIncidentContract(value: Record<string, unknown>): void {
     'locationMode',
     'publicCellId',
     'description',
+    'visibilityState',
+    'communityState',
+    'moderationState',
+    'lifecycleRevision',
     '__v',
     'private description sentinel',
   ]) {
@@ -113,15 +117,38 @@ describe('persisted incidents through public Map APIs', () => {
     await mongo?.stop();
   });
 
-  it('returns exact and approximate reports only through the allowlisted public projection', async () => {
+  it('uses lifecycle visibility with a privacy-safe legacy compatibility fallback', async () => {
     const exact = await repository.create(incidentInput());
     const approximate = await repository.create(
       incidentInput({ point: nearby, approximate: true, category: 'THEFT', severity: 'LOW' }),
     );
-    const rejected = await repository.create(incidentInput({ point: nearby }));
-    await IncidentModel.updateOne(
-      { _id: rejected._id },
-      { $set: { status: 'REJECTED' } },
+    await IncidentModel.collection.updateOne(
+      { _id: approximate._id },
+      { $set: { communityState: 'SUPPORTED', lifecycleRevision: 1 } },
+    );
+    const hidden = await repository.create(incidentInput({ point: nearby }));
+    await IncidentModel.collection.updateOne(
+      { _id: hidden._id },
+      { $set: { visibilityState: 'HIDDEN', status: 'REJECTED', lifecycleRevision: 1 } },
+    );
+    const archived = await repository.create(incidentInput({ point: nearby }));
+    await IncidentModel.collection.updateOne(
+      { _id: archived._id },
+      { $set: { visibilityState: 'ARCHIVED', status: 'ARCHIVED', lifecycleRevision: 1 } },
+    );
+    const legacy = await repository.create(
+      incidentInput({ point: nearby, approximate: true, category: 'OTHER' }),
+    );
+    await IncidentModel.collection.updateOne(
+      { _id: legacy._id },
+      {
+        $unset: {
+          visibilityState: '',
+          communityState: '',
+          moderationState: '',
+          lifecycleRevision: '',
+        },
+      },
     );
     await repository.create(incidentInput({ point: outside }));
     await IncidentModel.updateOne({ _id: exact._id }, { $set: { supportCount: 3 } });
@@ -133,17 +160,32 @@ describe('persisted incidents through public Map APIs', () => {
 
     expect(response.body).toMatchObject({ success: true, meta: {} });
     expect(response.body.data.map((incident: { id: string }) => incident.id).sort()).toEqual(
-      [exact._id.toString(), approximate._id.toString()].sort(),
+      [exact._id.toString(), approximate._id.toString(), legacy._id.toString()].sort(),
     );
     for (const incident of response.body.data as Array<Record<string, unknown>>) {
       expectPublicIncidentContract(incident);
-      expect(incident.status).toBe('PUBLISHED_UNVERIFIED');
       expect(incident.occurredAt).toEqual(expect.any(String));
       expect(incident.createdAt).toEqual(expect.any(String));
       const area = incident.publicArea as { type: string; coordinates: number[][][] };
       expect(area.type).toBe('Polygon');
       expect(area.coordinates[0]?.at(-1)).toEqual(area.coordinates[0]?.[0]);
     }
+    expect(
+      response.body.data.find(
+        (incident: { id: string }) => incident.id === approximate._id.toString(),
+      ).status,
+    ).toBe('COMMUNITY_SUPPORTED');
+    expect(
+      response.body.data.find(
+        (incident: { id: string }) => incident.id === legacy._id.toString(),
+      ).status,
+    ).toBe('PUBLISHED_UNVERIFIED');
+    expect(response.body.data.map((incident: { id: string }) => incident.id)).not.toContain(
+      hidden._id.toString(),
+    );
+    expect(response.body.data.map((incident: { id: string }) => incident.id)).not.toContain(
+      archived._id.toString(),
+    );
     expect(response.body.data.find((incident: { id: string }) => incident.id === exact._id.toString()).supportCount).toBe(3);
   });
 
@@ -306,10 +348,10 @@ describe('persisted incidents through public Map APIs', () => {
       }),
     );
     await repository.create(incidentInput({ point: outside, category: 'ASSAULT' }));
-    const rejected = await repository.create(incidentInput({ point: nearby, category: 'STALKING' }));
-    await IncidentModel.updateOne(
-      { _id: rejected._id },
-      { $set: { status: 'COMMUNITY_SUPPORTED' } },
+    const hidden = await repository.create(incidentInput({ point: nearby, category: 'STALKING' }));
+    await IncidentModel.collection.updateOne(
+      { _id: hidden._id },
+      { $set: { visibilityState: 'HIDDEN', status: 'REJECTED', lifecycleRevision: 1 } },
     );
 
     const summary = await request(app)

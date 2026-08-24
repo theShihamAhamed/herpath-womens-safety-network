@@ -1,4 +1,5 @@
 import type { IncidentDocument } from './incident.model.js';
+import { deriveLegacyIncidentStatus } from './incident-lifecycle.service.js';
 import type {
   GeoJsonPoint,
   GeoJsonPolygon,
@@ -8,7 +9,12 @@ import type {
 } from './incident.types.js';
 import { publicAreaFromCell } from './location-privacy.service.js';
 
-export const PUBLIC_INCIDENT_STATUSES = ['PUBLISHED_UNVERIFIED'] as const satisfies readonly IncidentStatus[];
+export const PUBLIC_INCIDENT_STATUSES = [
+  'PUBLISHED_UNVERIFIED',
+  'COMMUNITY_SUPPORTED',
+  'MODERATOR_REVIEWED',
+  'DISPUTED',
+] as const satisfies readonly IncidentStatus[];
 export type PublicIncidentStatus = (typeof PUBLIC_INCIDENT_STATUSES)[number];
 
 export interface PublicIncident {
@@ -44,7 +50,33 @@ export interface PublicIncidentRadiusRead extends PublicIncidentReadFilters {
 }
 
 export function toPublicIncident(incident: IncidentDocument): PublicIncident {
-  if (!PUBLIC_INCIDENT_STATUSES.some((status) => status === incident.status)) {
+  const hasLifecycle =
+    incident.visibilityState !== undefined &&
+    incident.communityState !== undefined &&
+    incident.moderationState !== undefined &&
+    incident.lifecycleRevision !== undefined;
+  const isLegacyIncident =
+    incident.visibilityState === undefined &&
+    incident.communityState === undefined &&
+    incident.moderationState === undefined &&
+    incident.lifecycleRevision === undefined;
+
+  if (hasLifecycle && incident.visibilityState !== 'PUBLIC') {
+    throw new Error('Incident visibility is not eligible for public projection');
+  }
+  if (!hasLifecycle && !(isLegacyIncident && incident.status === 'PUBLISHED_UNVERIFIED')) {
+    throw new Error('Incident lifecycle is not eligible for public projection');
+  }
+
+  const status = hasLifecycle
+    ? deriveLegacyIncidentStatus({
+        visibilityState: incident.visibilityState,
+        communityState: incident.communityState,
+        moderationState: incident.moderationState,
+      })
+    : incident.status;
+
+  if (!PUBLIC_INCIDENT_STATUSES.some((publicStatus) => publicStatus === status)) {
     throw new Error('Incident status is not eligible for public projection');
   }
 
@@ -52,7 +84,7 @@ export function toPublicIncident(incident: IncidentDocument): PublicIncident {
     id: incident._id.toString(),
     category: incident.category,
     severity: incident.severity,
-    status: incident.status as PublicIncidentStatus,
+    status: status as PublicIncidentStatus,
     occurredAt: incident.occurredAt.toISOString(),
     createdAt: incident.createdAt.toISOString(),
     supportCount: incident.supportCount,

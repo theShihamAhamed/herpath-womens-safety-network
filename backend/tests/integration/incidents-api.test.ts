@@ -74,6 +74,10 @@ function expectNoProtectedFields(value: unknown): void {
     'publicLocation',
     'publicArea',
     'coordinates',
+    'visibilityState',
+    'communityState',
+    'moderationState',
+    'lifecycleRevision',
   ]) {
     expect(serialized).not.toContain(field);
   }
@@ -141,8 +145,53 @@ describe('authenticated incident reporting APIs', () => {
         },
         meta: {},
       });
+      expect(Object.keys(response.body.data).sort()).toEqual(
+        [
+          'id',
+          'category',
+          'severity',
+          'status',
+          'occurredAt',
+          'createdAt',
+          'supportCount',
+          'locationMode',
+          'description',
+        ].sort(),
+      );
       expectNoProtectedFields(response.body.data);
     }
+  });
+
+  it('derives owner status without changing or exposing the owner response contract', async () => {
+    const actor = await anonymousActor();
+    const created = await repository.create(persistenceInput(actor.id, 0));
+    await IncidentModel.collection.updateOne(
+      { _id: created._id },
+      { $set: { communityState: 'SUPPORTED', lifecycleRevision: 1 } },
+    );
+
+    const response = await request(app)
+      .get('/api/v1/incidents/mine')
+      .set(authorization(actor))
+      .expect(200);
+    const [item] = response.body.data.items;
+
+    expect(item.status).toBe('COMMUNITY_SUPPORTED');
+    expect(item.supportCount).toBe(0);
+    expect(Object.keys(item).sort()).toEqual(
+      [
+        'id',
+        'category',
+        'severity',
+        'status',
+        'occurredAt',
+        'createdAt',
+        'supportCount',
+        'locationMode',
+        'description',
+      ].sort(),
+    );
+    expectNoProtectedFields(item);
   });
 
   it('requires authentication and rejects ownership or unknown-field injection', async () => {
@@ -152,6 +201,10 @@ describe('authenticated incident reporting APIs', () => {
     for (const body of [
       createBody({ reporterId: new mongoose.Types.ObjectId().toString() }),
       createBody({ status: 'MODERATOR_REVIEWED' }),
+      createBody({ visibilityState: 'HIDDEN' }),
+      createBody({ communityState: 'SUPPORTED' }),
+      createBody({ moderationState: 'RESOLVED' }),
+      createBody({ lifecycleRevision: 1 }),
       createBody({ unexpected: true }),
       createBody({ location: { ...createBody().location, unexpected: true } }),
     ]) {
