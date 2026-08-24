@@ -93,6 +93,13 @@ export class CommunityVerificationRepository {
       .exec();
   }
 
+  public async saveFeedback(
+    feedback: IncidentFeedbackDocument,
+    session?: ClientSession,
+  ): Promise<IncidentFeedbackDocument> {
+    return feedback.save(session === undefined ? {} : { session });
+  }
+
   public async findSnapshot(
     incidentId: string,
     session?: ClientSession,
