@@ -61,8 +61,17 @@ npm run typecheck  # Type-check without emitting files
 npm run lint       # Run ESLint with zero warnings allowed
 npm test           # Run the Vitest suite once
 npm run test:watch # Run Vitest in watch mode
+npm run incident:lifecycle:migrate -- --dry-run  # Inspect lifecycle migration counts
+npm run incident:lifecycle:migrate -- --apply    # Backfill missing lifecycle defaults
+npm run incident:lifecycle:migrate -- --rollback # Remove only safe default lifecycle fields
 npm run user:promote -- user@example.com # Promote an active registered user
 ```
+
+The Incident lifecycle migration outputs aggregate counts only. Run `--dry-run` before `--apply`.
+Apply stops if legacy incidents have an unexpected status or invalid lifecycle value, preserves
+existing report fields and timestamps, and is safe to repeat. Rollback removes lifecycle fields
+only from `PUBLISHED_UNVERIFIED` incidents that remain on all initial defaults at revision zero;
+progressed lifecycle records are counted and left unchanged.
 
 ## Authentication endpoints
 

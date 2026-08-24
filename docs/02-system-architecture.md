@@ -61,3 +61,15 @@ Use MongoDB GeoJSON with `[longitude, latitude]`, `2dsphere` indexes for geospat
 ## Incident location boundary
 
 The Incident backend owns H3 resolution-8 conversion and the public projection. Exact-private reports retain a separately protected private Point; approximate-only reports store no private Point. The persisted and indexed `publicLocation` is the selected/derived H3 center, while `publicArea` is derived from the internal cell when returned. Map consumes the Incident-owned public reader and never imports the Incident model or repository directly.
+
+## Incident lifecycle boundary
+
+The Incident module owns three independent server-controlled lifecycle axes: public visibility,
+community evidence, and moderation workflow. `visibilityState` alone controls whether a report is
+available to public readers. `communityState` summarizes evidence without asserting truth, while
+`moderationState` records workflow progress. `lifecycleRevision` provides the concurrency
+foundation for later moderated changes.
+
+The persisted `status` field remains a derived compatibility projection for existing consumers.
+Owner and Map response shapes remain unchanged during Phase 1 and do not expose lifecycle fields.
+No moderation or community-verification API/module is introduced by this foundation.

@@ -132,13 +132,18 @@ describe('incident persistence foundation', () => {
       'locationMode',
       'publicCellId',
       'description',
+      'visibilityState',
+      'communityState',
+      'moderationState',
+      'lifecycleRevision',
     ]) {
       expect(projection).not.toHaveProperty(forbidden);
     }
   });
 
-  it('rejects incidents outside the initial public status allowlist', async () => {
+  it('rejects incidents whose lifecycle visibility is not public', async () => {
     const created = await repository.create(incidentInput());
+    created.visibilityState = 'HIDDEN';
     created.status = 'REJECTED';
 
     expect(() => toPublicIncident(created)).toThrow(/not eligible for public projection/i);
@@ -176,10 +181,14 @@ describe('incident persistence foundation', () => {
     );
   });
 
-  it('applies the initial public status and support defaults', async () => {
+  it('applies compatible status, support, and lifecycle defaults', async () => {
     const created = await repository.create(incidentInput());
 
     expect(created.status).toBe('PUBLISHED_UNVERIFIED');
     expect(created.supportCount).toBe(0);
+    expect(created.visibilityState).toBe('PUBLIC');
+    expect(created.communityState).toBe('UNVERIFIED');
+    expect(created.moderationState).toBe('NOT_QUEUED');
+    expect(created.lifecycleRevision).toBe(0);
   });
 });

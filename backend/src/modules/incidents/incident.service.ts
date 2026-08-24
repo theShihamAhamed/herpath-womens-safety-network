@@ -3,6 +3,7 @@ import { Buffer } from 'node:buffer';
 import { Types } from 'mongoose';
 
 import { AppError } from '../../common/errors/app-error.js';
+import { deriveLegacyIncidentStatus } from './incident-lifecycle.service.js';
 import type { IncidentDocument } from './incident.model.js';
 import { IncidentRateLimiter, type IncidentRateLimitOptions } from './incident.rate-limiter.js';
 import { IncidentRepository } from './incident.repository.js';
@@ -62,11 +63,22 @@ interface SerializedCursor {
 }
 
 function toOwnerIncident(incident: IncidentDocument): OwnerIncident {
+  const status =
+    incident.visibilityState === undefined ||
+    incident.communityState === undefined ||
+    incident.moderationState === undefined
+      ? incident.status
+      : deriveLegacyIncidentStatus({
+          visibilityState: incident.visibilityState,
+          communityState: incident.communityState,
+          moderationState: incident.moderationState,
+        });
+
   return {
     id: incident._id.toString(),
     category: incident.category,
     severity: incident.severity,
-    status: incident.status,
+    status,
     occurredAt: incident.occurredAt.toISOString(),
     createdAt: incident.createdAt.toISOString(),
     supportCount: incident.supportCount,

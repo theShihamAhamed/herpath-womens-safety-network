@@ -1,11 +1,11 @@
-import { Types } from 'mongoose';
+import { Types, type QueryFilter } from 'mongoose';
 
 import {
   IncidentModel,
   type IncidentDocument,
+  type IncidentDocumentFields,
 } from './incident.model.js';
 import {
-  PUBLIC_INCIDENT_STATUSES,
   type PublicIncidentReadFilters,
   type PublicIncidentRadiusRead,
   type PublicIncidentViewportRead,
@@ -17,13 +17,24 @@ import type {
 import { normalizeIncidentLocation } from './location-privacy.service.js';
 
 const PUBLIC_READ_PROJECTION =
-  '_id category severity status occurredAt createdAt supportCount publicLocation +publicCellId';
+  '_id category severity status occurredAt createdAt supportCount publicLocation +publicCellId visibilityState communityState moderationState lifecycleRevision';
 
-function publicIncidentFilter(filters: PublicIncidentReadFilters) {
+function publicIncidentFilter(
+  filters: PublicIncidentReadFilters,
+): QueryFilter<IncidentDocumentFields> {
   const hasOccurredRange = filters.occurredFrom !== undefined || filters.occurredTo !== undefined;
 
   return {
-    status: { $in: [...PUBLIC_INCIDENT_STATUSES] },
+    $or: [
+      { visibilityState: 'PUBLIC' },
+      {
+        visibilityState: { $exists: false },
+        communityState: { $exists: false },
+        moderationState: { $exists: false },
+        lifecycleRevision: { $exists: false },
+        status: 'PUBLISHED_UNVERIFIED',
+      },
+    ],
     ...(filters.category === undefined ? {} : { category: filters.category }),
     ...(filters.severity === undefined ? {} : { severity: filters.severity }),
     ...(hasOccurredRange

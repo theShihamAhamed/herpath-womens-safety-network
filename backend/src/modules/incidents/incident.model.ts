@@ -2,15 +2,22 @@ import { Schema, model, type HydratedDocument, type Model, type Types } from 'mo
 
 import {
   INCIDENT_CATEGORIES,
+  INCIDENT_COMMUNITY_STATES,
   INCIDENT_LOCATION_MODES,
+  INCIDENT_MODERATION_STATES,
   INCIDENT_SEVERITIES,
   INCIDENT_STATUSES,
+  INCIDENT_VISIBILITY_STATES,
   type GeoJsonPoint,
   type IncidentCategory,
+  type IncidentCommunityState,
   type IncidentLocationMode,
+  type IncidentModerationState,
   type IncidentSeverity,
   type IncidentStatus,
+  type IncidentVisibilityState,
 } from './incident.types.js';
+import { deriveLegacyIncidentStatus } from './incident-lifecycle.service.js';
 import {
   exactPointToPublicCell,
   publicPointFromCell,
@@ -27,6 +34,10 @@ export interface IncidentDocumentFields {
   description?: string;
   status: IncidentStatus;
   supportCount: number;
+  visibilityState: IncidentVisibilityState;
+  communityState: IncidentCommunityState;
+  moderationState: IncidentModerationState;
+  lifecycleRevision: number;
   locationMode: IncidentLocationMode;
   privateLocation: GeoJsonPoint | null;
   publicCellId: string;
@@ -98,6 +109,34 @@ const incidentSchema = new Schema<IncidentDocumentFields, Model<IncidentDocument
       default: 'PUBLISHED_UNVERIFIED',
     },
     supportCount: { type: Number, required: true, default: 0, min: 0 },
+    visibilityState: {
+      type: String,
+      enum: INCIDENT_VISIBILITY_STATES,
+      required: true,
+      default: 'PUBLIC',
+    },
+    communityState: {
+      type: String,
+      enum: INCIDENT_COMMUNITY_STATES,
+      required: true,
+      default: 'UNVERIFIED',
+    },
+    moderationState: {
+      type: String,
+      enum: INCIDENT_MODERATION_STATES,
+      required: true,
+      default: 'NOT_QUEUED',
+    },
+    lifecycleRevision: {
+      type: Number,
+      required: true,
+      default: 0,
+      min: 0,
+      validate: {
+        validator: Number.isInteger,
+        message: 'Lifecycle revision must be an integer',
+      },
+    },
     locationMode: { type: String, enum: INCIDENT_LOCATION_MODES, required: true },
     privateLocation: { type: pointSchema, default: null, select: false },
     publicCellId: { type: String, required: true, select: false },
@@ -149,6 +188,20 @@ incidentSchema.pre('validate', function enforceLocationPrivacy() {
       'publicCellId',
       error instanceof Error ? error.message : 'Public H3 cell is invalid',
     );
+  }
+});
+
+incidentSchema.pre('validate', function enforceLifecycleConsistency() {
+  if (!this.visibilityState || !this.communityState || !this.moderationState) return;
+
+  const expectedStatus = deriveLegacyIncidentStatus({
+    visibilityState: this.visibilityState,
+    communityState: this.communityState,
+    moderationState: this.moderationState,
+  });
+
+  if (this.status !== expectedStatus) {
+    this.invalidate('status', 'Status must match the derived incident lifecycle status');
   }
 });
 
