@@ -9,7 +9,7 @@ export async function fetchRouteRecommendation(
   mode: 'walking' | 'driving' | 'bicycling' = 'walking'
 ) {
   const { data } = await apiClient.get<RouteRecommendationApiResponse>(
-    '/api/v1/routes/recommendation',
+    '/routes/recommendation',
     {
       params: {
         origin: `${origin.lat},${origin.lng}`,
