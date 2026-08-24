@@ -6,8 +6,8 @@
 // so it stays consistent with the "safety context, not certainty" philosophy
 // and never overclaims.
 
-import { scoreAllRoutes, RouteRiskScore } from './riskScoring.service';
-import { RouteWithRiskContext } from './routes.types';
+import { scoreAllRoutes, type RouteRiskScore } from './riskScoring.service.js';
+import type { RouteWithRiskContext } from './routes.types.js';
 
 export interface RouteRecommendation {
   recommendedRouteId: string;
@@ -16,8 +16,12 @@ export interface RouteRecommendation {
 }
 
 function buildSafetyExplanation(sortedRoutes: RouteRiskScore[]): string {
-  const [best, ...rest] = sortedRoutes;
-  const nextBest = rest[0];
+  const best = sortedRoutes[0];
+  if (!best) {
+    return 'No route details available.';
+  }
+
+  const nextBest = sortedRoutes[1];
 
   if (!nextBest) {
     return best.riskFactors.incidentCount === 0
@@ -62,9 +66,14 @@ export async function getRouteRecommendation(
 
   const scoredRoutes = await scoreAllRoutes(routes);
   const sortedRoutes = [...scoredRoutes].sort((a, b) => a.riskScore - b.riskScore);
+  const bestRoute = sortedRoutes[0];
+
+  if (!bestRoute) {
+    throw new Error('No routes available to generate a recommendation from.');
+  }
 
   return {
-    recommendedRouteId: sortedRoutes[0].routeId,
+    recommendedRouteId: bestRoute.routeId,
     routes: sortedRoutes,
     explanation: buildSafetyExplanation(sortedRoutes),
   };

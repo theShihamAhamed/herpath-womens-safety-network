@@ -4,22 +4,8 @@
 // Deterministic, not ML-based — per docs/04-domain-rules.md, route-risk
 // evaluation must be deterministic and based on available incident data.
 
-import mongoose from 'mongoose';
-import { LatLng, RouteWithRiskContext } from './routes.types';
-
-// Assumes backend/src/modules/incidents/incident.model.ts exports Incident
-// with `publicLocation` (GeoJSON Point), `severity` (1-5 number), and
-// `occurredAt` (Date). Adjust field names/types below if yours differ —
-// e.g. if severity is a string enum ('low'|'medium'|'high'|'critical'),
-// swap SEVERITY_MAP in for the raw number.
-type IncidentModel = mongoose.Model<any>;
-let Incident: IncidentModel;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-var-requires
-  Incident = require('../incidents/incident.model').Incident;
-} catch {
-  Incident = null as unknown as IncidentModel;
-}
+import { IncidentModel } from '../incidents/incident.model.js';
+import type { LatLng, RouteWithRiskContext } from './routes.types.js';
 
 export interface IncidentSample {
   id: string;
@@ -62,20 +48,18 @@ async function fetchNearbyIncidentDetails(
   sampledPoints: LatLng[],
   radiusMeters: number
 ): Promise<IncidentSample[]> {
-  if (!Incident) return [];
-
   const seen = new Map<string, IncidentSample>();
 
   await Promise.all(
     sampledPoints.map(async (point) => {
-      const docs = await Incident.find({
+      const docs = await IncidentModel.find({
         publicLocation: {
           $near: {
             $geometry: { type: 'Point', coordinates: [point.lng, point.lat] },
             $maxDistance: radiusMeters,
           },
         },
-        status: 'approved',
+        status: { $in: ['PUBLISHED_UNVERIFIED', 'COMMUNITY_SUPPORTED', 'MODERATOR_REVIEWED'] },
       })
         .select('_id severity occurredAt')
         .lean();
@@ -83,10 +67,11 @@ async function fetchNearbyIncidentDetails(
       for (const doc of docs) {
         const id = String(doc._id);
         if (!seen.has(id)) {
+          const occurredAtIso = doc.occurredAt instanceof Date ? doc.occurredAt.toISOString() : String(doc.occurredAt);
           seen.set(id, {
             id,
             severity: toSeverityNumber(doc.severity),
-            occurredAt: doc.occurredAt,
+            occurredAt: occurredAtIso,
           });
         }
       }

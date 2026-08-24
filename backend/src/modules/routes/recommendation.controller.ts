@@ -1,14 +1,17 @@
 // backend/src/modules/routes/recommendation.controller.ts
 
-import { Request, Response } from 'express';
-import { getRouteAlternatives } from './routeAlternatives.service';
-import { prepareRoutesForRiskEvaluation } from './routeRisk.service';
-import { getRouteRecommendation } from './recommendation.service';
-import { RouteAlternativesRequest } from './routes.types';
+import type { Request, Response } from 'express';
+import { getRouteAlternatives } from './routeAlternatives.service.js';
+import { prepareRoutesForRiskEvaluation } from './routeRisk.service.js';
+import { getRouteRecommendation } from './recommendation.service.js';
+import type { RouteAlternativesRequest } from './routes.types.js';
 
 function parseLatLng(value: unknown): { lat: number; lng: number } | null {
   if (typeof value !== 'string') return null;
-  const [latStr, lngStr] = value.split(',');
+  const parts = value.split(',');
+  const latStr = parts[0];
+  const lngStr = parts[1];
+  if (!latStr || !lngStr) return null;
   const lat = Number(latStr);
   const lng = Number(lngStr);
   if (Number.isNaN(lat) || Number.isNaN(lng)) return null;

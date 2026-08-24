@@ -2,7 +2,7 @@
 
 import { Router } from 'express';
 import { getAlternativeRoutes } from './routes.controller.js';
-import { getRouteRecommendationHandler } from './recommendation.controller';
+import { getRouteRecommendationHandler } from './recommendation.controller.js';
 
 
 
