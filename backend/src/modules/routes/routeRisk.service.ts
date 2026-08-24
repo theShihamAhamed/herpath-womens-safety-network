@@ -14,6 +14,7 @@ import { IncidentModel } from '../incidents/incident.model.js';
 
 const CORRIDOR_RADIUS_METERS = 150;
 const SAMPLE_POINTS_PER_ROUTE = 15;
+const EARTH_RADIUS_METERS = 6_378_100;
 
 /**
  * Assumes backend/src/modules/incidents has an Incident model with a
@@ -26,9 +27,11 @@ const SAMPLE_POINTS_PER_ROUTE = 15;
 async function countNearbyIncidents(lat: number, lng: number): Promise<number> {
   return IncidentModel.countDocuments({
     publicLocation: {
-      $near: {
-        $geometry: { type: 'Point', coordinates: [lng, lat] },
-        $maxDistance: CORRIDOR_RADIUS_METERS,
+      $geoWithin: {
+        $centerSphere: [
+          [lng, lat],
+          CORRIDOR_RADIUS_METERS / EARTH_RADIUS_METERS,
+        ],
       },
     },
     status: 'PUBLISHED_UNVERIFIED',

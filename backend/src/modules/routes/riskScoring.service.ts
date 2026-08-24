@@ -33,6 +33,7 @@ const SEVERITY_MAP: Record<string, number> = {
   high: 4,
   critical: 5,
 };
+const EARTH_RADIUS_METERS = 6_378_100;
 
 function toSeverityNumber(raw: unknown): number {
   if (typeof raw === 'number') return raw;
@@ -54,9 +55,11 @@ async function fetchNearbyIncidentDetails(
     sampledPoints.map(async (point) => {
       const docs = await IncidentModel.find({
         publicLocation: {
-          $near: {
-            $geometry: { type: 'Point', coordinates: [point.lng, point.lat] },
-            $maxDistance: radiusMeters,
+          $geoWithin: {
+            $centerSphere: [
+              [point.lng, point.lat],
+              radiusMeters / EARTH_RADIUS_METERS,
+            ],
           },
         },
         status: { $in: ['PUBLISHED_UNVERIFIED', 'COMMUNITY_SUPPORTED', 'MODERATOR_REVIEWED'] },

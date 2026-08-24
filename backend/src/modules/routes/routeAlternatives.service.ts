@@ -3,14 +3,16 @@
 // HS-121: Format distance and travel time for display
 
 import { randomUUID } from 'crypto';
-import { fetchDirections } from './googleDirections.service.js';
+
+import { AppError } from '../../common/errors/app-error.js';
+import { fetchDirections } from './openStreetMapDirections.service.js';
 import type {
-    GoogleRawRoute,
+    RoutingRawRoute,
     RouteAlternativesRequest,
     RouteSummary,
 } from './routes.types.js';
 
-function toRouteSummary(raw: GoogleRawRoute): RouteSummary {
+function toRouteSummary(raw: RoutingRawRoute): RouteSummary {
     // Sum across legs defensively (waypoints would create multiple legs;
     // a simple origin -> destination trip has exactly one).
     const distanceMeters = raw.legs.reduce((sum, leg) => sum + leg.distance.value, 0);
@@ -33,8 +35,13 @@ export async function getRouteAlternatives(
     const rawRoutes = await fetchDirections(request);
 
     if (rawRoutes.length === 0) {
-        throw new Error('No routes found between the given origin and destination.');
+        throw new AppError({
+            statusCode: 422,
+            code: 'DIRECTIONS_NO_RESULTS',
+            message: 'No route could be found between the given origin and destination.',
+        });
     }
 
     return rawRoutes.map(toRouteSummary);
 }
+
