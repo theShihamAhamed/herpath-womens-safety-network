@@ -140,7 +140,7 @@ Approximate-only location:
 }
 ```
 
-The cell ID must be an H3 resolution-8 cell supplied by the location-cell catalog. Approximate-only requests contain no Point. Server-controlled reporter, status, support count, timestamps, `publicCellId`, `publicLocation`, and `publicArea` fields are rejected if added to the body.
+The cell ID must be an H3 resolution-8 cell supplied by the location-cell catalog. Approximate-only requests contain no Point. Server-controlled reporter, status, support count, timestamps, `visibilityState`, `communityState`, `moderationState`, `lifecycleRevision`, `publicCellId`, `publicLocation`, and `publicArea` fields are rejected if added to the body.
 
 The owner response contains:
 
@@ -150,6 +150,9 @@ locationMode, optional description
 ```
 
 It never returns coordinates or an H3 cell ID. The default new-report limit is five distinct submission IDs per authenticated actor per 15 minutes. Existing idempotent replays are resolved before that quota is consumed.
+
+The returned `status` is a derived compatibility projection. The three lifecycle axes and
+`lifecycleRevision` are internal and are not added to the owner response in Phase 1.
 
 ### `GET /api/v1/incidents/location-cells`
 
@@ -174,4 +177,10 @@ id, category, severity, status, occurredAt, createdAt, supportCount,
 publicLocation, publicArea
 ```
 
-It never contains `privateLocation`, `reporterId`, `locationMode`, `publicCellId`, `clientSubmissionId`, `description`, or account/session data. V1 uses the H3 center for viewport/radius inclusion and supports non-wrapping viewports only.
+It never contains `privateLocation`, `reporterId`, `locationMode`, `publicCellId`, `clientSubmissionId`, `description`, `visibilityState`, `communityState`, `moderationState`, `lifecycleRevision`, or account/session data. V1 uses the H3 center for viewport/radius inclusion and supports non-wrapping viewports only.
+
+Public availability is controlled by `visibilityState`, not the compatibility `status`. During the
+backfill period, a legacy document is eligible only when all lifecycle fields are absent and its
+status is `PUBLISHED_UNVERIFIED`. Community and moderation APIs do not exist in Phase 1; later
+phases will add feedback, flags, evidence evaluation, and moderation cases without changing the
+current reporting endpoints in this foundation.

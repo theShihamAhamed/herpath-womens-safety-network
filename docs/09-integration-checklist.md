@@ -30,6 +30,10 @@
 - [x] idempotent replay/conflict and per-actor new-report rate limit implemented
 - [x] private/public coordinates separated
 - [x] map endpoint exposes the explicit public projection only
+- [x] visibility, community evidence, and moderation workflow states are persisted independently
+- [x] public Incident reads use visibility with a legacy missing-field fallback
+- [x] lifecycle fields remain absent from owner and Map API responses
+- [x] lifecycle migration supports aggregate dry-run, idempotent apply, and restricted rollback
 - [x] occurrence-range filters use offset-aware `occurredFrom`/`occurredTo`
 - [ ] newly submitted public incident can render
 - [ ] Map renders `publicArea` as an honest approximate area rather than only a precise-looking pin
@@ -63,6 +67,10 @@
 
 ## Moderation
 
+- [x] incident lifecycle and revision foundation exists
+- [ ] community feedback and abuse-flag records implemented
+- [ ] evidence evaluation implemented
+- [ ] moderation case/queue APIs implemented
 - [ ] moderation audit record created
 - [ ] rejected/duplicate evidence is recalculated as designed
 - [ ] concurrent moderator changes do not silently overwrite

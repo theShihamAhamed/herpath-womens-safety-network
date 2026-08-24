@@ -3,7 +3,7 @@
 Update this through real PRs. Do not backdate progress.
 
 ## Current phase
-Incident Reporting vertical slice with privacy-safe Map integration
+Moderation lifecycle and database foundation
 
 ## Repository
 - [x] frontend structure
@@ -54,7 +54,12 @@ Incident Reporting vertical slice with privacy-safe Map integration
 - [x] consolidated three-stage mobile report flow with direct Review editing and owner history
 - [x] contextual Incident privacy guidance and accessible draggable privacy sheet
 - [x] public Incident reader integrated with Map endpoints
+- [x] independent visibility, community evidence, and moderation workflow state foundation
+- [x] lifecycle compatibility projection and legacy public-read fallback
+- [x] aggregate-only lifecycle dry-run, idempotent backfill, and restricted rollback
 - [ ] community actions
+- [ ] abuse flagging and evidence evaluation
+- [ ] moderation cases and queue APIs
 - [ ] moderation
 
 ### Naji
