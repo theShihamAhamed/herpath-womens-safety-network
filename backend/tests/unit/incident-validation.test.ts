@@ -37,7 +37,7 @@ describe('incident API validation', () => {
   });
 
   it('requires a UUIDv4 and a timestamp with an explicit zone', () => {
-    expect(() => createIncidentBodySchema.parse(exactBody({ clientSubmissionId: randomUUID().replace('-4', '-1') }))).toThrow();
+    expect(() => createIncidentBodySchema.parse(exactBody({ clientSubmissionId: '11111111-2222-1333-8444-555555555555' }))).toThrow();
     expect(() => createIncidentBodySchema.parse(exactBody({ occurredAt: '2026-08-18T20:15:00' }))).toThrow();
     expect(() => createIncidentBodySchema.parse(exactBody({ occurredAt: 'not-a-date+05:30' }))).toThrow();
   });

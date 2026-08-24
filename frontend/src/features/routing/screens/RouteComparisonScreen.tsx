@@ -1,8 +1,10 @@
 // frontend/src/features/routing/screens/RouteComparisonScreen.tsx
+// Updated to use the backend's HS-87 recommendation + HS-88 risk scores
+// instead of the earlier placeholder "lowest incident count" heuristic.
 // Business logic lives here; the Expo Router page in frontend/app/journey/
-// stays thin and just renders this component, per the repo's convention.
+// stays thin and just renders this component.
 
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
@@ -10,9 +12,10 @@ import {
   Text,
   View,
 } from 'react-native';
-import { useRouteAlternatives } from '../hooks/useRouteAlternatives';
+import { useRouteRecommendation } from '../hooks/useRouteRecommendation';
 import { RouteCard } from '../components/RouteCard';
-import type { LatLng } from '../types/routing.types';
+import { RecommendationBanner } from '../components/RecommendationBanner';
+import { LatLng } from '../types/routing.types';
 
 interface RouteComparisonScreenProps {
   // Normally comes from the map feature (selected pins) or device location
@@ -24,20 +27,14 @@ export function RouteComparisonScreen({
   origin,
   destination,
 }: RouteComparisonScreenProps) {
-  const { routes, loading, error, requestRoutes } = useRouteAlternatives();
+  const { recommendation, loading, error, requestRecommendation } =
+    useRouteRecommendation();
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [hasRequested, setHasRequested] = useState(false);
 
-  const lowestIncidentRouteId = useMemo(() => {
-    if (routes.length === 0) return null;
-    return routes.reduce((lowest, current) =>
-      current.nearbyIncidentCount < lowest.nearbyIncidentCount ? current : lowest
-    ).routeId;
-  }, [routes]);
-
   const handleCompareRoutes = async () => {
     setHasRequested(true);
-    await requestRoutes(origin, destination);
+    await requestRecommendation(origin, destination);
   };
 
   return (
@@ -59,7 +56,7 @@ export function RouteComparisonScreen({
       {loading && (
         <View style={styles.centeredState}>
           <ActivityIndicator size="small" color="#1F4B4A" />
-          <Text style={styles.stateText}>Looking for route options…</Text>
+          <Text style={styles.stateText}>Comparing route safety context…</Text>
         </View>
       )}
 
@@ -72,21 +69,24 @@ export function RouteComparisonScreen({
         </View>
       )}
 
-      {!loading && !error && hasRequested && routes.length === 0 && (
+      {!loading && !error && hasRequested && recommendation?.routes.length === 0 && (
         <View style={styles.centeredState}>
           <Text style={styles.stateText}>No routes found for this trip.</Text>
         </View>
       )}
 
-      {!loading && routes.length > 0 && (
+      {!loading && recommendation && recommendation.routes.length > 0 && (
         <FlatList
-          data={routes}
+          data={recommendation.routes}
           keyExtractor={(item) => item.routeId}
           contentContainerStyle={styles.listContent}
+          ListHeaderComponent={
+            <RecommendationBanner recommendation={recommendation} />
+          }
           renderItem={({ item }) => (
             <RouteCard
               route={item}
-              isLowestIncidentCount={item.routeId === lowestIncidentRouteId}
+              isRecommended={item.routeId === recommendation.recommendedRouteId}
               selected={item.routeId === selectedRouteId}
               onPress={() => setSelectedRouteId(item.routeId)}
             />

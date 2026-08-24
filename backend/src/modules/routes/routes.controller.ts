@@ -39,7 +39,10 @@ export class RoutesController {
 
 function parseLatLng(value: unknown): { lat: number; lng: number } | null {
   if (typeof value !== 'string') return null;
-  const [latStr, lngStr] = value.split(',');
+  const parts = value.split(',');
+  const latStr = parts[0];
+  const lngStr = parts[1];
+  if (!latStr || !lngStr) return null;
   const lat = Number(latStr);
   const lng = Number(lngStr);
   if (Number.isNaN(lat) || Number.isNaN(lng)) return null;
