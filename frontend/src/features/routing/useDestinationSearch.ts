@@ -24,6 +24,7 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const userLocation = options.userLocation;
 
   const clearSearch = () => {
     setQuery('');
@@ -50,7 +51,7 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
 
     debounceRef.current = setTimeout(async () => {
       try {
-        const data = await searchDestinations(trimmed, options.userLocation);
+        const data = await searchDestinations(trimmed, userLocation);
         setResults(data);
       } catch (error) {
         setResults([]);
@@ -65,7 +66,7 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
         clearTimeout(debounceRef.current);
       }
     };
-  }, [query, options.userLocation?.latitude, options.userLocation?.longitude]);
+  }, [query, userLocation]);
 
   return { query, setQuery, results, loading, errorMessage, clearSearch };
 }
