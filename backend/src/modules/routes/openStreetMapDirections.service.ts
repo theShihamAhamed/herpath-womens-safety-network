@@ -23,10 +23,6 @@ interface OsrmResponse {
   routes: OsrmRoute[];
 }
 
-/**
- * Calls the public OpenStreetMap routing services and normalizes their
- * provider-specific response for the route-risk pipeline.
- */
 export async function fetchDirections(
   req: RouteAlternativesRequest,
 ): Promise<RoutingRawRoute[]> {

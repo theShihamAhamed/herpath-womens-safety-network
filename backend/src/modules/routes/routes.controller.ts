@@ -38,11 +38,7 @@ function parseLatLng(value: unknown): { lat: number; lng: number } | null {
   return { lat, lng };
 }
 
-/**
- * GET /api/v1/routes/alternatives?origin=lat,lng&destination=lat,lng&mode=walking
- *
- * HS-119 → HS-122: fetch alternatives → format distance/time → prep risk-evaluation context.
- */
+
 export async function getAlternativeRoutes(
   req: Request,
   res: Response,

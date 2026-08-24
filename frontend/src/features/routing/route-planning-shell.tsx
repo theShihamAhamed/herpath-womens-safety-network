@@ -1,6 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useRouter } from 'expo-router';
 
 import { palette, radius, spacing } from '@/src/theme';
 
@@ -105,6 +106,7 @@ export function RouteResultsPlaceholder() {
   const { selectedDestination, origin } = useRouteContext();
   const { recommendation, loading, error, requestRecommendation } = useRouteRecommendation();
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     if (selectedDestination && origin) {
@@ -114,6 +116,32 @@ export function RouteResultsPlaceholder() {
       );
     }
   }, [origin, requestRecommendation, selectedDestination]);
+
+  const handleStartJourney = () => {
+    const route = recommendation?.routes.find((r) => r.routeId === selectedRouteId);
+    if (!route || !origin || !selectedDestination) return;
+
+    router.push({
+      pathname: '/journey/tracking',
+      params: {
+        routeId: route.routeId,
+        origin: JSON.stringify({
+          latitude: origin.latitude,
+          longitude: origin.longitude,
+          address: origin.name,
+        }),
+        destination: JSON.stringify({
+          latitude: selectedDestination.latitude,
+          longitude: selectedDestination.longitude,
+          address: selectedDestination.name,
+        }),
+        polyline: route.polyline,
+        distance: String(route.distanceMeters),
+        duration: String(route.durationSeconds),
+        riskScore: 'riskScore' in route ? String((route as { riskScore: number }).riskScore) : undefined,
+      },
+    });
+  };
 
   if (!selectedDestination) {
     return null;
@@ -185,6 +213,18 @@ export function RouteResultsPlaceholder() {
               onPress={() => setSelectedRouteId(route.routeId)}
             />
           ))}
+
+          {selectedRouteId && (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Start journey on selected route"
+              onPress={handleStartJourney}
+              style={({ pressed }) => [styles.startJourneyButton, pressed && styles.pressed]}>
+              <MaterialIcons name="navigation" size={18} color={palette.white} />
+              <Text style={styles.startJourneyText}>Start Journey</Text>
+            </Pressable>
+          )}
+
           <View style={styles.evidenceRow}>
             <MaterialIcons name="info-outline" size={16} color={palette.primary} />
             <Text style={styles.evidenceNote}>
@@ -323,4 +363,19 @@ const styles = StyleSheet.create({
     maxHeight: 340,
   },
   evidenceNote: { color: palette.primary, fontSize: 12, lineHeight: 16, fontWeight: '700' },
+  startJourneyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    backgroundColor: palette.primary,
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    marginTop: spacing.sm,
+  },
+  startJourneyText: {
+    color: palette.white,
+    fontSize: 15,
+    fontWeight: '700',
+  },
 });

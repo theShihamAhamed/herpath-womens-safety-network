@@ -1,8 +1,4 @@
 // backend/src/modules/routes/riskScoring.service.ts
-// HS-88: Select lower-risk route (scoring engine that makes selection possible)
-//
-// Deterministic, not ML-based — per docs/04-domain-rules.md, route-risk
-// evaluation must be deterministic and based on available incident data.
 
 import { IncidentModel } from '../incidents/incident.model.js';
 import type { LatLng, RouteWithRiskContext } from './routes.types.js';
@@ -25,8 +21,7 @@ export interface RouteRiskScore extends RouteWithRiskContext {
   riskFactors: RiskFactors;
 }
 
-// If severity is stored as a string enum in your Incident model, use this
-// instead of the raw numeric field:
+
 const SEVERITY_MAP: Record<string, number> = {
   low: 1,
   medium: 3,
@@ -41,10 +36,6 @@ function toSeverityNumber(raw: unknown): number {
   return 2; // safe default if missing
 }
 
-/**
- * Fetches nearby *approved* incidents (with severity + occurredAt) around a
- * route's sampled points, deduplicated across points.
- */
 async function fetchNearbyIncidentDetails(
   sampledPoints: LatLng[],
   radiusMeters: number
@@ -84,21 +75,18 @@ async function fetchNearbyIncidentDetails(
   return Array.from(seen.values());
 }
 
-/** Recency weight: recent incidents count more, decaying toward 0 over time. */
 function recencyWeight(occurredAt: string): number {
   const daysSince = (Date.now() - new Date(occurredAt).getTime()) / (1000 * 60 * 60 * 24);
   if (Number.isNaN(daysSince) || daysSince < 0) return 1;
   return Math.exp(-daysSince / 30); // ~37% weight at 30 days, ~14% at 60 days
 }
 
-/** Severity weight: normalized 0..1 against a 5-point scale. */
+
 function severityWeight(severity: number): number {
   return Math.min(Math.max(severity, 1), 5) / 5;
 }
 
-/**
- * Computes a deterministic, per-km-normalized risk score for one route.
- */
+
 export async function scoreRouteRisk(
   route: RouteWithRiskContext
 ): Promise<RouteRiskScore> {

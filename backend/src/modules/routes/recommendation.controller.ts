@@ -22,21 +22,7 @@ function parseLatLng(value: unknown): { lat: number; lng: number } | null {
   return { lat, lng };
 }
 
-/**
- * GET /api/v1/routes/recommendation?origin=lat,lng&destination=lat,lng&mode=walking
- *
- * Full pipeline: HS-119 → HS-120 → HS-121 → HS-122 → HS-88 → HS-87 → HS-86
- *
- * Response shape:
- * {
- *   success: true,
- *   data: {
- *     recommendedRouteId: string,        // HS-87: picked safest route
- *     routes: RouteRiskScore[],          // HS-88: all routes sorted safest-first
- *     explanation: string,               // HS-86: human-readable safety explanation
- *   }
- * }
- */
+
 export async function getRouteRecommendationHandler(
   req: Request,
   res: Response,

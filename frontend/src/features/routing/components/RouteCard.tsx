@@ -11,8 +11,6 @@ interface RouteCardProps {
   onPress: () => void;
 }
 
-// Simple 3-tier visual indicator based on the *preview* incident count.
-// Not the final risk score — that's a separate deterministic evaluation step.
 function getIndicatorLevel(count: number): { label: string; color: string } {
   if (count === 0) return { label: 'No recent reports', color: '#2F8F6E' };
   if (count <= 3) return { label: 'Few recent reports', color: '#C98A2C' };
