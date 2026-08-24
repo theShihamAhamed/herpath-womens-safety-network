@@ -153,7 +153,7 @@ export function evaluateCommunityEvidence(
 
     const ageMs = input.evaluatedAt.getTime() - event.createdAt.getTime();
     if (ageMs < 0) continue;
-    if (ageMs > policy.staleAfterMs) {
+    if (ageMs >= policy.staleAfterMs) {
       hasExpiredDirectionalEvidence = true;
       continue;
     }

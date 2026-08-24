@@ -52,6 +52,11 @@ export interface SubmitCommunityFeedbackResult extends CommunityVerificationStat
   created: boolean;
 }
 
+export interface CommunityEvidenceReconciliationResult {
+  dueCount: number;
+  reconciledCount: number;
+}
+
 function unavailableIncident(): AppError {
   return new AppError({
     statusCode: 404,
@@ -289,10 +294,33 @@ export class CommunityVerificationService {
     });
   }
 
+  public async reconcileDueEvidence(
+    evaluatedAt: Date,
+    limit: number,
+    apply: boolean,
+  ): Promise<CommunityEvidenceReconciliationResult> {
+    const incidentIds = await this.verification.findDueSnapshotIncidentIds(evaluatedAt, limit);
+    if (!apply) return { dueCount: incidentIds.length, reconciledCount: 0 };
+
+    let reconciledCount = 0;
+    for (const incidentId of incidentIds) {
+      const reconciled = await mongoose.connection.transaction(async (session) => {
+        const incident = await this.incidents.findCommunityFeedbackTarget(incidentId, session);
+        if (!incident) return false;
+        await this.evaluateAndPersist(incident, null, session, evaluatedAt);
+        return true;
+      });
+      if (reconciled) reconciledCount += 1;
+    }
+
+    return { dueCount: incidentIds.length, reconciledCount };
+  }
+
   private async evaluateAndPersist(
     incident: IncidentDocument,
     currentFeedback: IncidentFeedbackDocument | null,
     session: ClientSession,
+    evaluationTimestamp?: Date,
   ): Promise<CommunityVerificationStatus> {
     const feedback = await this.verification.findActiveForIncident(
       incident._id.toString(),
@@ -302,7 +330,7 @@ export class CommunityVerificationService {
       incident._id.toString(),
       session,
     );
-    const evaluatedAt = this.now();
+    const evaluatedAt = evaluationTimestamp ?? this.now();
     const evaluation = evaluateCommunityEvidence({
       feedbackEvents: feedback.map((event) => ({
         feedbackId: event._id.toString(),

@@ -111,6 +111,21 @@ export class CommunityVerificationRepository {
       .exec();
   }
 
+  public async findDueSnapshotIncidentIds(
+    evaluatedAt: Date,
+    limit: number,
+  ): Promise<string[]> {
+    const snapshots = await IncidentEvidenceSnapshotModel.find({
+      nextEvaluationAt: { $ne: null, $lte: evaluatedAt },
+    })
+      .select('incidentId')
+      .sort({ nextEvaluationAt: 1, incidentId: 1 })
+      .limit(limit)
+      .lean()
+      .exec();
+    return snapshots.map((snapshot) => snapshot.incidentId.toString());
+  }
+
   public async upsertSnapshot(
     input: IncidentEvidenceSnapshotPersistenceInput,
     session?: ClientSession,

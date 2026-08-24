@@ -219,6 +219,7 @@ describe('community verification persistence foundation', () => {
     expect(snapshotIndexes).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ key: { incidentId: 1 }, unique: true }),
+        expect.objectContaining({ key: { nextEvaluationAt: 1 } }),
       ]),
     );
   });

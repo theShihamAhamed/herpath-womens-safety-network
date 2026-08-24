@@ -110,6 +110,7 @@ const incidentEvidenceSnapshotSchema = new Schema<
 );
 
 incidentEvidenceSnapshotSchema.index({ incidentId: 1 }, { unique: true });
+incidentEvidenceSnapshotSchema.index({ nextEvaluationAt: 1 });
 
 incidentEvidenceSnapshotSchema.pre('validate', function validateAggregateConsistency() {
   if (this.supportCount !== this.contributingCounts.support) {

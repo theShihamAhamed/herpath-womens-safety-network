@@ -11,7 +11,7 @@ import type { IncidentLifecycleSnapshot } from '../../src/modules/incidents/inci
 const evaluatedAt = new Date('2026-08-25T12:00:00.000Z');
 const recentFeedbackAt = new Date('2026-08-24T12:00:00.000Z');
 const staleFeedbackAt = new Date(
-  evaluatedAt.getTime() - BASELINE_V1_EVIDENCE_POLICY.staleAfterMs - 1,
+  evaluatedAt.getTime() - BASELINE_V1_EVIDENCE_POLICY.staleAfterMs,
 );
 
 const defaultLifecycle: IncidentLifecycleSnapshot = {
