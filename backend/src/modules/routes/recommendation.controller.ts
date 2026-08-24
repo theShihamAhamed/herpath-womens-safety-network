@@ -1,9 +1,13 @@
 // backend/src/modules/routes/recommendation.controller.ts
+// HS-88 → HS-87 → HS-86: Full recommendation pipeline HTTP handler
 
-import type { Request, Response } from 'express';
+import type { NextFunction, Request, Response } from 'express';
+
+import { AppError } from '../../common/errors/app-error.js';
+import { sendSuccess } from '../../common/utils/api-response.js';
 import { getRouteAlternatives } from './routeAlternatives.service.js';
-import { prepareRoutesForRiskEvaluation } from './routeRisk.service.js';
 import { getRouteRecommendation } from './recommendation.service.js';
+import { prepareRoutesForRiskEvaluation } from './routeRisk.service.js';
 import type { RouteAlternativesRequest } from './routes.types.js';
 
 function parseLatLng(value: unknown): { lat: number; lng: number } | null {
@@ -19,33 +23,46 @@ function parseLatLng(value: unknown): { lat: number; lng: number } | null {
 }
 
 /**
- * GET /api/routes/recommendation?origin=lat,lng&destination=lat,lng&mode=walking
+ * GET /api/v1/routes/recommendation?origin=lat,lng&destination=lat,lng&mode=walking
  *
- * Full pipeline: HS-119 -> HS-120 -> HS-121 -> HS-122 -> HS-88 -> HS-87 -> HS-86
+ * Full pipeline: HS-119 → HS-120 → HS-121 → HS-122 → HS-88 → HS-87 → HS-86
+ *
+ * Response shape:
+ * {
+ *   success: true,
+ *   data: {
+ *     recommendedRouteId: string,        // HS-87: picked safest route
+ *     routes: RouteRiskScore[],          // HS-88: all routes sorted safest-first
+ *     explanation: string,               // HS-86: human-readable safety explanation
+ *   }
+ * }
  */
-export async function getRouteRecommendationHandler(req: Request, res: Response) {
+export async function getRouteRecommendationHandler(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+): Promise<void> {
   const origin = parseLatLng(req.query.origin);
   const destination = parseLatLng(req.query.destination);
   const mode = (req.query.mode as RouteAlternativesRequest['mode']) ?? 'walking';
 
   if (!origin || !destination) {
-    return res.status(400).json({
-      success: false,
-      error: 'origin and destination are required as "lat,lng" query params.',
-    });
+    next(
+      new AppError({
+        statusCode: 400,
+        code: 'INVALID_COORDINATES',
+        message: 'origin and destination are required as "lat,lng" query params.',
+      }),
+    );
+    return;
   }
 
   try {
     const routes = await getRouteAlternatives({ origin, destination, mode });
     const routesWithRiskContext = await prepareRoutesForRiskEvaluation(routes);
     const recommendation = await getRouteRecommendation(routesWithRiskContext);
-
-    return res.status(200).json({
-      success: true,
-      data: recommendation,
-    });
+    sendSuccess(res, recommendation);
   } catch (err) {
-    const message = err instanceof Error ? err.message : 'Failed to generate a recommendation.';
-    return res.status(502).json({ success: false, error: message });
+    next(err);
   }
 }

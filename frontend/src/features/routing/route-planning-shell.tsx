@@ -1,12 +1,15 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { palette, radius, spacing } from '@/src/theme';
 
 import { DestinationSearchModal } from './destination-search-modal';
 import { useRouteContext } from './RouteContext';
 import { SelectedDestinationCard } from './selected-destination-card';
+import { RecommendationBanner } from './components/RecommendationBanner';
+import { RouteCard } from './components/RouteCard';
+import { useRouteRecommendation } from './hooks/useRouteRecommendation';
 
 interface RoutePlanningEntryProps {
   userLocation?: { latitude: number; longitude: number } | null;
@@ -20,6 +23,7 @@ export function RoutePlanningEntry({
   const {
     selectedDestination,
     setSelectedDestination,
+    setOrigin,
     isSearching,
     setIsSearching,
     isPlanning,
@@ -28,6 +32,16 @@ export function RoutePlanningEntry({
   } = useRouteContext();
 
   const [modalVisible, setModalVisible] = useState(false);
+
+  useEffect(() => {
+    if (userLocation) {
+      setOrigin({
+        name: 'Current Location',
+        latitude: userLocation.latitude,
+        longitude: userLocation.longitude,
+      });
+    }
+  }, [setOrigin, userLocation]);
 
   const handleOpenSearch = () => {
     setIsSearching(true);
@@ -88,7 +102,18 @@ export function RoutePlanningEntry({
 }
 
 export function RouteResultsPlaceholder() {
-  const { selectedDestination } = useRouteContext();
+  const { selectedDestination, origin } = useRouteContext();
+  const { recommendation, loading, error, requestRecommendation } = useRouteRecommendation();
+  const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (selectedDestination && origin) {
+      void requestRecommendation(
+        { lat: origin.latitude, lng: origin.longitude },
+        { lat: selectedDestination.latitude, lng: selectedDestination.longitude },
+      );
+    }
+  }, [origin, requestRecommendation, selectedDestination]);
 
   if (!selectedDestination) {
     return null;
@@ -106,7 +131,7 @@ export function RouteResultsPlaceholder() {
       </View>
 
       <Text style={styles.bodyText}>
-        Preparing safe route alternatives to{' '}
+        {loading ? 'Comparing route options to ' : 'Route options to '}
         <Text style={styles.destinationHighlight}>{selectedDestination.name}</Text>.
       </Text>
 
@@ -125,10 +150,53 @@ export function RouteResultsPlaceholder() {
         </View>
       </View>
 
-      <View style={styles.evidenceRow}>
-        <MaterialIcons name="info-outline" size={16} color={palette.primary} />
-        <Text style={styles.evidenceNote}>Based on available community data</Text>
-      </View>
+      {loading ? (
+        <View style={styles.stateRow}>
+          <ActivityIndicator size="small" color={palette.primary} />
+          <Text style={styles.evidenceNote}>Checking recent community reports...</Text>
+        </View>
+      ) : error ? (
+        <View style={styles.stateBlock}>
+          <Text style={styles.errorText}>{error}</Text>
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Try route recommendation again"
+            onPress={() => {
+              if (origin) {
+                void requestRecommendation(
+                  { lat: origin.latitude, lng: origin.longitude },
+                  { lat: selectedDestination.latitude, lng: selectedDestination.longitude },
+                );
+              }
+            }}
+            style={styles.retryButton}>
+            <Text style={styles.retryText}>Try again</Text>
+          </Pressable>
+        </View>
+      ) : recommendation ? (
+        <ScrollView showsVerticalScrollIndicator={false} style={styles.resultsList}>
+          <RecommendationBanner recommendation={recommendation} />
+          {recommendation.routes.map((route) => (
+            <RouteCard
+              key={route.routeId}
+              route={route}
+              isRecommended={route.routeId === recommendation.recommendedRouteId}
+              selected={route.routeId === selectedRouteId}
+              onPress={() => setSelectedRouteId(route.routeId)}
+            />
+          ))}
+          <View style={styles.evidenceRow}>
+            <MaterialIcons name="info-outline" size={16} color={palette.primary} />
+            <Text style={styles.evidenceNote}>
+              Based on community-reported context, not a guarantee of safety.
+            </Text>
+          </View>
+        </ScrollView>
+      ) : (
+        <View style={styles.stateBlock}>
+          <Text style={styles.evidenceNote}>Allow location access to compare routes.</Text>
+        </View>
+      )}
     </View>
   );
 }
@@ -178,6 +246,7 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 3,
+    maxHeight: 520,
   },
   resultsHeader: {
     flexDirection: 'row',
@@ -221,6 +290,37 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginTop: 2,
+  },
+  stateRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+  },
+  stateBlock: {
+    alignItems: 'center',
+    paddingVertical: spacing.sm,
+  },
+  errorText: {
+    color: palette.accent,
+    fontSize: 13,
+    lineHeight: 18,
+    textAlign: 'center',
+    marginBottom: spacing.xs,
+  },
+  retryButton: {
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    borderRadius: radius.sm,
+    backgroundColor: palette.primary,
+  },
+  retryText: {
+    color: palette.white,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  resultsList: {
+    maxHeight: 340,
   },
   evidenceNote: { color: palette.primary, fontSize: 12, lineHeight: 16, fontWeight: '700' },
 });
