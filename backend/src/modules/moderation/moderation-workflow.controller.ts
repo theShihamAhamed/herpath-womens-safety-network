@@ -4,6 +4,7 @@ import { sendSuccess } from '../../common/utils/api-response.js';
 import type { ModerationWorkflowService } from './moderation-workflow.service.js';
 import type {
   ClaimModerationCaseInput,
+  DecideModerationCaseInput,
   ModerationCaseParams,
   ModerationCaseQueueQuery,
   ReleaseModerationCaseInput,
@@ -81,6 +82,20 @@ export class ModerationWorkflowController {
           authenticatedModeratorId(request),
           caseId(request),
           request.body as ReopenModerationCaseInput,
+        ),
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  public decide = async (request: Request, response: Response, next: NextFunction) => {
+    try {
+      sendSuccess(response, {
+        case: await this.workflow.decide(
+          authenticatedModeratorId(request),
+          caseId(request),
+          request.body as DecideModerationCaseInput,
         ),
       });
     } catch (error) {

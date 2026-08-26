@@ -37,6 +37,14 @@ export const MODERATION_RESOLUTIONS = [
   'ARCHIVED_DUPLICATE',
 ] as const;
 
+export const MODERATION_DECISION_ACTIONS = [
+  'NO_ACTION',
+  'HIDE',
+  'RESTORE',
+  'ARCHIVE',
+  'ARCHIVE_DUPLICATE',
+] as const;
+
 export const MODERATION_AUDIT_ACTOR_TYPES = ['SYSTEM', 'MODERATOR'] as const;
 
 export const MODERATION_AUDIT_ACTIONS = [
@@ -59,6 +67,7 @@ export type ModerationPriority = (typeof MODERATION_PRIORITIES)[number];
 export type ModerationAssignmentFilter = (typeof MODERATION_ASSIGNMENT_FILTERS)[number];
 export type ModerationAssignmentState = (typeof MODERATION_ASSIGNMENT_STATES)[number];
 export type ModerationResolution = (typeof MODERATION_RESOLUTIONS)[number];
+export type ModerationDecisionAction = (typeof MODERATION_DECISION_ACTIONS)[number];
 export type ModerationAuditActorType = (typeof MODERATION_AUDIT_ACTOR_TYPES)[number];
 export type ModerationAuditAction = (typeof MODERATION_AUDIT_ACTIONS)[number];
 

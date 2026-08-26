@@ -3,6 +3,7 @@ import { z } from 'zod';
 import {
   MODERATION_ASSIGNMENT_FILTERS,
   MODERATION_CASE_STATES,
+  MODERATION_DECISION_ACTIONS,
   MODERATION_PRIORITIES,
 } from './moderation.types.js';
 
@@ -48,8 +49,38 @@ export const reopenModerationCaseBodySchema = z.strictObject({
   reason: reasonSchema,
 });
 
+export const decideModerationCaseBodySchema = z
+  .strictObject({
+    ...revisionFields,
+    action: z.enum(MODERATION_DECISION_ACTIONS),
+    reason: reasonSchema,
+    relatedIncidentId: z
+      .string()
+      .trim()
+      .regex(OBJECT_ID, 'relatedIncidentId must be a valid ObjectId')
+      .transform((value) => value.toLowerCase())
+      .optional(),
+  })
+  .superRefine((input, context) => {
+    if (input.action === 'ARCHIVE_DUPLICATE' && input.relatedIncidentId === undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['relatedIncidentId'],
+        message: 'relatedIncidentId is required for ARCHIVE_DUPLICATE',
+      });
+    }
+    if (input.action !== 'ARCHIVE_DUPLICATE' && input.relatedIncidentId !== undefined) {
+      context.addIssue({
+        code: 'custom',
+        path: ['relatedIncidentId'],
+        message: 'relatedIncidentId is only allowed for ARCHIVE_DUPLICATE',
+      });
+    }
+  });
+
 export type ModerationCaseParams = z.infer<typeof moderationCaseParamsSchema>;
 export type ModerationCaseQueueQuery = z.infer<typeof moderationCaseQueueQuerySchema>;
 export type ClaimModerationCaseInput = z.infer<typeof claimModerationCaseBodySchema>;
 export type ReleaseModerationCaseInput = z.infer<typeof releaseModerationCaseBodySchema>;
 export type ReopenModerationCaseInput = z.infer<typeof reopenModerationCaseBodySchema>;
+export type DecideModerationCaseInput = z.infer<typeof decideModerationCaseBodySchema>;

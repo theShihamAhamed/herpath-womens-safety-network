@@ -123,11 +123,41 @@ describe('incident lifecycle transitions', () => {
     expect(supported.legacyStatus).toBe('REJECTED');
   });
 
+  it('resolves moderation and visibility as one atomic lifecycle revision', () => {
+    const reviewing: IncidentLifecycleSnapshot = {
+      visibilityState: 'PUBLIC',
+      communityState: 'SUPPORTED',
+      moderationState: 'IN_REVIEW',
+      lifecycleRevision: 7,
+    };
+    const resolved = planIncidentLifecycleTransition(reviewing, {
+      type: 'RESOLVE_REVIEW_WITH_VISIBILITY',
+      visibilityState: 'HIDDEN',
+    });
+
+    expect(resolved).toMatchObject({
+      changed: true,
+      next: {
+        visibilityState: 'HIDDEN',
+        communityState: 'SUPPORTED',
+        moderationState: 'RESOLVED',
+        lifecycleRevision: 8,
+      },
+      legacyStatus: 'REJECTED',
+    });
+    expect(reviewing).toMatchObject({
+      visibilityState: 'PUBLIC',
+      moderationState: 'IN_REVIEW',
+      lifecycleRevision: 7,
+    });
+  });
+
   it('rejects invalid moderation workflow jumps', () => {
     for (const action of [
       { type: 'START_REVIEW' },
       { type: 'REQUEST_REPORTER_INFORMATION' },
       { type: 'RESOLVE_REVIEW' },
+      { type: 'RESOLVE_REVIEW_WITH_VISIBILITY', visibilityState: 'HIDDEN' },
       { type: 'REOPEN_REVIEW' },
     ] as const) {
       expect(() => planIncidentLifecycleTransition(initialLifecycle, action)).toThrow(

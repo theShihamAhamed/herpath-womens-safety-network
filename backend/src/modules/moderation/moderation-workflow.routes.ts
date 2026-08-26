@@ -8,6 +8,7 @@ import { ModerationWorkflowController } from './moderation-workflow.controller.j
 import type { ModerationWorkflowService } from './moderation-workflow.service.js';
 import {
   claimModerationCaseBodySchema,
+  decideModerationCaseBodySchema,
   moderationCaseParamsSchema,
   moderationCaseQueueQuerySchema,
   releaseModerationCaseBodySchema,
@@ -41,6 +42,11 @@ export function createModerationWorkflowRouter(
     '/cases/:caseId/reopen',
     validate({ params: moderationCaseParamsSchema, body: reopenModerationCaseBodySchema }),
     controller.reopen,
+  );
+  router.post(
+    '/cases/:caseId/decision',
+    validate({ params: moderationCaseParamsSchema, body: decideModerationCaseBodySchema }),
+    controller.decide,
   );
 
   return router;

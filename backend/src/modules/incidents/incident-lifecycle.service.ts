@@ -40,6 +40,10 @@ function moderationStateAfterAction(
     case 'SET_VISIBILITY':
     case 'SET_COMMUNITY_STATE':
       return current;
+    case 'RESOLVE_REVIEW_WITH_VISIBILITY':
+      if (current === 'RESOLVED') return current;
+      if (current === 'IN_REVIEW' || current === 'AWAITING_REPORTER') return 'RESOLVED';
+      return invalidModerationTransition(action.type, current);
     case 'QUEUE':
       if (current === 'QUEUED') return current;
       if (current === 'NOT_QUEUED') return 'QUEUED';
@@ -82,7 +86,9 @@ export function planIncidentLifecycleTransition(
   const previous = { ...current };
   const nextState: IncidentLifecycleState = {
     visibilityState:
-      action.type === 'SET_VISIBILITY' ? action.visibilityState : current.visibilityState,
+      action.type === 'SET_VISIBILITY' || action.type === 'RESOLVE_REVIEW_WITH_VISIBILITY'
+        ? action.visibilityState
+        : current.visibilityState,
     communityState:
       action.type === 'SET_COMMUNITY_STATE' ? action.communityState : current.communityState,
     moderationState: moderationStateAfterAction(current.moderationState, action),

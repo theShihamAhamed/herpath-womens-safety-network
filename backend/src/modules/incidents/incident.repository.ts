@@ -118,6 +118,15 @@ export class IncidentRepository {
       .exec();
   }
 
+  public async moderationDecisionRelatedIncidentExists(
+    incidentId: string,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    const result = await IncidentModel.exists({ _id: new Types.ObjectId(incidentId) })
+      .session(session ?? null);
+    return result !== null;
+  }
+
   public async findModerationCaseIncidents(
     incidentIds: string[],
     session?: ClientSession,
@@ -158,6 +167,23 @@ export class IncidentRepository {
     },
     session?: ClientSession,
   ): Promise<IncidentDocument> {
+    incident.moderationState = input.moderationState;
+    incident.status = input.status;
+    incident.lifecycleRevision = input.lifecycleRevision;
+    return incident.save(session === undefined ? {} : { session });
+  }
+
+  public async saveModerationDecision(
+    incident: IncidentDocument,
+    input: {
+      visibilityState: IncidentDocument['visibilityState'];
+      moderationState: IncidentDocument['moderationState'];
+      status: IncidentDocument['status'];
+      lifecycleRevision: number;
+    },
+    session?: ClientSession,
+  ): Promise<IncidentDocument> {
+    incident.visibilityState = input.visibilityState;
     incident.moderationState = input.moderationState;
     incident.status = input.status;
     incident.lifecycleRevision = input.lifecycleRevision;

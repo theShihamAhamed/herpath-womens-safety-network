@@ -23,9 +23,12 @@ import type {
   ModerationAuditAction,
   ModerationCaseQueueCursor,
   ModerationCaseRevisionUpdate,
+  ModerationDecisionAction,
+  ModerationResolution,
 } from './moderation.types.js';
 import type {
   ClaimModerationCaseInput,
+  DecideModerationCaseInput,
   ModerationCaseQueueQuery,
   ReleaseModerationCaseInput,
   ReopenModerationCaseInput,
@@ -93,6 +96,9 @@ export interface ModerationCaseDetail {
   latestActivityAt: string;
   createdAt: string;
   updatedAt: string;
+  resolution: ModerationResolution | null;
+  resolutionReason: string | null;
+  relatedIncidentId: string | null;
   incident: ModerationIncidentSummary;
   communityEvidence: CommunityEvidenceRead;
   flags: ModerationFlagSummary;
@@ -105,6 +111,15 @@ interface WorkflowInput {
   expectedCaseRevision: number;
   expectedLifecycleRevision: number;
   reason: string;
+}
+
+interface DecisionIntent {
+  action: ModerationDecisionAction;
+  clientActionId: string;
+  expectedCaseRevision: number;
+  expectedLifecycleRevision: number;
+  reason: string;
+  relatedIncidentId?: string | undefined;
 }
 
 function caseNotFound(): AppError {
@@ -217,6 +232,57 @@ function actionAuditType(action: WorkflowAction): ModerationAuditAction {
   if (action === 'CLAIM') return 'CASE_CLAIMED';
   if (action === 'RELEASE') return 'CASE_RELEASED';
   return 'CASE_REOPENED';
+}
+
+function decisionAuditType(action: ModerationDecisionAction): ModerationAuditAction {
+  switch (action) {
+    case 'NO_ACTION':
+      return 'DECISION_NO_ACTION';
+    case 'HIDE':
+      return 'DECISION_HIDE';
+    case 'RESTORE':
+      return 'DECISION_RESTORE';
+    case 'ARCHIVE':
+      return 'DECISION_ARCHIVE';
+    case 'ARCHIVE_DUPLICATE':
+      return 'DECISION_ARCHIVE_DUPLICATE';
+  }
+}
+
+function targetVisibility(
+  action: ModerationDecisionAction,
+  current: IncidentDocument['visibilityState'],
+): IncidentDocument['visibilityState'] {
+  if (action === 'NO_ACTION') return current;
+  if (action === 'HIDE') {
+    if (current !== 'PUBLIC') throw stateConflict('Only a public incident can be hidden.');
+    return 'HIDDEN';
+  }
+  if (action === 'RESTORE') {
+    if (current !== 'HIDDEN' && current !== 'ARCHIVED') {
+      throw stateConflict('Only a hidden or archived incident can be restored.');
+    }
+    return 'PUBLIC';
+  }
+  if (current !== 'PUBLIC' && current !== 'HIDDEN') {
+    throw stateConflict('Only a public or hidden incident can be archived.');
+  }
+  return 'ARCHIVED';
+}
+
+function decisionResolution(action: ModerationDecisionAction): ModerationResolution {
+  switch (action) {
+    case 'NO_ACTION':
+      return 'NO_ACTION';
+    case 'HIDE':
+      return 'HIDDEN';
+    case 'RESTORE':
+      return 'RESTORED';
+    case 'ARCHIVE':
+      return 'ARCHIVED';
+    case 'ARCHIVE_DUPLICATE':
+      return 'ARCHIVED_DUPLICATE';
+  }
 }
 
 function encodeCursor(moderationCase: ModerationCaseDocument): string {
@@ -341,6 +407,137 @@ export class ModerationWorkflowService {
     return this.performWorkflowAction(moderatorId, caseId, 'REOPEN', input);
   }
 
+  public async decide(
+    moderatorId: string,
+    caseId: string,
+    input: DecideModerationCaseInput,
+  ): Promise<ModerationCaseDetail> {
+    const initialReplay = await this.moderation.findAuditByIdempotencyKey(
+      moderatorId,
+      input.clientActionId,
+    );
+    if (initialReplay) {
+      this.assertMatchingDecisionReplay(initialReplay, caseId, input);
+      return this.detail(moderatorId, caseId);
+    }
+
+    try {
+      return await mongoose.connection.transaction(async (session) => {
+        const replay = await this.moderation.findAuditByIdempotencyKey(
+          moderatorId,
+          input.clientActionId,
+          session,
+        );
+        if (replay) {
+          this.assertMatchingDecisionReplay(replay, caseId, input);
+          return this.detailInSession(moderatorId, caseId, session);
+        }
+
+        const moderationCase = await this.moderation.findCaseById(caseId, session);
+        if (!moderationCase) throw caseNotFound();
+        const incident = await this.incidents.findModerationWorkflowIncident(
+          moderationCase.incidentId.toString(),
+          session,
+        );
+        if (!incident) throw caseNotFound();
+        this.assertExpectedRevisions(moderationCase, incident, input);
+        if (moderationCase.assignedModeratorId?.toString() !== moderatorId) {
+          throw new AppError({
+            statusCode: 403,
+            code: 'MODERATION_CASE_ASSIGNMENT_REQUIRED',
+            message: 'Only the assigned moderator can decide this case.',
+          });
+        }
+        if (moderationCase.state !== 'IN_REVIEW' || incident.moderationState !== 'IN_REVIEW') {
+          throw stateConflict('Only a case in active review can receive a decision.');
+        }
+        if (incident.reporterId.toString() === moderatorId) {
+          throw new AppError({
+            statusCode: 403,
+            code: 'SELF_MODERATION_NOT_ALLOWED',
+            message: 'Moderators cannot decide cases for their own incident reports.',
+          });
+        }
+        await this.validateRelatedIncident(incident, input, session);
+
+        const previousLifecycle = lifecycleSnapshot(incident);
+        const evaluatedAt = this.now();
+        const visibilityState = targetVisibility(input.action, incident.visibilityState);
+        const transition = planIncidentLifecycleTransition(
+          {
+            visibilityState: incident.visibilityState,
+            communityState: incident.communityState,
+            moderationState: incident.moderationState,
+            lifecycleRevision: incident.lifecycleRevision,
+          },
+          { type: 'RESOLVE_REVIEW_WITH_VISIBILITY', visibilityState },
+        );
+        const updatedCase = await this.moderation.updateCaseWithRevision(
+          caseId,
+          moderationCase.caseRevision,
+          caseUpdate(moderationCase, {
+            state: 'RESOLVED',
+            resolution: decisionResolution(input.action),
+            resolutionReason: input.reason,
+            relatedIncidentId: input.relatedIncidentId ?? null,
+            resolvedAt: evaluatedAt,
+            latestActivityAt: evaluatedAt,
+          }),
+          session,
+        );
+        if (!updatedCase) throw revisionConflict();
+        const updatedIncident = await this.incidents.saveModerationDecision(
+          incident,
+          {
+            visibilityState: transition.next.visibilityState,
+            moderationState: transition.next.moderationState,
+            status: transition.legacyStatus,
+            lifecycleRevision: transition.next.lifecycleRevision,
+          },
+          session,
+        );
+        await this.moderation.createAuditLog(
+          {
+            caseId,
+            incidentId: incident._id.toString(),
+            actorType: 'MODERATOR',
+            moderatorId,
+            clientActionId: input.clientActionId,
+            action: decisionAuditType(input.action),
+            reason: input.reason,
+            previousCaseState: {
+              state: moderationCase.state,
+              priority: moderationCase.priority,
+              caseRevision: moderationCase.caseRevision,
+            },
+            newCaseState: {
+              state: updatedCase.state,
+              priority: updatedCase.priority,
+              caseRevision: updatedCase.caseRevision,
+            },
+            previousIncidentLifecycle: previousLifecycle,
+            newIncidentLifecycle: lifecycleSnapshot(updatedIncident),
+            ...(input.relatedIncidentId === undefined
+              ? {}
+              : { relatedIncidentId: input.relatedIncidentId }),
+          },
+          session,
+        );
+        return this.detailProjection(moderatorId, updatedCase, updatedIncident, session);
+      });
+    } catch (error) {
+      const committedReplay = await this.moderation.findAuditByIdempotencyKey(
+        moderatorId,
+        input.clientActionId,
+      );
+      if (committedReplay) {
+        this.assertMatchingDecisionReplay(committedReplay, caseId, input);
+        return this.detail(moderatorId, caseId);
+      }
+      throw error;
+    }
+  }
+
   private async performWorkflowAction(
     moderatorId: string,
     caseId: string,
@@ -444,6 +641,43 @@ export class ModerationWorkflowService {
       audit.previousCaseState?.caseRevision === input.expectedCaseRevision &&
       audit.previousIncidentLifecycle.lifecycleRevision === input.expectedLifecycleRevision;
     if (!matches) throw idempotencyConflict();
+  }
+
+  private assertMatchingDecisionReplay(
+    audit: ModerationAuditLogDocument,
+    caseId: string,
+    input: DecisionIntent,
+  ): void {
+    const matches =
+      audit.caseId.toString() === caseId &&
+      audit.action === decisionAuditType(input.action) &&
+      audit.reason === input.reason &&
+      audit.previousCaseState?.caseRevision === input.expectedCaseRevision &&
+      audit.previousIncidentLifecycle.lifecycleRevision === input.expectedLifecycleRevision &&
+      (audit.relatedIncidentId?.toString() ?? null) === (input.relatedIncidentId ?? null);
+    if (!matches) throw idempotencyConflict();
+  }
+
+  private async validateRelatedIncident(
+    incident: IncidentDocument,
+    input: DecisionIntent,
+    session: ClientSession,
+  ): Promise<void> {
+    if (input.action !== 'ARCHIVE_DUPLICATE') return;
+    if (
+      input.relatedIncidentId === undefined ||
+      input.relatedIncidentId === incident._id.toString() ||
+      !(await this.incidents.moderationDecisionRelatedIncidentExists(
+        input.relatedIncidentId,
+        session,
+      ))
+    ) {
+      throw new AppError({
+        statusCode: 400,
+        code: 'INVALID_RELATED_INCIDENT',
+        message: 'The related incident must identify a different existing incident.',
+      });
+    }
   }
 
   private assertExpectedRevisions(
@@ -611,6 +845,9 @@ export class ModerationWorkflowService {
       latestActivityAt: moderationCase.latestActivityAt.toISOString(),
       createdAt: moderationCase.createdAt.toISOString(),
       updatedAt: moderationCase.updatedAt.toISOString(),
+      resolution: moderationCase.resolution,
+      resolutionReason: moderationCase.resolutionReason,
+      relatedIncidentId: moderationCase.relatedIncidentId?.toString() ?? null,
       incident: {
         id: incident._id.toString(),
         category: incident.category,
