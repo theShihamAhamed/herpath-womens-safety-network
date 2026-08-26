@@ -36,7 +36,7 @@ Routing exposes public components, hooks, and types from its feature boundary. M
 
 ## Incident/Moderation — Shiham
 
-Incident owns report capture, authenticated ownership, exact-private storage, approximate-only area selection, H3 conversion, persistence, idempotency, owner history, and the explicit public projection. Map consumes only the Incident-owned public reader and generic `publicLocation`/`publicArea` GeoJSON contract; it does not import the Incident model or repository. Map owns approximate-area rendering, refresh behavior, clustering, heatmaps, and callout presentation. Moderation remains later work.
+Incident owns report capture, authenticated ownership, exact-private storage, approximate-only area selection, H3 conversion, persistence, idempotency, owner history, and the explicit public projection. Map consumes only the Incident-owned public reader and generic `publicLocation`/`publicArea` GeoJSON contract; it does not import the Incident model or repository. Map owns approximate-area rendering, refresh behavior, clustering, heatmaps, and callout presentation. Backend moderation governance is implemented, including abuse flagging, moderation cases, moderator workflow APIs, and audited moderation decisions. The moderator frontend dashboard and related frontend tooling remain future work.
 
 ## Journey — Eshan
 
