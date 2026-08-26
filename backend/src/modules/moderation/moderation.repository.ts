@@ -1,4 +1,4 @@
-import { Types, type ClientSession } from 'mongoose';
+import { Types, type ClientSession, type QueryFilter } from 'mongoose';
 
 import {
   IncidentFlagModel,
@@ -17,6 +17,8 @@ import {
   type CreateIncidentFlagPersistenceInput,
   type CreateModerationAuditPersistenceInput,
   type CreateModerationCasePersistenceInput,
+  type ModerationCaseQueueCursor,
+  type ModerationCaseQueueFilters,
   type ModerationCaseRevisionUpdate,
 } from './moderation.types.js';
 
@@ -121,6 +123,46 @@ export class ModerationRepository {
   ): Promise<ModerationCaseDocument | null> {
     return ModerationCaseModel.findOne({ incidentId: objectId(incidentId) })
       .select('+assignedModeratorId +resolutionReason')
+      .session(session ?? null)
+      .exec();
+  }
+
+  public async findCasePage(
+    filters: ModerationCaseQueueFilters,
+    limit: number,
+    cursor?: ModerationCaseQueueCursor,
+    session?: ClientSession,
+  ): Promise<ModerationCaseDocument[]> {
+    const filter: QueryFilter<ModerationCaseDocument> = {
+      ...(filters.state === undefined ? {} : { state: filters.state }),
+      ...(filters.priority === undefined ? {} : { priority: filters.priority }),
+      ...(filters.assignment === 'UNASSIGNED'
+        ? { assignedModeratorId: null }
+        : filters.assignment === 'MINE'
+          ? { assignedModeratorId: objectId(filters.moderatorId) }
+          : {}),
+      ...(cursor === undefined
+        ? {}
+        : {
+            $or: [
+              { priorityRank: { $lt: cursor.priorityRank } },
+              {
+                priorityRank: cursor.priorityRank,
+                latestActivityAt: { $lt: cursor.latestActivityAt },
+              },
+              {
+                priorityRank: cursor.priorityRank,
+                latestActivityAt: cursor.latestActivityAt,
+                _id: { $lt: objectId(cursor.id) },
+              },
+            ],
+          }),
+    };
+
+    return ModerationCaseModel.find(filter)
+      .select('+assignedModeratorId')
+      .sort({ priorityRank: -1, latestActivityAt: -1, _id: -1 })
+      .limit(limit)
       .session(session ?? null)
       .exec();
   }

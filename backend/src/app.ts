@@ -24,6 +24,8 @@ import { createCommunityVerificationService } from './modules/community-verifica
 import { createMapRouter } from './modules/map/map.routes.js';
 import { createModerationRouter } from './modules/moderation/moderation.routes.js';
 import { createModerationService } from './modules/moderation/moderation.service.js';
+import { createModerationWorkflowRouter } from './modules/moderation/moderation-workflow.routes.js';
+import { createModerationWorkflowService } from './modules/moderation/moderation-workflow.service.js';
 import { createRoutesRouter } from './modules/routes/routes.routes.js';
 
 
@@ -155,6 +157,10 @@ export function createApp(dependencies: AppDependencies): Express {
   app.use(
     `${API_PREFIX}/incidents`,
     createModerationRouter(authService, moderationService),
+  );
+  app.use(
+    `${API_PREFIX}/moderation`,
+    createModerationWorkflowRouter(authService, createModerationWorkflowService()),
   );
   app.use(`${API_PREFIX}/routes`, createRoutesRouter());
 

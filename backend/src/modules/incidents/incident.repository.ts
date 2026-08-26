@@ -96,6 +96,42 @@ export class IncidentRepository {
       .exec();
   }
 
+  public async findModerationCaseIncident(
+    incidentId: string,
+    session?: ClientSession,
+  ): Promise<IncidentDocument | null> {
+    return IncidentModel.findById(new Types.ObjectId(incidentId))
+      .select(
+        '_id category severity status occurredAt description supportCount visibilityState communityState moderationState lifecycleRevision createdAt updatedAt',
+      )
+      .session(session ?? null)
+      .exec();
+  }
+
+  public async findModerationWorkflowIncident(
+    incidentId: string,
+    session?: ClientSession,
+  ): Promise<IncidentDocument | null> {
+    return IncidentModel.findById(new Types.ObjectId(incidentId))
+      .select('+reporterId +privateLocation +publicCellId')
+      .session(session ?? null)
+      .exec();
+  }
+
+  public async findModerationCaseIncidents(
+    incidentIds: string[],
+    session?: ClientSession,
+  ): Promise<IncidentDocument[]> {
+    return IncidentModel.find({
+      _id: { $in: incidentIds.map((incidentId) => new Types.ObjectId(incidentId)) },
+    })
+      .select(
+        '_id category severity status occurredAt description supportCount visibilityState communityState moderationState lifecycleRevision createdAt updatedAt',
+      )
+      .session(session ?? null)
+      .exec();
+  }
+
   public async saveCommunityEvidence(
     incident: IncidentDocument,
     input: {

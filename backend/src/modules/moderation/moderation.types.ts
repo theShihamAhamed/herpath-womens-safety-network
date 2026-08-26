@@ -21,6 +21,14 @@ export const MODERATION_CASE_SOURCES = ['USER_FLAG', 'COMMUNITY_CONFLICT'] as co
 
 export const MODERATION_PRIORITIES = ['NORMAL', 'HIGH', 'URGENT'] as const;
 
+export const MODERATION_ASSIGNMENT_FILTERS = ['ANY', 'UNASSIGNED', 'MINE'] as const;
+
+export const MODERATION_ASSIGNMENT_STATES = [
+  'UNASSIGNED',
+  'ASSIGNED_TO_ME',
+  'ASSIGNED_TO_OTHER',
+] as const;
+
 export const MODERATION_RESOLUTIONS = [
   'NO_ACTION',
   'HIDDEN',
@@ -48,6 +56,8 @@ export type IncidentFlagReason = (typeof INCIDENT_FLAG_REASONS)[number];
 export type ModerationCaseState = (typeof MODERATION_CASE_STATES)[number];
 export type ModerationCaseSource = (typeof MODERATION_CASE_SOURCES)[number];
 export type ModerationPriority = (typeof MODERATION_PRIORITIES)[number];
+export type ModerationAssignmentFilter = (typeof MODERATION_ASSIGNMENT_FILTERS)[number];
+export type ModerationAssignmentState = (typeof MODERATION_ASSIGNMENT_STATES)[number];
 export type ModerationResolution = (typeof MODERATION_RESOLUTIONS)[number];
 export type ModerationAuditActorType = (typeof MODERATION_AUDIT_ACTOR_TYPES)[number];
 export type ModerationAuditAction = (typeof MODERATION_AUDIT_ACTIONS)[number];
@@ -59,6 +69,19 @@ export const MODERATION_PRIORITY_RANKS = {
 } as const satisfies Record<ModerationPriority, number>;
 
 export type IncidentFlagReasonCounts = Record<IncidentFlagReason, number>;
+
+export interface ModerationCaseQueueCursor {
+  priorityRank: number;
+  latestActivityAt: Date;
+  id: string;
+}
+
+export interface ModerationCaseQueueFilters {
+  state?: ModerationCaseState;
+  priority?: ModerationPriority;
+  assignment: ModerationAssignmentFilter;
+  moderatorId: string;
+}
 
 export interface ModerationCaseAuditSnapshot {
   state: ModerationCaseState;
