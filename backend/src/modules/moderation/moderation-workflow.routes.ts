@@ -28,6 +28,11 @@ export function createModerationWorkflowRouter(
   );
   router.get('/cases', validate({ query: moderationCaseQueueQuerySchema }), controller.queue);
   router.get('/cases/:caseId', validate({ params: moderationCaseParamsSchema }), controller.detail);
+  router.get(
+    '/cases/:caseId/audits',
+    validate({ params: moderationCaseParamsSchema }),
+    controller.audits,
+  );
   router.post(
     '/cases/:caseId/claim',
     validate({ params: moderationCaseParamsSchema, body: claimModerationCaseBodySchema }),

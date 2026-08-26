@@ -320,10 +320,16 @@ describe('moderation persistence foundation', () => {
     expect(projected).not.toHaveProperty('requestId');
     expect(projected).not.toHaveProperty('privateLocation');
     expect(projected).not.toHaveProperty('reporterId');
+    expect(JSON.stringify(projected)).not.toMatch(
+      /coordinates|actorId|flaggerId|accessToken|refreshToken|session/i,
+    );
 
     const selected = await repository.findAuditByIdempotencyKey(moderatorId, clientActionId);
     expect(selected?.moderatorId?.toString()).toBe(moderatorId);
     expect(selected?.clientActionId).toBe(clientActionId.toLowerCase());
+    const history = await repository.findAuditLogsForCase(caseId);
+    expect(history).toHaveLength(1);
+    expect(history[0]?._id.toString()).toBe(audit._id.toString());
 
     await expect(
       ModerationAuditLogModel.updateOne({ _id: audit._id }, { reason: 'Changed' }),
@@ -331,6 +337,15 @@ describe('moderation persistence foundation', () => {
     await expect(ModerationAuditLogModel.deleteOne({ _id: audit._id })).rejects.toThrow(
       /append-only/i,
     );
+    await expect(
+      ModerationAuditLogModel.replaceOne(
+        { _id: audit._id },
+        {
+          ...audit.toObject(),
+          action: 'CASE_RELEASED',
+        },
+      ),
+    ).rejects.toThrow(/append-only/i);
     audit.reason = 'Changed';
     await expect(audit.save()).rejects.toThrow(/append-only/i);
   });

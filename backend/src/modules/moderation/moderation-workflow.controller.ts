@@ -47,6 +47,16 @@ export class ModerationWorkflowController {
     }
   };
 
+  public audits = async (request: Request, response: Response, next: NextFunction) => {
+    try {
+      sendSuccess(response, {
+        items: await this.workflow.auditHistory(caseId(request)),
+      });
+    } catch (error) {
+      next(error);
+    }
+  };
+
   public claim = async (request: Request, response: Response, next: NextFunction) => {
     try {
       sendSuccess(response, {

@@ -9,7 +9,9 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from 'vites
 import { createApp, type AppRuntimeConfig } from '../../src/app.js';
 import { SessionModel } from '../../src/modules/auth/session.model.js';
 import { IncidentEvidenceSnapshotModel } from '../../src/modules/community-verification/incident-evidence-snapshot.model.js';
+import { IncidentFeedbackModel } from '../../src/modules/community-verification/incident-feedback.model.js';
 import { IncidentModel } from '../../src/modules/incidents/incident.model.js';
+import { IncidentPublicReader } from '../../src/modules/incidents/incident.public-reader.js';
 import { IncidentRepository } from '../../src/modules/incidents/incident.repository.js';
 import { IncidentFlagModel } from '../../src/modules/moderation/incident-flag.model.js';
 import { ModerationAuditLogModel } from '../../src/modules/moderation/moderation-audit.model.js';
@@ -86,6 +88,7 @@ describe('audited incident lifecycle decision API', () => {
       ModerationCaseModel.syncIndexes(),
       ModerationAuditLogModel.syncIndexes(),
       IncidentEvidenceSnapshotModel.syncIndexes(),
+      IncidentFeedbackModel.syncIndexes(),
     ]);
   }, 120_000);
 
@@ -99,6 +102,7 @@ describe('audited incident lifecycle decision API', () => {
       ModerationCaseModel.collection.deleteMany({}),
       ModerationAuditLogModel.collection.deleteMany({}),
       IncidentEvidenceSnapshotModel.deleteMany({}),
+      IncidentFeedbackModel.deleteMany({}),
     ]);
     app = createApp({ config, logger: silentLogger });
   });
@@ -410,6 +414,103 @@ describe('audited incident lifecycle decision API', () => {
         .expect(409);
       expect(conflict.body.error.code).toBe('IDEMPOTENCY_CONFLICT');
     }
+  });
+
+  it('allows only one concurrent decision to commit', async () => {
+    const moderator = await createModerator();
+    const reporter = await createUser();
+    const seeded = await seedReview(reporter.id, moderator.id);
+    const sharedRevision = {
+      expectedCaseRevision: 0,
+      expectedLifecycleRevision: 2,
+      action: 'HIDE',
+      reason: 'Concurrent privacy review decision',
+    };
+
+    const responses = await Promise.all([
+      request(app)
+        .post(endpoint(seeded.caseId))
+        .set(authorization(moderator))
+        .send({ ...sharedRevision, clientActionId: randomUUID() }),
+      request(app)
+        .post(endpoint(seeded.caseId))
+        .set(authorization(moderator))
+        .send({ ...sharedRevision, clientActionId: randomUUID() }),
+    ]);
+    const successful = responses.filter((response) => response.status === 200);
+    const conflicted = responses.filter((response) => response.status === 409);
+
+    expect(successful).toHaveLength(1);
+    expect(conflicted).toHaveLength(1);
+    expect(['MODERATION_REVISION_CONFLICT', 'MODERATION_CASE_STATE_CONFLICT']).toContain(
+      conflicted[0]?.body.error.code,
+    );
+    expect(await ModerationCaseModel.findById(seeded.caseId).lean()).toMatchObject({
+      state: 'RESOLVED',
+      resolution: 'HIDDEN',
+      caseRevision: 1,
+    });
+    expect(await IncidentModel.findById(seeded.incidentId).lean()).toMatchObject({
+      visibilityState: 'HIDDEN',
+      moderationState: 'RESOLVED',
+      lifecycleRevision: 3,
+    });
+    expect(await ModerationAuditLogModel.countDocuments()).toBe(1);
+  });
+
+  it('preserves community evidence while public readers enforce moderation visibility', async () => {
+    const moderator = await createModerator();
+    const reporter = await createUser();
+    const hidden = await seedReview(reporter.id, moderator.id);
+    const archived = await seedReview(reporter.id, moderator.id);
+    const restored = await seedReview(reporter.id, moderator.id, 'HIDDEN');
+    const feedback = await IncidentFeedbackModel.create({
+      incidentId: new Types.ObjectId(hidden.incidentId),
+      actorId: new Types.ObjectId(),
+      clientFeedbackId: randomUUID(),
+      response: 'SUPPORT',
+    });
+    const feedbackBefore = await IncidentFeedbackModel.findById(feedback._id)
+      .select('+actorId +clientFeedbackId')
+      .lean();
+
+    await request(app)
+      .post(endpoint(hidden.caseId))
+      .set(authorization(moderator))
+      .send(decisionBody('HIDE'))
+      .expect(200);
+    await request(app)
+      .post(endpoint(archived.caseId))
+      .set(authorization(moderator))
+      .send(decisionBody('ARCHIVE'))
+      .expect(200);
+    await request(app)
+      .post(endpoint(restored.caseId))
+      .set(authorization(moderator))
+      .send(decisionBody('RESTORE'))
+      .expect(200);
+
+    const publicIncidents = await new IncidentPublicReader().findInViewport({
+      south: 6,
+      west: 79,
+      north: 7.5,
+      east: 81,
+    });
+    const publicIds = publicIncidents.map((incident) => incident.id);
+    expect(publicIds).not.toContain(hidden.incidentId);
+    expect(publicIds).not.toContain(archived.incidentId);
+    expect(publicIds).toContain(restored.incidentId);
+
+    for (const seeded of [hidden, archived, restored]) {
+      expect(await IncidentModel.findById(seeded.incidentId).lean()).toMatchObject({
+        communityState: 'SUPPORTED',
+        supportCount: 3,
+      });
+    }
+    const feedbackAfter = await IncidentFeedbackModel.findById(feedback._id)
+      .select('+actorId +clientFeedbackId')
+      .lean();
+    expect(feedbackAfter).toEqual(feedbackBefore);
   });
 
   it('strictly validates decision actions, reasons, and duplicate relationships', async () => {

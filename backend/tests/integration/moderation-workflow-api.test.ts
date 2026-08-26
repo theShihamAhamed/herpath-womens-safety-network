@@ -224,7 +224,7 @@ describe('moderator case queue workflow API', () => {
     };
   }
 
-  it('requires a moderator for queue, detail, and workflow mutations', async () => {
+  it('enforces the user authorization matrix across moderation reads and mutations', async () => {
     const user = await createUser();
     const reporter = await createUser();
     const seeded = await seedCase(reporter.id);
@@ -246,6 +246,17 @@ describe('moderator case queue workflow API', () => {
         expectedCaseRevision: 0,
         expectedLifecycleRevision: 1,
       })
+      .expect(403);
+    for (const action of ['release', 'reopen', 'decision']) {
+      await request(app)
+        .post(`/api/v1/moderation/cases/${seeded.caseId}/${action}`)
+        .set(authorization(user))
+        .send({})
+        .expect(403);
+    }
+    await request(app)
+      .get(`/api/v1/moderation/cases/${seeded.caseId}/audits`)
+      .set(authorization(user))
       .expect(403);
   });
 
@@ -302,7 +313,9 @@ describe('moderator case queue workflow API', () => {
       .expect(200);
     expect(mine.body.data.items).toHaveLength(1);
     expect(mine.body.data.items[0].assignment).toEqual({ state: 'ASSIGNED_TO_ME' });
-    expect(JSON.stringify(mine.body)).not.toMatch(/assignedModeratorId|reporterId|privateLocation/);
+    expect(JSON.stringify(mine.body)).not.toMatch(
+      /assignedModeratorId|reporterId|reporterIdentity|flaggerId|actorId|clientFlagId|privateLocation|coordinates|accessToken|refreshToken|session/i,
+    );
   });
 
   it('returns safe case, incident, evidence, and aggregate flag detail', async () => {
@@ -354,7 +367,41 @@ describe('moderator case queue workflow API', () => {
       ['communityState', 'supportCount', 'activeFeedbackCount', 'evidenceRevision', 'evaluatedAt'].sort(),
     );
     expect(JSON.stringify(detail)).not.toMatch(
-      /reporterId|actorId|clientFlagId|privateLocation|publicLocation|coordinates|evidenceWeight|weightedScores|activeCounts|rawFeedback/,
+      /reporterId|reporterIdentity|flaggerId|actorId|clientFlagId|privateLocation|publicLocation|coordinates|accessToken|refreshToken|session|rawFeedback|feedbackEvents|individualResponses|evidenceWeight|weightedScores|activeCounts|contributingCounts|actorContribution/i,
+    );
+  });
+
+  it('returns moderator-only audit history through a privacy-safe projection', async () => {
+    const moderator = await createModerator();
+    const reporter = await createUser();
+    const seeded = await seedCase(reporter.id);
+
+    await request(app)
+      .post(`/api/v1/moderation/cases/${seeded.caseId}/claim`)
+      .set(authorization(moderator))
+      .send({
+        clientActionId: randomUUID(),
+        expectedCaseRevision: 0,
+        expectedLifecycleRevision: 1,
+      })
+      .expect(200);
+
+    const response = await request(app)
+      .get(`/api/v1/moderation/cases/${seeded.caseId}/audits`)
+      .set(authorization(moderator))
+      .expect(200);
+
+    expect(response.body.data.items).toHaveLength(1);
+    expect(response.body.data.items[0]).toMatchObject({
+      actorType: 'MODERATOR',
+      action: 'CASE_CLAIMED',
+      previousCaseState: { state: 'QUEUED', caseRevision: 0 },
+      newCaseState: { state: 'IN_REVIEW', caseRevision: 1 },
+      previousIncidentLifecycle: { moderationState: 'QUEUED', lifecycleRevision: 1 },
+      newIncidentLifecycle: { moderationState: 'IN_REVIEW', lifecycleRevision: 2 },
+    });
+    expect(JSON.stringify(response.body)).not.toMatch(
+      /moderatorId|clientActionId|requestId|reason|reporterId|reporterIdentity|flaggerId|actorId|privateLocation|publicLocation|coordinates|accessToken|refreshToken|session|rawFeedback|individualResponses|evidenceWeight|weightedScores/i,
     );
   });
 
@@ -406,6 +453,48 @@ describe('moderator case queue workflow API', () => {
       })
       .expect(409);
     expect(unavailable.body.error.code).toBe('MODERATION_CASE_STATE_CONFLICT');
+  });
+
+  it('allows only one moderator to win a concurrent case claim', async () => {
+    const firstModerator = await createModerator();
+    const secondModerator = await createModerator();
+    const reporter = await createUser();
+    const seeded = await seedCase(reporter.id);
+    const body = {
+      expectedCaseRevision: 0,
+      expectedLifecycleRevision: 1,
+    };
+
+    const responses = await Promise.all([
+      request(app)
+        .post(`/api/v1/moderation/cases/${seeded.caseId}/claim`)
+        .set(authorization(firstModerator))
+        .send({ ...body, clientActionId: randomUUID() }),
+      request(app)
+        .post(`/api/v1/moderation/cases/${seeded.caseId}/claim`)
+        .set(authorization(secondModerator))
+        .send({ ...body, clientActionId: randomUUID() }),
+    ]);
+    const successful = responses.filter((response) => response.status === 200);
+    const conflicted = responses.filter((response) => response.status === 409);
+
+    expect(successful).toHaveLength(1);
+    expect(conflicted).toHaveLength(1);
+    expect(['MODERATION_REVISION_CONFLICT', 'MODERATION_CASE_STATE_CONFLICT']).toContain(
+      conflicted[0]?.body.error.code,
+    );
+    const storedCase = await ModerationCaseModel.findById(seeded.caseId)
+      .select('+assignedModeratorId')
+      .exec();
+    expect(storedCase).toMatchObject({ state: 'IN_REVIEW', caseRevision: 1 });
+    expect([firstModerator.id, secondModerator.id]).toContain(
+      storedCase?.assignedModeratorId?.toString(),
+    );
+    expect(await IncidentModel.findById(seeded.incidentId).lean()).toMatchObject({
+      moderationState: 'IN_REVIEW',
+      lifecycleRevision: 2,
+    });
+    expect(await ModerationAuditLogModel.countDocuments({ action: 'CASE_CLAIMED' })).toBe(1);
   });
 
   it('rejects stale case or lifecycle revisions without mutating workflow state', async () => {
@@ -477,6 +566,25 @@ describe('moderator case queue workflow API', () => {
       .exec();
     expect(audit?.moderatorId?.toString()).toBe(moderator.id);
     expect(audit?.reason).toBe('Returning to the queue for reassignment.');
+
+    const replay = await request(app)
+      .post(`/api/v1/moderation/cases/${seeded.caseId}/release`)
+      .set(authorization(moderator))
+      .send(body)
+      .expect(200);
+    expect(replay.body.data.case).toEqual(released.body.data.case);
+    expect(await ModerationAuditLogModel.countDocuments({ action: 'CASE_RELEASED' })).toBe(1);
+    expect(await IncidentModel.findById(seeded.incidentId).lean()).toMatchObject({
+      moderationState: 'QUEUED',
+      lifecycleRevision: 3,
+    });
+
+    const changedIntent = await request(app)
+      .post(`/api/v1/moderation/cases/${seeded.caseId}/release`)
+      .set(authorization(moderator))
+      .send({ ...body, reason: 'Changed release reason.' })
+      .expect(409);
+    expect(changedIntent.body.error.code).toBe('IDEMPOTENCY_CONFLICT');
   });
 
   it('reopens a resolved case without changing hidden incident visibility', async () => {
@@ -489,15 +597,16 @@ describe('moderator case queue workflow API', () => {
       hidden: true,
     });
 
+    const body = {
+      clientActionId: randomUUID(),
+      expectedCaseRevision: 0,
+      expectedLifecycleRevision: 3,
+      reason: 'New context requires another review.',
+    };
     const reopened = await request(app)
       .post(`/api/v1/moderation/cases/${seeded.caseId}/reopen`)
       .set(authorization(moderator))
-      .send({
-        clientActionId: randomUUID(),
-        expectedCaseRevision: 0,
-        expectedLifecycleRevision: 3,
-        reason: 'New context requires another review.',
-      })
+      .send(body)
       .expect(200);
     expect(reopened.body.data.case).toMatchObject({
       state: 'QUEUED',
@@ -522,6 +631,26 @@ describe('moderator case queue workflow API', () => {
       resolvedAt: null,
     });
     expect(await ModerationAuditLogModel.countDocuments({ action: 'CASE_REOPENED' })).toBe(1);
+
+    const replay = await request(app)
+      .post(`/api/v1/moderation/cases/${seeded.caseId}/reopen`)
+      .set(authorization(moderator))
+      .send(body)
+      .expect(200);
+    expect(replay.body.data.case).toEqual(reopened.body.data.case);
+    expect(await ModerationAuditLogModel.countDocuments({ action: 'CASE_REOPENED' })).toBe(1);
+    expect(await IncidentModel.findById(seeded.incidentId).lean()).toMatchObject({
+      visibilityState: 'HIDDEN',
+      moderationState: 'QUEUED',
+      lifecycleRevision: 4,
+    });
+
+    const changedIntent = await request(app)
+      .post(`/api/v1/moderation/cases/${seeded.caseId}/reopen`)
+      .set(authorization(moderator))
+      .send({ ...body, reason: 'Changed reopen reason.' })
+      .expect(409);
+    expect(changedIntent.body.error.code).toBe('IDEMPOTENCY_CONFLICT');
   });
 
   it('strictly validates workflow action bodies', async () => {

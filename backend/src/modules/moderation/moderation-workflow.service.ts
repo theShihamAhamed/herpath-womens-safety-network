@@ -104,6 +104,17 @@ export interface ModerationCaseDetail {
   flags: ModerationFlagSummary;
 }
 
+export interface ModerationAuditHistoryItem {
+  id: string;
+  actorType: ModerationAuditLogDocument['actorType'];
+  action: ModerationAuditLogDocument['action'];
+  previousCaseState: ModerationAuditLogDocument['previousCaseState'];
+  newCaseState: ModerationAuditLogDocument['newCaseState'];
+  previousIncidentLifecycle: ModerationAuditLogDocument['previousIncidentLifecycle'];
+  newIncidentLifecycle: ModerationAuditLogDocument['newIncidentLifecycle'];
+  createdAt: string;
+}
+
 type WorkflowAction = 'CLAIM' | 'RELEASE' | 'REOPEN';
 
 interface WorkflowInput {
@@ -378,6 +389,46 @@ export class ModerationWorkflowService {
     );
     if (!incident) throw caseNotFound();
     return this.detailProjection(moderatorId, moderationCase, incident);
+  }
+
+  public async auditHistory(caseId: string): Promise<ModerationAuditHistoryItem[]> {
+    const moderationCase = await this.moderation.findCaseById(caseId);
+    if (!moderationCase) throw caseNotFound();
+    const audits = await this.moderation.findAuditLogsForCase(caseId);
+
+    return audits.map((audit) => ({
+      id: audit._id.toString(),
+      actorType: audit.actorType,
+      action: audit.action,
+      previousCaseState:
+        audit.previousCaseState === null
+          ? null
+          : {
+              state: audit.previousCaseState.state,
+              priority: audit.previousCaseState.priority,
+              caseRevision: audit.previousCaseState.caseRevision,
+            },
+      newCaseState: {
+        state: audit.newCaseState.state,
+        priority: audit.newCaseState.priority,
+        caseRevision: audit.newCaseState.caseRevision,
+      },
+      previousIncidentLifecycle: {
+        visibilityState: audit.previousIncidentLifecycle.visibilityState,
+        communityState: audit.previousIncidentLifecycle.communityState,
+        moderationState: audit.previousIncidentLifecycle.moderationState,
+        lifecycleRevision: audit.previousIncidentLifecycle.lifecycleRevision,
+        status: audit.previousIncidentLifecycle.status,
+      },
+      newIncidentLifecycle: {
+        visibilityState: audit.newIncidentLifecycle.visibilityState,
+        communityState: audit.newIncidentLifecycle.communityState,
+        moderationState: audit.newIncidentLifecycle.moderationState,
+        lifecycleRevision: audit.newIncidentLifecycle.lifecycleRevision,
+        status: audit.newIncidentLifecycle.status,
+      },
+      createdAt: audit.createdAt.toISOString(),
+    }));
   }
 
   public async claim(
