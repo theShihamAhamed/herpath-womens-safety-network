@@ -86,6 +86,16 @@ export class IncidentRepository {
       .exec();
   }
 
+  public async findModerationFlagTarget(
+    incidentId: string,
+    session?: ClientSession,
+  ): Promise<IncidentDocument | null> {
+    return IncidentModel.findById(new Types.ObjectId(incidentId))
+      .select('+reporterId +privateLocation +publicCellId')
+      .session(session ?? null)
+      .exec();
+  }
+
   public async saveCommunityEvidence(
     incident: IncidentDocument,
     input: {
@@ -99,6 +109,21 @@ export class IncidentRepository {
     incident.communityState = input.communityState;
     incident.status = input.status;
     incident.supportCount = input.supportCount;
+    incident.lifecycleRevision = input.lifecycleRevision;
+    return incident.save(session === undefined ? {} : { session });
+  }
+
+  public async saveModerationQueueState(
+    incident: IncidentDocument,
+    input: {
+      moderationState: IncidentDocument['moderationState'];
+      status: IncidentDocument['status'];
+      lifecycleRevision: number;
+    },
+    session?: ClientSession,
+  ): Promise<IncidentDocument> {
+    incident.moderationState = input.moderationState;
+    incident.status = input.status;
     incident.lifecycleRevision = input.lifecycleRevision;
     return incident.save(session === undefined ? {} : { session });
   }

@@ -22,6 +22,8 @@ import { createIncidentService } from './modules/incidents/incident.service.js';
 import { createCommunityVerificationRouter } from './modules/community-verification/community-verification.routes.js';
 import { createCommunityVerificationService } from './modules/community-verification/community-verification.service.js';
 import { createMapRouter } from './modules/map/map.routes.js';
+import { createModerationRouter } from './modules/moderation/moderation.routes.js';
+import { createModerationService } from './modules/moderation/moderation.service.js';
 import { createRoutesRouter } from './modules/routes/routes.routes.js';
 
 
@@ -38,6 +40,8 @@ export interface AppRuntimeConfig {
   reportRateLimitMax: number;
   feedbackRateLimitWindowMs?: number;
   feedbackRateLimitMax?: number;
+  flagRateLimitWindowMs?: number;
+  flagRateLimitMax?: number;
   trustProxy: boolean;
   accessTokenSecret: string;
   accessTokenTtl: string;
@@ -143,6 +147,14 @@ export function createApp(dependencies: AppDependencies): Express {
   app.use(
     `${API_PREFIX}/incidents`,
     createCommunityVerificationRouter(authService, communityVerificationService),
+  );
+  const moderationService = createModerationService({
+    windowMs: dependencies.config.flagRateLimitWindowMs ?? 900_000,
+    max: dependencies.config.flagRateLimitMax ?? 5,
+  });
+  app.use(
+    `${API_PREFIX}/incidents`,
+    createModerationRouter(authService, moderationService),
   );
   app.use(`${API_PREFIX}/routes`, createRoutesRouter());
 
