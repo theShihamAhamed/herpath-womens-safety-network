@@ -19,6 +19,12 @@ import { normalizeIncidentLocation } from './location-privacy.service.js';
 const PUBLIC_READ_PROJECTION =
   '_id category severity status occurredAt createdAt supportCount publicLocation +publicCellId visibilityState communityState moderationState lifecycleRevision';
 
+export interface ModerationConflictIntakeCandidate {
+  incidentId: string;
+  communityState: 'CONFLICTED';
+  moderationState: 'NOT_QUEUED';
+}
+
 function publicIncidentFilter(
   filters: PublicIncidentReadFilters,
 ): QueryFilter<IncidentDocumentFields> {
@@ -116,6 +122,26 @@ export class IncidentRepository {
       .select('+reporterId +privateLocation +publicCellId')
       .session(session ?? null)
       .exec();
+  }
+
+  public async findModerationConflictIntakeCandidates(
+    limit: number,
+  ): Promise<ModerationConflictIntakeCandidate[]> {
+    const incidents = await IncidentModel.find({
+      communityState: 'CONFLICTED',
+      moderationState: 'NOT_QUEUED',
+    })
+      .select('_id communityState moderationState')
+      .sort({ _id: 1 })
+      .limit(limit)
+      .lean()
+      .exec();
+
+    return incidents.map((incident) => ({
+      incidentId: incident._id.toString(),
+      communityState: 'CONFLICTED',
+      moderationState: 'NOT_QUEUED',
+    }));
   }
 
   public async moderationDecisionRelatedIncidentExists(
