@@ -68,6 +68,12 @@ export function useModerationCase(
         setModerationCase(nextCase);
       } catch (caught) {
         if (requestGeneration.current !== generation) return;
+        if (
+          caught instanceof ApiError &&
+          (caught.status === 401 || caught.status === 403 || caught.status === 404)
+        ) {
+          setModerationCase(null);
+        }
         setError(caseErrorMessage(caught));
       } finally {
         if (requestGeneration.current === generation) {

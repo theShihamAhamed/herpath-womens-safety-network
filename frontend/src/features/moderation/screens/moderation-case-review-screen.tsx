@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useState } from 'react';
 import { Alert, ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import { PrimaryButton } from '@/src/components/primary-button';
@@ -6,6 +7,12 @@ import { Screen } from '@/src/components/screen';
 import { useAuth } from '@/src/features/auth/auth-provider';
 import { palette, radius, spacing } from '@/src/theme';
 
+import { ModerationReasonDialog } from '../components/moderation-reason-dialog';
+import {
+  useModerationAction,
+  type ModerationActionState,
+  type ModerationWorkflowAction,
+} from '../hooks/use-moderation-action';
 import { useModerationCase } from '../hooks/use-moderation-case';
 import {
   INCIDENT_COMMUNITY_STATE_LABELS,
@@ -29,9 +36,12 @@ interface ModerationCaseReviewScreenProps {
 }
 
 interface PreparedAction {
+  action: ModerationWorkflowAction | 'DECISION';
   label: string;
   variant?: 'primary' | 'secondary';
 }
+
+type ReasonAction = 'RELEASE' | 'REOPEN';
 
 function readableEnum(value: string): string {
   return value
@@ -49,19 +59,19 @@ function formatDate(value: string | null): string {
 
 function preparedActions(moderationCase: ModerationCaseDetail): PreparedAction[] {
   if (moderationCase.state === 'QUEUED' && moderationCase.assignment.state === 'UNASSIGNED') {
-    return [{ label: 'Claim case' }];
+    return [{ action: 'CLAIM', label: 'Claim case' }];
   }
   if (
     moderationCase.state === 'IN_REVIEW' &&
     moderationCase.assignment.state === 'ASSIGNED_TO_ME'
   ) {
     return [
-      { label: 'Record decision' },
-      { label: 'Release case', variant: 'secondary' },
+      { action: 'DECISION', label: 'Record decision' },
+      { action: 'RELEASE', label: 'Release case', variant: 'secondary' },
     ];
   }
   if (moderationCase.state === 'RESOLVED') {
-    return [{ label: 'Reopen case' }];
+    return [{ action: 'REOPEN', label: 'Reopen case' }];
   }
   return [];
 }
@@ -69,6 +79,11 @@ function preparedActions(moderationCase: ModerationCaseDetail): PreparedAction[]
 export function ModerationCaseReviewScreen({ caseId }: ModerationCaseReviewScreenProps) {
   const { accessToken, retry: retrySession, status } = useAuth();
   const caseState = useModerationCase(accessToken, caseId);
+  const actionState = useModerationAction(accessToken, {
+    refreshCase: caseState.reload,
+    recoverSession: retrySession,
+  });
+  const [reasonAction, setReasonAction] = useState<ReasonAction | null>(null);
 
   if (status === 'loading' || (status === 'ready' && caseState.loading)) {
     return <CaseLoadingState />;
@@ -98,6 +113,25 @@ export function ModerationCaseReviewScreen({ caseId }: ModerationCaseReviewScree
   }
 
   const moderationCase = caseState.moderationCase;
+
+  function confirmClaim(): void {
+    Alert.alert(
+      'Claim this case?',
+      'The case will be assigned to you and moved into active review.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Claim case',
+          onPress: () => void actionState.submit('CLAIM', moderationCase),
+        },
+      ],
+    );
+  }
+
+  function submitReason(action: ReasonAction, reason: string): void {
+    setReasonAction(null);
+    void actionState.submit(action, moderationCase, reason);
+  }
 
   return (
     <Screen contentStyle={styles.screen}>
@@ -131,8 +165,23 @@ export function ModerationCaseReviewScreen({ caseId }: ModerationCaseReviewScree
         <IncidentSection moderationCase={moderationCase} />
         <CommunityEvidenceSection moderationCase={moderationCase} />
         <FlagSummarySection moderationCase={moderationCase} />
-        <ActionPreparationSection moderationCase={moderationCase} />
+        <ActionPreparationSection
+          actionState={actionState}
+          moderationCase={moderationCase}
+          onCancelRetry={() => {
+            actionState.clearFeedback();
+            void caseState.reload();
+          }}
+          onClaim={confirmClaim}
+          onReasonAction={setReasonAction}
+        />
       </ScrollView>
+
+      <ModerationReasonDialog
+        action={reasonAction}
+        onClose={() => setReasonAction(null)}
+        onSubmit={submitReason}
+      />
     </Screen>
   );
 }
@@ -271,29 +320,86 @@ function FlagSummarySection({ moderationCase }: { moderationCase: ModerationCase
   );
 }
 
-function ActionPreparationSection({ moderationCase }: { moderationCase: ModerationCaseDetail }) {
+function ActionPreparationSection({
+  actionState,
+  moderationCase,
+  onCancelRetry,
+  onClaim,
+  onReasonAction,
+}: {
+  actionState: ModerationActionState;
+  moderationCase: ModerationCaseDetail;
+  onCancelRetry(): void;
+  onClaim(): void;
+  onReasonAction(action: ReasonAction): void;
+}) {
   const actions = preparedActions(moderationCase);
+  const actionsDisabled = actionState.submitting || actionState.retryAvailable;
 
-  function showActionPlaceholder(action: string): void {
+  function selectAction(action: PreparedAction): void {
+    if (action.action === 'CLAIM') {
+      onClaim();
+      return;
+    }
+    if (action.action === 'RELEASE' || action.action === 'REOPEN') {
+      onReasonAction(action.action);
+      return;
+    }
     Alert.alert(
-      `${action} is not available yet`,
-      'This screen is read-only. Moderation workflow actions will be enabled in a later update.',
+      'Decision submission is not available yet',
+      'Moderator decisions will be enabled in a later dashboard phase.',
+    );
+  }
+
+  function showAuditPlaceholder(): void {
+    Alert.alert(
+      'Audit history is not available yet',
+      'The case audit timeline will be enabled in a later dashboard phase.',
     );
   }
 
   return (
     <DetailSection title="Available actions">
       <Text style={styles.guidanceText}>
-        Actions are shown for workflow context. This review screen does not submit changes.
+        Workflow actions use the case revisions currently shown and are protected against concurrent changes.
       </Text>
+      {actionState.successMessage ? (
+        <View accessibilityLiveRegion="polite" style={styles.actionSuccess}>
+          <MaterialIcons name="check-circle" size={20} color={palette.primary} />
+          <Text style={styles.actionSuccessText}>{actionState.successMessage}</Text>
+        </View>
+      ) : null}
+      {actionState.error ? (
+        <View accessibilityLiveRegion="assertive" style={styles.actionError}>
+          <MaterialIcons name="error-outline" size={20} color={palette.error} />
+          <Text style={styles.actionErrorText}>{actionState.error}</Text>
+        </View>
+      ) : null}
+      {actionState.retryAvailable ? (
+        <View style={styles.actions}>
+          <PrimaryButton
+            label="Retry exact action"
+            loading={actionState.submitting}
+            onPress={() => void actionState.retry()}
+          />
+          <PrimaryButton
+            disabled={actionState.submitting}
+            label="Cancel retry and refresh"
+            variant="secondary"
+            onPress={onCancelRetry}
+          />
+        </View>
+      ) : null}
       {actions.length > 0 ? (
         <View style={styles.actions}>
           {actions.map((action) => (
             <PrimaryButton
-              key={action.label}
+              key={action.action}
+              disabled={actionsDisabled}
               label={action.label}
+              loading={actionState.submittingAction === action.action}
               variant={action.variant}
-              onPress={() => showActionPlaceholder(action.label)}
+              onPress={() => selectAction(action)}
             />
           ))}
         </View>
@@ -302,6 +408,12 @@ function ActionPreparationSection({ moderationCase }: { moderationCase: Moderati
           No actions are available for your current assignment and case state.
         </Text>
       )}
+      <PrimaryButton
+        disabled={actionsDisabled}
+        label="View audit history"
+        variant="secondary"
+        onPress={showAuditPlaceholder}
+      />
     </DetailSection>
   );
 }
@@ -400,6 +512,26 @@ const styles = StyleSheet.create({
   reasonLabel: { flex: 1, color: palette.textMuted, fontSize: 14, lineHeight: 20 },
   reasonCount: { color: palette.text, fontSize: 14, fontWeight: '800' },
   mutedText: { color: palette.textMuted, fontSize: 14, lineHeight: 21 },
+  actionSuccess: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: radius.sm,
+    backgroundColor: palette.surfaceMuted,
+  },
+  actionSuccessText: { flex: 1, color: palette.text, fontSize: 14, lineHeight: 20 },
+  actionError: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: palette.error,
+    borderRadius: radius.sm,
+    backgroundColor: palette.surface,
+  },
+  actionErrorText: { flex: 1, color: palette.error, fontSize: 14, lineHeight: 20 },
   actions: { gap: spacing.sm },
   centerState: {
     alignItems: 'center',

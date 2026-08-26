@@ -2,10 +2,12 @@ import { apiRequest } from '@/src/services/api/client';
 import { apiEndpoints } from '@/src/services/api/endpoints';
 
 import type {
+  ClaimModerationCaseInput,
   ModerationAuditHistoryItem,
   ModerationCaseDetail,
   ModerationCaseQueuePage,
   ModerationCaseQueueQuery,
+  ReasonedModerationCaseInput,
 } from './moderation.types';
 
 function queueEndpoint(query: ModerationCaseQueueQuery): string {
@@ -19,6 +21,19 @@ function queueEndpoint(query: ModerationCaseQueueQuery): string {
 
   const queryString = params.toString();
   return queryString ? `${apiEndpoints.moderation.cases}?${queryString}` : apiEndpoints.moderation.cases;
+}
+
+async function workflowMutation(
+  accessToken: string,
+  endpoint: string,
+  input: ClaimModerationCaseInput | ReasonedModerationCaseInput,
+): Promise<ModerationCaseDetail> {
+  const data = await apiRequest<{ case: ModerationCaseDetail }>(endpoint, {
+    method: 'POST',
+    accessToken,
+    body: input,
+  });
+  return data.case;
 }
 
 export const moderationApi = {
@@ -56,5 +71,29 @@ export const moderationApi = {
       { method: 'GET', accessToken, signal },
     );
     return data.items;
+  },
+
+  claim(
+    accessToken: string,
+    caseId: string,
+    input: ClaimModerationCaseInput,
+  ): Promise<ModerationCaseDetail> {
+    return workflowMutation(accessToken, apiEndpoints.moderation.claim(caseId), input);
+  },
+
+  release(
+    accessToken: string,
+    caseId: string,
+    input: ReasonedModerationCaseInput,
+  ): Promise<ModerationCaseDetail> {
+    return workflowMutation(accessToken, apiEndpoints.moderation.release(caseId), input);
+  },
+
+  reopen(
+    accessToken: string,
+    caseId: string,
+    input: ReasonedModerationCaseInput,
+  ): Promise<ModerationCaseDetail> {
+    return workflowMutation(accessToken, apiEndpoints.moderation.reopen(caseId), input);
   },
 };

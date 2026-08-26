@@ -111,6 +111,18 @@ export interface ModerationCaseQueueQuery {
   cursor?: string;
 }
 
+export interface ModerationWorkflowRevisionInput {
+  clientActionId: string;
+  expectedCaseRevision: number;
+  expectedLifecycleRevision: number;
+}
+
+export type ClaimModerationCaseInput = ModerationWorkflowRevisionInput;
+
+export interface ReasonedModerationCaseInput extends ModerationWorkflowRevisionInput {
+  reason: string;
+}
+
 export interface ModerationQueueFilters {
   state: ModerationCaseState;
   assignment: ModerationAssignmentFilter;
