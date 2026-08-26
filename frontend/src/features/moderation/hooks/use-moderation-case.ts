@@ -25,6 +25,7 @@ export interface ModerationCaseState {
   loading: boolean;
   refreshing: boolean;
   error: string | null;
+  errorStatus: number | null;
   reload(): Promise<void>;
   refresh(): Promise<void>;
 }
@@ -37,6 +38,7 @@ export function useModerationCase(
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const requestGeneration = useRef(0);
 
   const load = useCallback(
@@ -44,6 +46,7 @@ export function useModerationCase(
       const generation = requestGeneration.current + 1;
       requestGeneration.current = generation;
       setError(null);
+      setErrorStatus(null);
 
       if (!caseId || !OBJECT_ID.test(caseId)) {
         setModerationCase(null);
@@ -75,6 +78,7 @@ export function useModerationCase(
           setModerationCase(null);
         }
         setError(caseErrorMessage(caught));
+        setErrorStatus(caught instanceof ApiError ? caught.status : 0);
       } finally {
         if (requestGeneration.current === generation) {
           setLoading(false);
@@ -99,6 +103,7 @@ export function useModerationCase(
     loading,
     refreshing,
     error,
+    errorStatus,
     reload: () => load(false),
     refresh: () => load(true),
   };

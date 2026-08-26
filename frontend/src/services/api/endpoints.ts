@@ -45,6 +45,8 @@ export const apiEndpoints = {
       `/moderation/cases/${encodeURIComponent(caseId)}/release`,
     reopen: (caseId: string) =>
       `/moderation/cases/${encodeURIComponent(caseId)}/reopen`,
+    decision: (caseId: string) =>
+      `/moderation/cases/${encodeURIComponent(caseId)}/decision`,
   },
 
   routes: {

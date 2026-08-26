@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { type Href, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { Alert, ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
 
@@ -77,6 +78,7 @@ function preparedActions(moderationCase: ModerationCaseDetail): PreparedAction[]
 }
 
 export function ModerationCaseReviewScreen({ caseId }: ModerationCaseReviewScreenProps) {
+  const router = useRouter();
   const { accessToken, retry: retrySession, status } = useAuth();
   const caseState = useModerationCase(accessToken, caseId);
   const actionState = useModerationAction(accessToken, {
@@ -173,6 +175,11 @@ export function ModerationCaseReviewScreen({ caseId }: ModerationCaseReviewScree
             void caseState.reload();
           }}
           onClaim={confirmClaim}
+          onDecision={() =>
+            router.push(
+              `/moderator/cases/${encodeURIComponent(moderationCase.id)}/decision` as Href,
+            )
+          }
           onReasonAction={setReasonAction}
         />
       </ScrollView>
@@ -325,12 +332,14 @@ function ActionPreparationSection({
   moderationCase,
   onCancelRetry,
   onClaim,
+  onDecision,
   onReasonAction,
 }: {
   actionState: ModerationActionState;
   moderationCase: ModerationCaseDetail;
   onCancelRetry(): void;
   onClaim(): void;
+  onDecision(): void;
   onReasonAction(action: ReasonAction): void;
 }) {
   const actions = preparedActions(moderationCase);
@@ -345,10 +354,7 @@ function ActionPreparationSection({
       onReasonAction(action.action);
       return;
     }
-    Alert.alert(
-      'Decision submission is not available yet',
-      'Moderator decisions will be enabled in a later dashboard phase.',
-    );
+    onDecision();
   }
 
   function showAuditPlaceholder(): void {

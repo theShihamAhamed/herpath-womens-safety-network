@@ -8,6 +8,7 @@ import type {
   ModerationAuditActorType,
   ModerationCaseSource,
   ModerationCaseState,
+  ModerationDecisionAction,
   ModerationPriority,
   ModerationResolution,
 } from './moderation.types';
@@ -42,6 +43,14 @@ export const MODERATION_RESOLUTION_LABELS = {
   ARCHIVED: 'Archived',
   ARCHIVED_DUPLICATE: 'Archived as duplicate',
 } as const satisfies Record<ModerationResolution, string>;
+
+export const MODERATION_DECISION_ACTION_LABELS = {
+  NO_ACTION: 'No visibility change',
+  HIDE: 'Hide incident',
+  RESTORE: 'Restore incident',
+  ARCHIVE: 'Archive incident',
+  ARCHIVE_DUPLICATE: 'Archive as duplicate',
+} as const satisfies Record<ModerationDecisionAction, string>;
 
 export const INCIDENT_VISIBILITY_LABELS = {
   PUBLIC: 'Public',

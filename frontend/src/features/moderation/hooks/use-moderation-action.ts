@@ -6,22 +6,41 @@ import { ApiError } from '@/src/services/api/errors';
 import { moderationApi } from '../moderation-api';
 import type {
   ClaimModerationCaseInput,
+  DecideModerationCaseInput,
   ModerationCaseDetail,
+  ModerationDecisionAction,
   ReasonedModerationCaseInput,
 } from '../moderation.types';
 
 export type ModerationWorkflowAction = 'CLAIM' | 'RELEASE' | 'REOPEN';
+export type ModerationSubmissionAction = ModerationWorkflowAction | 'DECISION';
 
-type WorkflowIntent =
+export interface ModerationDecisionIntent {
+  action: ModerationDecisionAction;
+  reason: string;
+  relatedIncidentId?: string;
+}
+
+type ActionIntent =
   | {
       readonly action: 'CLAIM';
       readonly caseId: string;
       readonly input: Readonly<ClaimModerationCaseInput>;
     }
   | {
-      readonly action: 'RELEASE' | 'REOPEN';
+      readonly action: 'RELEASE';
       readonly caseId: string;
       readonly input: Readonly<ReasonedModerationCaseInput>;
+    }
+  | {
+      readonly action: 'REOPEN';
+      readonly caseId: string;
+      readonly input: Readonly<ReasonedModerationCaseInput>;
+    }
+  | {
+      readonly action: 'DECISION';
+      readonly caseId: string;
+      readonly input: Readonly<DecideModerationCaseInput>;
     };
 
 interface ModerationActionDependencies {
@@ -31,23 +50,29 @@ interface ModerationActionDependencies {
 
 export interface ModerationActionState {
   submitting: boolean;
-  submittingAction: ModerationWorkflowAction | null;
+  submittingAction: ModerationSubmissionAction | null;
   error: string | null;
   successMessage: string | null;
   retryAvailable: boolean;
+  reviewRequired: boolean;
   submit(
     action: ModerationWorkflowAction,
     moderationCase: ModerationCaseDetail,
     reason?: string,
   ): Promise<void>;
+  submitDecision(
+    moderationCase: ModerationCaseDetail,
+    decision: ModerationDecisionIntent,
+  ): Promise<void>;
   retry(): Promise<void>;
   clearFeedback(): void;
 }
 
-function successMessage(action: ModerationWorkflowAction): string {
+function successMessage(action: ModerationSubmissionAction): string {
   if (action === 'CLAIM') return 'Case claimed. The latest case details are now shown.';
   if (action === 'RELEASE') return 'Case released back to the moderation queue.';
-  return 'Case reopened and returned to the moderation queue.';
+  if (action === 'REOPEN') return 'Case reopened and returned to the moderation queue.';
+  return 'Decision recorded. The latest case details are now shown.';
 }
 
 function isAmbiguousFailure(error: unknown): error is ApiError {
@@ -61,7 +86,7 @@ function createIntent(
   action: ModerationWorkflowAction,
   moderationCase: ModerationCaseDetail,
   reason?: string,
-): WorkflowIntent | null {
+): ActionIntent | null {
   const revisions = {
     clientActionId: Crypto.randomUUID(),
     expectedCaseRevision: moderationCase.caseRevision,
@@ -85,20 +110,54 @@ function createIntent(
   });
 }
 
+function createDecisionIntent(
+  moderationCase: ModerationCaseDetail,
+  decision: ModerationDecisionIntent,
+): ActionIntent | null {
+  const reason = decision.reason.trim();
+  if (reason.length < 1 || reason.length > 1000) return null;
+
+  const relatedIncidentId = decision.relatedIncidentId?.trim().toLowerCase();
+  if (
+    decision.action === 'ARCHIVE_DUPLICATE' &&
+    (!relatedIncidentId ||
+      !/^[0-9a-f]{24}$/.test(relatedIncidentId) ||
+      relatedIncidentId === moderationCase.incident.id.toLowerCase())
+  ) {
+    return null;
+  }
+
+  const input = Object.freeze({
+    clientActionId: Crypto.randomUUID(),
+    expectedCaseRevision: moderationCase.caseRevision,
+    expectedLifecycleRevision: moderationCase.incident.lifecycleRevision,
+    action: decision.action,
+    reason,
+    ...(decision.action === 'ARCHIVE_DUPLICATE' ? { relatedIncidentId } : {}),
+  });
+
+  return Object.freeze({
+    action: 'DECISION',
+    caseId: moderationCase.id,
+    input,
+  });
+}
+
 export function useModerationAction(
   accessToken: string | null,
   { refreshCase, recoverSession }: ModerationActionDependencies,
 ): ModerationActionState {
   const [submittingAction, setSubmittingAction] =
-    useState<ModerationWorkflowAction | null>(null);
+    useState<ModerationSubmissionAction | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [retryAvailable, setRetryAvailable] = useState(false);
+  const [reviewRequired, setReviewRequired] = useState(false);
   const inFlight = useRef(false);
-  const retryIntent = useRef<WorkflowIntent | null>(null);
+  const retryIntent = useRef<ActionIntent | null>(null);
 
   const perform = useCallback(
-    async (intent: WorkflowIntent): Promise<void> => {
+    async (intent: ActionIntent): Promise<void> => {
       if (inFlight.current) return;
       if (!accessToken) {
         setError('Your moderator session is unavailable. Return to Profile and try again.');
@@ -109,14 +168,17 @@ export function useModerationAction(
       setSubmittingAction(intent.action);
       setError(null);
       setSuccess(null);
+      setReviewRequired(false);
 
       try {
         if (intent.action === 'CLAIM') {
           await moderationApi.claim(accessToken, intent.caseId, intent.input);
         } else if (intent.action === 'RELEASE') {
           await moderationApi.release(accessToken, intent.caseId, intent.input);
-        } else {
+        } else if (intent.action === 'REOPEN') {
           await moderationApi.reopen(accessToken, intent.caseId, intent.input);
+        } else {
+          await moderationApi.decide(accessToken, intent.caseId, intent.input);
         }
 
         retryIntent.current = null;
@@ -139,14 +201,17 @@ export function useModerationAction(
           retryIntent.current = null;
           setRetryAvailable(false);
           if (caught instanceof ApiError && caught.status === 409) {
+            setReviewRequired(true);
             setError(
               'Another moderator changed this case. The latest details have been loaded; review them before trying again.',
             );
             await refreshCase();
           } else if (caught instanceof ApiError && caught.status === 403) {
+            setReviewRequired(true);
             setError('You no longer have permission or assignment access for this action.');
             await refreshCase();
           } else if (caught instanceof ApiError && caught.status === 404) {
+            setReviewRequired(true);
             setError('This moderation case is unavailable or no longer exists.');
             await refreshCase();
           } else {
@@ -184,12 +249,26 @@ export function useModerationAction(
     await perform(retryIntent.current);
   }
 
+  async function submitDecision(
+    moderationCase: ModerationCaseDetail,
+    decision: ModerationDecisionIntent,
+  ): Promise<void> {
+    if (inFlight.current || retryIntent.current) return;
+    const intent = createDecisionIntent(moderationCase, decision);
+    if (!intent) {
+      setError('Review the decision reason and related incident ID before continuing.');
+      return;
+    }
+    await perform(intent);
+  }
+
   function clearFeedback(): void {
     if (inFlight.current) return;
     retryIntent.current = null;
     setRetryAvailable(false);
     setError(null);
     setSuccess(null);
+    setReviewRequired(false);
   }
 
   return {
@@ -198,7 +277,9 @@ export function useModerationAction(
     error,
     successMessage: success,
     retryAvailable,
+    reviewRequired,
     submit,
+    submitDecision,
     retry,
     clearFeedback,
   };

@@ -3,6 +3,7 @@ import { apiEndpoints } from '@/src/services/api/endpoints';
 
 import type {
   ClaimModerationCaseInput,
+  DecideModerationCaseInput,
   ModerationAuditHistoryItem,
   ModerationCaseDetail,
   ModerationCaseQueuePage,
@@ -95,5 +96,13 @@ export const moderationApi = {
     input: ReasonedModerationCaseInput,
   ): Promise<ModerationCaseDetail> {
     return workflowMutation(accessToken, apiEndpoints.moderation.reopen(caseId), input);
+  },
+
+  decide(
+    accessToken: string,
+    caseId: string,
+    input: DecideModerationCaseInput,
+  ): Promise<ModerationCaseDetail> {
+    return workflowMutation(accessToken, apiEndpoints.moderation.decision(caseId), input);
   },
 };
