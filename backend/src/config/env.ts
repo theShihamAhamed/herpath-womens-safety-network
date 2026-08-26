@@ -33,6 +33,8 @@ const rawEnvironmentSchema = z.object({
   REPORT_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5),
   FEEDBACK_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
   FEEDBACK_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+  FLAG_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
+  FLAG_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5),
   TRUST_PROXY: z.enum(['true', 'false']).default('false'),
   ACCESS_TOKEN_SECRET: z.string().min(32, 'ACCESS_TOKEN_SECRET must contain at least 32 characters'),
   ACCESS_TOKEN_TTL: accessTokenTtlSchema.default('15m'),
@@ -82,6 +84,8 @@ export interface Environment {
   reportRateLimitMax: number;
   feedbackRateLimitWindowMs: number;
   feedbackRateLimitMax: number;
+  flagRateLimitWindowMs: number;
+  flagRateLimitMax: number;
   trustProxy: boolean;
   accessTokenSecret: string;
   accessTokenTtl: string;
@@ -130,6 +134,8 @@ export function loadEnvironment(source: NodeJS.ProcessEnv = process.env): Enviro
     reportRateLimitMax: result.data.REPORT_RATE_LIMIT_MAX,
     feedbackRateLimitWindowMs: result.data.FEEDBACK_RATE_LIMIT_WINDOW_MS,
     feedbackRateLimitMax: result.data.FEEDBACK_RATE_LIMIT_MAX,
+    flagRateLimitWindowMs: result.data.FLAG_RATE_LIMIT_WINDOW_MS,
+    flagRateLimitMax: result.data.FLAG_RATE_LIMIT_MAX,
     trustProxy: result.data.TRUST_PROXY === 'true',
     accessTokenSecret: result.data.ACCESS_TOKEN_SECRET,
     accessTokenTtl: result.data.ACCESS_TOKEN_TTL,

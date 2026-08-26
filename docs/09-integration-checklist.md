@@ -73,8 +73,23 @@
 - [x] authenticated feedback, verification status, and eligibility APIs implemented
 - [x] due evidence reconciliation supports aggregate dry-run and idempotent apply
 - [x] Routing consumes the visibility-authoritative Incident public reader
-- [ ] abuse-flag records implemented
-- [ ] moderation case/queue APIs implemented
-- [ ] moderation audit record created
+- [x] abuse flagging implemented with immutable records, idempotency, duplicate prevention, and rate limiting
+- [x] moderation cases and priority queue implemented
+- [x] moderator claim, release, and reopen workflow implemented
+- [x] moderator visibility decisions implemented
+- [x] append-only audit logging and privacy-safe audit history implemented
+- [x] conflicted evidence reconciliation into moderation intake implemented
+- [x] authorization, privacy, concurrency, idempotency, and rollback hardening completed
 - [ ] rejected/duplicate evidence is recalculated as designed
-- [ ] concurrent moderator changes do not silently overwrite
+- [x] concurrent moderator changes do not silently overwrite
+
+## Phase 3 validation coverage
+
+- [x] normal-user denial and moderator authorization tested across moderation endpoints
+- [x] queue, detail, and audit projections tested for sensitive-data leakage
+- [x] concurrent case claims and decisions permit only one committed mutation
+- [x] claim, release, reopen, and decision idempotency tested
+- [x] transaction rollback tested when audit persistence fails
+- [x] moderation decisions preserve Community Verification state, support count, and feedback
+- [x] hidden/archived incidents remain excluded and restored incidents return to public reads
+- [x] backend tests, typecheck, lint, and build passed for Phase 3

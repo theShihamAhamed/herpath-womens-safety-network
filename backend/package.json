@@ -23,6 +23,7 @@
     "test:watch": "vitest",
     "incident:lifecycle:migrate": "tsx src/scripts/migrate-incident-lifecycle.ts",
     "community:evidence:reconcile": "tsx src/scripts/reconcile-community-evidence.ts",
+    "reconcile:moderation-intake": "tsx src/scripts/reconcile-moderation-intake.ts",
     "user:promote": "tsx src/scripts/promote-user.ts"
   },
   "dependencies": {

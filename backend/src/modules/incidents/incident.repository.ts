@@ -19,6 +19,12 @@ import { normalizeIncidentLocation } from './location-privacy.service.js';
 const PUBLIC_READ_PROJECTION =
   '_id category severity status occurredAt createdAt supportCount publicLocation +publicCellId visibilityState communityState moderationState lifecycleRevision';
 
+export interface ModerationConflictIntakeCandidate {
+  incidentId: string;
+  communityState: 'CONFLICTED';
+  moderationState: 'NOT_QUEUED';
+}
+
 function publicIncidentFilter(
   filters: PublicIncidentReadFilters,
 ): QueryFilter<IncidentDocumentFields> {
@@ -86,6 +92,81 @@ export class IncidentRepository {
       .exec();
   }
 
+  public async findModerationFlagTarget(
+    incidentId: string,
+    session?: ClientSession,
+  ): Promise<IncidentDocument | null> {
+    return IncidentModel.findById(new Types.ObjectId(incidentId))
+      .select('+reporterId +privateLocation +publicCellId')
+      .session(session ?? null)
+      .exec();
+  }
+
+  public async findModerationCaseIncident(
+    incidentId: string,
+    session?: ClientSession,
+  ): Promise<IncidentDocument | null> {
+    return IncidentModel.findById(new Types.ObjectId(incidentId))
+      .select(
+        '_id category severity status occurredAt description supportCount visibilityState communityState moderationState lifecycleRevision createdAt updatedAt',
+      )
+      .session(session ?? null)
+      .exec();
+  }
+
+  public async findModerationWorkflowIncident(
+    incidentId: string,
+    session?: ClientSession,
+  ): Promise<IncidentDocument | null> {
+    return IncidentModel.findById(new Types.ObjectId(incidentId))
+      .select('+reporterId +privateLocation +publicCellId')
+      .session(session ?? null)
+      .exec();
+  }
+
+  public async findModerationConflictIntakeCandidates(
+    limit: number,
+  ): Promise<ModerationConflictIntakeCandidate[]> {
+    const incidents = await IncidentModel.find({
+      communityState: 'CONFLICTED',
+      moderationState: 'NOT_QUEUED',
+    })
+      .select('_id communityState moderationState')
+      .sort({ _id: 1 })
+      .limit(limit)
+      .lean()
+      .exec();
+
+    return incidents.map((incident) => ({
+      incidentId: incident._id.toString(),
+      communityState: 'CONFLICTED',
+      moderationState: 'NOT_QUEUED',
+    }));
+  }
+
+  public async moderationDecisionRelatedIncidentExists(
+    incidentId: string,
+    session?: ClientSession,
+  ): Promise<boolean> {
+    const result = await IncidentModel.exists({ _id: new Types.ObjectId(incidentId) })
+      .session(session ?? null);
+    return result !== null;
+  }
+
+  public async findModerationCaseIncidents(
+    incidentIds: string[],
+    session?: ClientSession,
+  ): Promise<IncidentDocument[]> {
+    return IncidentModel.find({
+      _id: { $in: incidentIds.map((incidentId) => new Types.ObjectId(incidentId)) },
+    })
+      .select(
+        '_id category severity status occurredAt description supportCount visibilityState communityState moderationState lifecycleRevision createdAt updatedAt',
+      )
+      .session(session ?? null)
+      .exec();
+  }
+
   public async saveCommunityEvidence(
     incident: IncidentDocument,
     input: {
@@ -99,6 +180,38 @@ export class IncidentRepository {
     incident.communityState = input.communityState;
     incident.status = input.status;
     incident.supportCount = input.supportCount;
+    incident.lifecycleRevision = input.lifecycleRevision;
+    return incident.save(session === undefined ? {} : { session });
+  }
+
+  public async saveModerationQueueState(
+    incident: IncidentDocument,
+    input: {
+      moderationState: IncidentDocument['moderationState'];
+      status: IncidentDocument['status'];
+      lifecycleRevision: number;
+    },
+    session?: ClientSession,
+  ): Promise<IncidentDocument> {
+    incident.moderationState = input.moderationState;
+    incident.status = input.status;
+    incident.lifecycleRevision = input.lifecycleRevision;
+    return incident.save(session === undefined ? {} : { session });
+  }
+
+  public async saveModerationDecision(
+    incident: IncidentDocument,
+    input: {
+      visibilityState: IncidentDocument['visibilityState'];
+      moderationState: IncidentDocument['moderationState'];
+      status: IncidentDocument['status'];
+      lifecycleRevision: number;
+    },
+    session?: ClientSession,
+  ): Promise<IncidentDocument> {
+    incident.visibilityState = input.visibilityState;
+    incident.moderationState = input.moderationState;
+    incident.status = input.status;
     incident.lifecycleRevision = input.lifecycleRevision;
     return incident.save(session === undefined ? {} : { session });
   }

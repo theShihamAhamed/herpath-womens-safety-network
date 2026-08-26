@@ -59,6 +59,10 @@ export interface IncidentLifecycleSnapshot extends IncidentLifecycleState {
 export type IncidentLifecycleAction =
   | { type: 'SET_VISIBILITY'; visibilityState: IncidentVisibilityState }
   | { type: 'SET_COMMUNITY_STATE'; communityState: IncidentCommunityState }
+  | {
+      type: 'RESOLVE_REVIEW_WITH_VISIBILITY';
+      visibilityState: IncidentVisibilityState;
+    }
   | { type: 'QUEUE' }
   | { type: 'START_REVIEW' }
   | { type: 'REQUEST_REPORTER_INFORMATION' }

@@ -76,3 +76,44 @@ Frontend `EXPO_PUBLIC_*` values are visible in the client bundle and must not co
   archive, or resolve moderation workflow.
 - Feedback, evidence snapshot, and Incident compatibility updates use a MongoDB transaction.
 - Verification responses expose only aggregate counts and state, never raw feedback or actor data.
+
+## Moderation governance controls
+
+### Authorization
+
+- Authenticated users may submit abuse flags but cannot access moderation queue, case, action, or
+  audit endpoints.
+- Every moderation endpoint enforces the server-issued `MODERATOR` role. Frontend route guards are
+  not an authorization boundary.
+- Only the assigned moderator may release or decide an active case. A moderator cannot decide a
+  case for an Incident they reported.
+
+### Privacy
+
+- Moderation API projections never expose reporter identity, flagger identity, private incident
+  coordinates, tokens, session data, raw feedback events, individual responses, actor
+  contributions, or evidence weights.
+- Queue assignment is expressed relative to the requesting moderator; assigned moderator IDs are
+  not response fields.
+- Case detail contains only an Incident summary, aggregate flag counts, and aggregate community
+  evidence. Audit history uses an explicit safe projection.
+- Community evidence cannot independently hide, archive, publish, or prove an Incident. Only an
+  explicit moderator decision changes visibility.
+
+### Concurrency and idempotency
+
+- Moderator mutations require an actor-scoped UUIDv4 `clientActionId`.
+- `expectedCaseRevision` and `expectedLifecycleRevision` reject stale or competing actions with
+  HTTP 409 rather than silently overwriting state.
+- Exact action replays return the current safe case result without another mutation, revision, or
+  audit entry. Reusing an action ID with changed intent returns `IDEMPOTENCY_CONFLICT`.
+
+### Audit and atomicity
+
+- Audit records are append-only; application persistence exposes create/list operations but no
+  update, replace, or delete operation.
+- Case workflow, Incident lifecycle, and audit writes commit in one MongoDB transaction.
+- Failure to persist the audit rolls back case changes, visibility/moderation changes, and lifecycle
+  revision increments.
+- Conflicted-evidence reconciliation creates one system `CASE_QUEUED` audit per newly queued case,
+  is idempotent, and never changes evidence, support count, or visibility.

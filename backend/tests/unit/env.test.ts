@@ -33,6 +33,8 @@ describe('authentication environment validation', () => {
       reportRateLimitMax: 5,
       feedbackRateLimitWindowMs: 900_000,
       feedbackRateLimitMax: 10,
+      flagRateLimitWindowMs: 900_000,
+      flagRateLimitMax: 5,
       rateLimitMax: 200,
     });
   });

@@ -182,8 +182,8 @@ It never contains `privateLocation`, `reporterId`, `locationMode`, `publicCellId
 Public availability is controlled by `visibilityState`, not the compatibility `status`. During the
 backfill period, a legacy document is eligible only when all lifecycle fields are absent and its
 status is `PUBLISHED_UNVERIFIED`. Community verification extends these lifecycle fields without
-changing the reporting or public Map response shapes. Abuse flags and moderation cases remain
-future work.
+changing the reporting or public Map response shapes. Abuse flags and moderation operate through
+separate authenticated contracts and do not expand the public Map projection.
 
 ## Community verification endpoints
 
@@ -234,3 +234,82 @@ expose any other actor's feedback.
 Evidence writes use MongoDB transactions so the feedback event, snapshot, and Incident lifecycle
 projection cannot diverge. Public Map and Routing contracts remain unchanged; their compatibility
 `status` and `supportCount` values are derived from current Incident lifecycle state.
+
+## Abuse flagging endpoint
+
+### `POST /api/v1/incidents/:incidentId/flags`
+
+Requires a Bearer access token. It submits an abuse flag for an available public incident. The
+strict body contains a UUIDv4 `clientFlagId`, a `reason`, and optional trimmed `details` of at most
+500 characters. Reasons are `INACCURATE`, `SPAM`, `DUPLICATE`, `HARMFUL_CONTENT`,
+`PRIVACY_VIOLATION`, `MISLEADING`, or `OTHER`.
+
+The authenticated actor ID is server-owned. Reporters cannot flag their own reports, and one actor
+cannot flag the same incident twice. An exact actor-scoped idempotent replay returns HTTP 200;
+changed content for the same `clientFlagId` returns HTTP 409 `IDEMPOTENCY_CONFLICT`. A different
+mutation ID for an incident already flagged by that actor returns HTTP 409
+`FLAG_ALREADY_SUBMITTED`. New flags are limited to five per actor per 15 minutes by default, with
+replays checked before quota consumption.
+
+The response contains only the flag ID, incident ID, reason, optional details, and submission time.
+It never exposes actor/reporter identity, client mutation IDs, Incident lifecycle fields, or
+location data. Flag intake may create or update a moderation case but never changes Incident
+visibility.
+
+## Moderator APIs
+
+Every endpoint below requires a Bearer access token and the server-authorized `MODERATOR` role.
+Normal users receive HTTP 403. Queue, detail, action, and audit responses never expose reporter or
+flagger identity, private coordinates, raw feedback events, individual evidence weights, tokens,
+or session information.
+
+### `GET /api/v1/moderation/cases`
+
+Returns the priority-ordered moderation queue through a safe projection. Optional strict query
+fields are `state`, `priority`, `assignment`, `limit`, and opaque `cursor`. `limit` defaults to 20
+and is restricted to 1-50. Assignment is represented relative to the requesting moderator rather
+than by exposing moderator IDs.
+
+### `GET /api/v1/moderation/cases/:caseId`
+
+Returns safe case and Incident summaries, aggregate flag counts, and aggregate Community
+Verification evidence. It does not return reporter identity, flagger identity, exact/public
+coordinates, raw feedback, actor contributions, or evidence weights.
+
+### `POST /api/v1/moderation/cases/:caseId/claim`
+
+Claims an unassigned `QUEUED` case and starts review. The strict body requires `clientActionId`,
+`expectedCaseRevision`, and `expectedLifecycleRevision`.
+
+### `POST /api/v1/moderation/cases/:caseId/release`
+
+Allows only the assigned moderator to return an `IN_REVIEW` case to the queue. The strict body
+requires the shared action fields plus a trimmed reason of 1-1000 characters.
+
+### `POST /api/v1/moderation/cases/:caseId/reopen`
+
+Returns a `RESOLVED` case to `QUEUED`, clears its previous assignment/resolution, and preserves
+Incident visibility. The strict body requires the shared action fields and a reason. Automated
+conflict reconciliation does not use this endpoint and never reopens a resolved case.
+
+### `POST /api/v1/moderation/cases/:caseId/decision`
+
+Allows only the assigned, non-reporting moderator to resolve an `IN_REVIEW` case. The strict body
+requires the shared action fields, `action`, and `reason`. `ARCHIVE_DUPLICATE` additionally requires
+a different existing `relatedIncidentId`. Supported actions are `NO_ACTION`, `HIDE`, `RESTORE`,
+`ARCHIVE`, and `ARCHIVE_DUPLICATE`.
+
+Case, Incident lifecycle, and audit writes are atomic. Visibility changes do not alter
+`communityState`, `supportCount`, feedback records, or evidence snapshots.
+
+### `GET /api/v1/moderation/cases/:caseId/audits`
+
+Returns chronological append-only audit history through an explicit safe projection: audit ID,
+actor type, action, before/after case state, before/after Incident lifecycle state, and creation
+time. It excludes moderator identity, action UUID, reason, request ID, reporter/flagger identity,
+location data, and community feedback details.
+
+All moderator mutation IDs are UUIDv4 values normalized to lowercase. Exact replays return the
+current safe case result without applying another mutation, audit, or revision increment. Changed
+intent returns HTTP 409 `IDEMPOTENCY_CONFLICT`. Stale or competing actions return a specific HTTP
+409 moderation revision or state conflict.
