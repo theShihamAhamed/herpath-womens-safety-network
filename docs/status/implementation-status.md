@@ -3,7 +3,7 @@
 Update this through real PRs. Do not backdate progress.
 
 ## Current phase
-Community verification system
+Moderation governance system
 
 ## Repository
 - [x] frontend structure
@@ -61,9 +61,13 @@ Community verification system
 - [x] deterministic evidence evaluation, current support count, and ageing
 - [x] authenticated feedback, verification status, and eligibility APIs
 - [x] aggregate-only evidence reconciliation dry-run/apply command
-- [ ] abuse flagging
-- [ ] moderation cases and queue APIs
-- [ ] moderation
+- [x] immutable abuse flags with actor-scoped idempotency, duplicate prevention, and rate limiting
+- [x] moderation cases with priority ordering and conflict/flag intake
+- [x] moderator queue, detail, claim, release, and reopen workflow APIs
+- [x] audited moderator decisions: no action, hide, restore, archive, and archive duplicate
+- [x] append-only audit history with privacy-safe moderator projections
+- [x] conflicted-evidence moderation intake dry-run/apply command
+- [x] authorization, privacy, concurrency, idempotency, and transaction rollback hardening
 
 ### Naji
 - [x] map shell
@@ -88,3 +92,17 @@ Community verification system
 
 ## Baseline change log
 `YYYY-MM-DD | PR # | Change | Reason`
+
+## Phase 3 backend validation
+
+- [x] authorization matrix tests
+- [x] moderation response privacy-leakage tests
+- [x] concurrent claim and decision tests
+- [x] moderator action idempotency tests
+- [x] transaction rollback tests
+- [x] Community Verification preservation tests
+- [x] public visibility regression tests
+- [x] backend tests passing (26 files, 193 tests)
+- [x] backend typecheck passing
+- [x] backend lint passing
+- [x] backend build passing
