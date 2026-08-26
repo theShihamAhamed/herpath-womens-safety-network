@@ -180,6 +180,11 @@ export function ModerationCaseReviewScreen({ caseId }: ModerationCaseReviewScree
               `/moderator/cases/${encodeURIComponent(moderationCase.id)}/decision` as Href,
             )
           }
+          onAudit={() =>
+            router.push(
+              `/moderator/cases/${encodeURIComponent(moderationCase.id)}/audits` as Href,
+            )
+          }
           onReasonAction={setReasonAction}
         />
       </ScrollView>
@@ -333,6 +338,7 @@ function ActionPreparationSection({
   onCancelRetry,
   onClaim,
   onDecision,
+  onAudit,
   onReasonAction,
 }: {
   actionState: ModerationActionState;
@@ -340,6 +346,7 @@ function ActionPreparationSection({
   onCancelRetry(): void;
   onClaim(): void;
   onDecision(): void;
+  onAudit(): void;
   onReasonAction(action: ReasonAction): void;
 }) {
   const actions = preparedActions(moderationCase);
@@ -355,13 +362,6 @@ function ActionPreparationSection({
       return;
     }
     onDecision();
-  }
-
-  function showAuditPlaceholder(): void {
-    Alert.alert(
-      'Audit history is not available yet',
-      'The case audit timeline will be enabled in a later dashboard phase.',
-    );
   }
 
   return (
@@ -418,7 +418,7 @@ function ActionPreparationSection({
         disabled={actionsDisabled}
         label="View audit history"
         variant="secondary"
-        onPress={showAuditPlaceholder}
+        onPress={onAudit}
       />
     </DetailSection>
   );

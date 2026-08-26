@@ -6,6 +6,7 @@ export default function ModeratorLayout() {
       <Stack.Screen name="index" options={{ title: 'Moderation' }} />
       <Stack.Screen name="cases/[caseId]/index" options={{ title: 'Case review' }} />
       <Stack.Screen name="cases/[caseId]/decision" options={{ title: 'Record decision' }} />
+      <Stack.Screen name="cases/[caseId]/audits" options={{ title: 'Audit history' }} />
     </Stack>
   );
 }
