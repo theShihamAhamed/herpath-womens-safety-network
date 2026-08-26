@@ -111,6 +111,12 @@ export interface ModerationCaseQueueQuery {
   cursor?: string;
 }
 
+export interface ModerationQueueFilters {
+  state: ModerationCaseState;
+  assignment: ModerationAssignmentFilter;
+  priority?: ModerationPriority;
+}
+
 export interface ModerationIncidentSummary {
   id: string;
   category: IncidentCategory;
