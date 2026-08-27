@@ -33,8 +33,23 @@ export const apiEndpoints = {
     locationCells: '/incidents/location-cells',
     mine: '/incidents/mine',
   },
+
+  moderation: {
+    cases: '/moderation/cases',
+    caseById: (caseId: string) => `/moderation/cases/${encodeURIComponent(caseId)}`,
+    audits: (caseId: string) =>
+      `/moderation/cases/${encodeURIComponent(caseId)}/audits`,
+    claim: (caseId: string) =>
+      `/moderation/cases/${encodeURIComponent(caseId)}/claim`,
+    release: (caseId: string) =>
+      `/moderation/cases/${encodeURIComponent(caseId)}/release`,
+    reopen: (caseId: string) =>
+      `/moderation/cases/${encodeURIComponent(caseId)}/reopen`,
+    decision: (caseId: string) =>
+      `/moderation/cases/${encodeURIComponent(caseId)}/decision`,
+  },
+
   routes: {
     search: '/routes/destinations/search',
   },
-  
 } as const;

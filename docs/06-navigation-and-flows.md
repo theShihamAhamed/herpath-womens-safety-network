@@ -25,10 +25,18 @@ app/
 │   ├── report.tsx
 │   └── profile.tsx
 └── moderator/
-    └── index.tsx
+    ├── _layout.tsx
+    ├── index.tsx
+    └── cases/
+        └── [caseId]/
+            ├── index.tsx
+            ├── decision.tsx
+            └── audits.tsx
 ```
 
 The root layout waits for session restoration before exposing routes. Auth routes are available to anonymous actors. The moderator group is available only when the backend actor has `role = MODERATOR`; this client guard does not replace backend authorization.
+
+The moderator dashboard uses `/moderator` for the case queue, `/moderator/cases/[caseId]` for privacy-safe case review, `/moderator/cases/[caseId]/decision` for revision-protected decisions, and `/moderator/cases/[caseId]/audits` for chronological audit history.
 
 Safety Updates is a root-stack screen opened from the Map bell. Native stack navigation provides the back path. Routes and Alerts must not remain registered as hidden tabs.
 
