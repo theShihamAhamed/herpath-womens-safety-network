@@ -12,7 +12,7 @@ const PAGE_LIMIT = 20;
 
 function queueErrorMessage(error: unknown, loadingMore = false): string {
   if (error instanceof ApiError && error.status === 401) {
-    return 'Your moderator session could not be verified. Return to Profile and sign in again.';
+    return 'Your moderator session could not be verified. Recover the session and try again.';
   }
   if (error instanceof ApiError && error.status === 403) {
     return 'Moderator access is unavailable for this account.';
@@ -28,6 +28,7 @@ export interface ModerationQueueState {
   refreshing: boolean;
   loadingMore: boolean;
   error: string | null;
+  errorStatus: number | null;
   cursor: string | null;
   hasMore: boolean;
   reload(): Promise<void>;
@@ -44,6 +45,7 @@ export function useModerationQueue(
   const [refreshing, setRefreshing] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
   const [cursor, setCursor] = useState<string | null>(null);
   const requestGeneration = useRef(0);
   const loadingMoreRef = useRef(false);
@@ -57,6 +59,7 @@ export function useModerationQueue(
       loadingMoreRef.current = false;
       setLoadingMore(false);
       setError(null);
+      setErrorStatus(null);
 
       if (!accessToken) {
         setLoading(false);
@@ -79,7 +82,15 @@ export function useModerationQueue(
         setCursor(page.nextCursor);
       } catch (caught) {
         if (requestGeneration.current !== generation) return;
+        const status = caught instanceof ApiError ? caught.status : 0;
+        if (status === 401 || status === 403) {
+          setCases([]);
+          setCursor(null);
+          loadingMoreRef.current = false;
+          setLoadingMore(false);
+        }
         setError(queueErrorMessage(caught));
+        setErrorStatus(status);
       } finally {
         if (requestGeneration.current === generation) {
           setLoading(false);
@@ -94,6 +105,7 @@ export function useModerationQueue(
     setCases([]);
     setCursor(null);
     setError(null);
+    setErrorStatus(null);
     void loadFirstPage(false);
 
     return () => {
@@ -109,6 +121,7 @@ export function useModerationQueue(
     loadingMoreRef.current = true;
     setLoadingMore(true);
     setError(null);
+    setErrorStatus(null);
 
     try {
       const page = await moderationApi.listCases(accessToken, {
@@ -129,7 +142,15 @@ export function useModerationQueue(
       setCursor(page.nextCursor);
     } catch (caught) {
       if (requestGeneration.current === generation) {
+        const status = caught instanceof ApiError ? caught.status : 0;
+        if (status === 401 || status === 403) {
+          setCases([]);
+          setCursor(null);
+          loadingMoreRef.current = false;
+          setLoadingMore(false);
+        }
         setError(queueErrorMessage(caught, true));
+        setErrorStatus(status);
       }
     } finally {
       if (requestGeneration.current === generation) {
@@ -145,6 +166,7 @@ export function useModerationQueue(
     refreshing,
     loadingMore,
     error,
+    errorStatus,
     cursor,
     hasMore: cursor !== null,
     reload: () => loadFirstPage(false),

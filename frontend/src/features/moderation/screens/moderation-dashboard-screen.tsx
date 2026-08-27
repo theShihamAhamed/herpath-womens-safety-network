@@ -27,7 +27,7 @@ const DEFAULT_FILTERS: ModerationQueueFilters = {
 
 export function ModerationDashboardScreen() {
   const router = useRouter();
-  const { accessToken } = useAuth();
+  const { accessToken, retry: retrySession } = useAuth();
   const [filters, setFilters] = useState<ModerationQueueFilters>(DEFAULT_FILTERS);
   const queue = useModerationQueue(accessToken, filters);
 
@@ -60,7 +60,10 @@ export function ModerationDashboardScreen() {
           <QueueEmptyState
             error={queue.error}
             loading={queue.loading}
-            onRetry={() => void queue.reload()}
+            retryLabel={queue.errorStatus === 401 ? 'Recover session' : 'Retry'}
+            onRetry={() =>
+              void (queue.errorStatus === 401 ? retrySession() : queue.reload())
+            }
           />
         }
         ListFooterComponent={
@@ -141,10 +144,12 @@ function DashboardHeader({
 function QueueEmptyState({
   error,
   loading,
+  retryLabel,
   onRetry,
 }: {
   error: string | null;
   loading: boolean;
+  retryLabel: string;
   onRetry(): void;
 }) {
   if (loading) {
@@ -161,7 +166,7 @@ function QueueEmptyState({
       <View accessibilityLiveRegion="polite" style={styles.centerState}>
         <MaterialIcons name="error-outline" size={32} color={palette.error} />
         <Text style={styles.errorText}>{error}</Text>
-        <PrimaryButton label="Retry" onPress={onRetry} />
+        <PrimaryButton label={retryLabel} onPress={onRetry} />
       </View>
     );
   }

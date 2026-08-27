@@ -9,7 +9,7 @@ const OBJECT_ID = /^[0-9a-f]{24}$/i;
 
 function caseErrorMessage(error: unknown): string {
   if (error instanceof ApiError && error.status === 401) {
-    return 'Your moderator session could not be verified. Return to Profile and sign in again.';
+    return 'Your moderator session could not be verified. Recover the session and try again.';
   }
   if (error instanceof ApiError && error.status === 403) {
     return 'Moderator access is unavailable for this account.';

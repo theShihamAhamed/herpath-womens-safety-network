@@ -109,7 +109,10 @@ export function ModerationCaseReviewScreen({ caseId }: ModerationCaseReviewScree
             ? 'This moderation case is unavailable.'
             : 'Your moderator session is unavailable. Return to Profile and try again.')
         }
-        onRetry={() => void caseState.reload()}
+        retryLabel={caseState.errorStatus === 401 ? 'Recover session' : 'Try again'}
+        onRetry={() =>
+          void (caseState.errorStatus === 401 ? retrySession() : caseState.reload())
+        }
       />
     );
   }
@@ -209,7 +212,15 @@ function CaseLoadingState() {
   );
 }
 
-function CaseUnavailableState({ message, onRetry }: { message: string; onRetry(): void }) {
+function CaseUnavailableState({
+  message,
+  retryLabel = 'Try again',
+  onRetry,
+}: {
+  message: string;
+  retryLabel?: string;
+  onRetry(): void;
+}) {
   return (
     <Screen contentStyle={styles.centerState}>
       <View style={styles.stateIcon}>
@@ -221,7 +232,7 @@ function CaseUnavailableState({ message, onRetry }: { message: string; onRetry()
       <Text accessibilityLiveRegion="polite" style={styles.stateText}>
         {message}
       </Text>
-      <PrimaryButton label="Try again" onPress={onRetry} />
+      <PrimaryButton label={retryLabel} onPress={onRetry} />
     </Screen>
   );
 }

@@ -38,7 +38,7 @@ Moderation governance system
 - [x] Map home UX shell and Routing public integration boundary
 - [x] nested Safety Updates route and accessible Map entry
 - [x] profile/auth-state placeholder
-- [x] moderator route guard and placeholder
+- [x] role-protected moderator dashboard with queue, case review, workflow actions, decisions, and audit history
 - [x] recoverable startup error state
 
 ## UX baseline
