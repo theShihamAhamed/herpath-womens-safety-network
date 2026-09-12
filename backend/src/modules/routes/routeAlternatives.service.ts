@@ -13,7 +13,7 @@ import type {
 } from './routes.types.js';
 
 function toRouteSummary(raw: RoutingRawRoute): RouteSummary {
-    
+
     const distanceMeters = raw.legs.reduce((sum, leg) => sum + leg.distance.value, 0);
     const durationSeconds = raw.legs.reduce((sum, leg) => sum + leg.duration.value, 0);
 
@@ -43,4 +43,3 @@ export async function getRouteAlternatives(
 
     return rawRoutes.map(toRouteSummary);
 }
-

@@ -38,7 +38,7 @@ export function IncidentCallout({ incident }: IncidentCalloutProps) {
 
         <Text style={styles.contextText}>Community report · Approximate area</Text>
         <Text style={styles.dateText}>Occurred: {formattedDate}</Text>
-        
+
         {incident.supportCount > 0 && (
           <Text style={styles.supportText}>{incident.supportCount} community support</Text>
         )}
