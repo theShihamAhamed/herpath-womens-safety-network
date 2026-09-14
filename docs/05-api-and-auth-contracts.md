@@ -185,6 +185,16 @@ status is `PUBLISHED_UNVERIFIED`. Community verification extends these lifecycle
 changing the reporting or public Map response shapes. Abuse flags and moderation operate through
 separate authenticated contracts and do not expand the public Map projection.
 
+## Nearby support-place endpoint
+
+`GET /api/v1/map/support-places` accepts required `latitude` and `longitude`, with an optional `radius` in metres from 100 to 5,000 (default 2,000). It returns a normalized collection of named real OpenStreetMap support resources:
+
+```text
+id, name, category, location { latitude, longitude }
+```
+
+IDs retain OSM element type to avoid collisions (`node/123`, `way/123`, or `relation/123`). The endpoint exposes no raw provider tags, routing data, safety score, Incident data, or synthetic fallback places. An empty successful Overpass response returns `200 []`; an unavailable or rate-limited provider returns `503 SUPPORT_PLACE_PROVIDER_UNAVAILABLE`. The public client never contacts Overpass directly. User-visible support-place presentation must include `© OpenStreetMap contributors` attribution.
+
 ## Community verification endpoints
 
 All Community Verification routes require a Bearer access token and operate only on incidents

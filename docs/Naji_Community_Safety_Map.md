@@ -13,7 +13,7 @@ Naji owns the Map workspace, public incident-location visualization, map filters
 - Keep Map’s route-planning integration at `frontend/src/features/routing`’s public export boundary.
 - Support future clustering and heatmap rendering once real incident volume warrants it. Neither is enabled in the current slice.
 
-Location/place search is owned by the Routing feature’s Google Places flow, which is hosted by Map through its public integration boundary. Nearby safe places require an approved data source and are intentionally not fabricated.
+Destination/location search is owned by the Routing feature and is hosted by Map through its public integration boundary. Nearby support-place discovery is Map-owned and uses the approved OpenStreetMap data path; it never uses Routing's destination-search fallbacks.
 
 ## Privacy and marker contract
 
@@ -33,7 +33,9 @@ The incident-reporting component must retain private coordinates separately and 
 
 ## Map integration and configuration
 
-The approved provider is Google Maps through `react-native-maps` (ADR-003); foreground location uses Expo SDK 54’s `expo-location`. Native Google Maps API-key setup is required for standalone Android/iOS builds as documented by Expo and must use a restricted key supplied through deployment configuration—never source control. Google Places credentials are backend configuration, not client secrets.
+The approved map renderer is Google Maps through `react-native-maps` (ADR-003); foreground location uses Expo SDK 54’s `expo-location`. Native Google Maps API-key setup is required for standalone Android/iOS builds as documented by Expo and must use a restricted key supplied through deployment configuration—never source control.
+
+Nearby support-place data is queried server-side from OpenStreetMap through Overpass. `OVERPASS_API_URL` defaults to the public interpreter endpoint and is configurable without credentials. The provider sends a HerPath User-Agent, applies a bounded timeout, and is protected by a small in-process spatial cache plus in-flight request deduplication. The Map API must not fabricate places or fall back to Routing/Nominatim data. When support places are presented in HS-77 or HS-79, the relevant Map surface must show `© OpenStreetMap contributors` attribution.
 
 The client initializes around the permitted user location or the non-sensitive fallback region. Camera changes make a bounding-box request. The backend uses the existing `/api/v1` envelope and validates all query parameters before handing them to its map service.
 
@@ -43,8 +45,23 @@ The client initializes around the permitted user location or the non-sensitive f
 | --- | --- | --- |
 | `GET /api/v1/map/incidents` | Public incidents whose public H3 center is in the visible map area | `swLat`, `swLng`, `neLat`, `neLng`; optional `category`, `severity`, `occurredFrom`, `occurredTo` |
 | `GET /api/v1/map/area-summary` | Aggregate public context near a selected point | `lat`, `lng`, optional `radius` (100–10,000m), `occurredFrom`, `occurredTo` |
+| `GET /api/v1/map/support-places` | Real nearby support resources from OpenStreetMap via Overpass | `latitude`, `longitude`, optional `radius` (100–5,000m; default 2,000m) |
 
 `occurredFrom` and `occurredTo` are inclusive absolute instants and require an ISO-8601 `Z` suffix or explicit numeric offset. Public visibility uses the explicit `PUBLISHED_UNVERIFIED` allowlist. Viewports are non-wrapping in v1, and inclusion is based on the representative `publicLocation` center rather than polygon intersection.
+
+### Nearby support-place contract
+
+`GET /api/v1/map/support-places` returns only named, normalized real OSM POIs: `id` (`node/123`, `way/123`, or `relation/123`), `name`, `category`, and `location` (`latitude`, `longitude`). Nodes use their OSM coordinates; ways and relations use an Overpass-provided center. Unnamed, malformed, unrelated, or insufficiently tagged POIs are excluded rather than given a made-up name or category. An empty valid provider result is `200` with `[]`; provider failures, including rate limiting, return the standard unavailable error and never substitute mock locations.
+
+| HerPath category | Deterministic OSM mapping |
+| --- | --- |
+| `POLICE` | `amenity=police` |
+| `MEDICAL` | `amenity=hospital` or `amenity=clinic` |
+| `EMERGENCY` | `amenity=fire_station` or `emergency=ambulance_station` |
+| `WOMENS_SUPPORT` | `amenity=social_facility` with `social_facility=shelter` or `outreach` and `social_facility:for=woman` |
+| `COUNSELLING_SUPPORT` | `healthcare=counselling`, or `amenity=social_facility` + `social_facility=outreach` + `social_facility:for` of `abused`, `victim`, or `mental_health` |
+
+These mappings intentionally do not infer services from POI names. They also do not attempt to discover non-public shelters, which may correctly be absent from OSM. HS-78 establishes the backend contract only; HS-79 owns the user-triggered nearby-search interaction, and HS-77 owns marker presentation.
 
 ## Data flow and reuse
 
@@ -81,4 +98,4 @@ Incident callouts use a compact hierarchy: category first, then an explicit text
 
 When the Map regains focus after a successful report returns the user to `/map`, it reloads the retained visible viewport with the active filters. The refresh keeps the current map context intact and announces a short loading state while public reports are updated.
 
-Place search, safe places, clustering, and heatmap await their approved provider/data contracts or sufficient real data.
+Support-place data integration is implemented through the Map-owned OSM/Overpass contract. Nearby-search UI, support-place map markers, and place-detail distance/category presentation remain separate HS-79, HS-77, and HS-134 work. Clustering and heatmap still await sufficient real incident data.
