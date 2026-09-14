@@ -63,6 +63,12 @@ The client initializes around the permitted user location or the non-sensitive f
 
 These mappings intentionally do not infer services from POI names. They also do not attempt to discover non-public shelters, which may correctly be absent from OSM. HS-78 establishes the backend contract only; HS-79 owns the user-triggered nearby-search interaction, and HS-77 owns marker presentation.
 
+### Nearby support-place search
+
+HS-79 adds one explicit **Nearby support** Map action. It searches only around a successfully resolved, foreground-permission-granted current user location; it does not use the Colombo display fallback, ask for an additional permission, query while the Map camera moves, or offer competing search contexts. The action is disabled while a request is active.
+
+The Map retains normalized results locally for HS-77, but HS-79 does not render support-place markers, place lists, category labels, distance, or routing actions. Its compact feedback distinguishes idle, loading, results, a neutral empty response, provider unavailability with retry, and unavailable location. Provider-derived result feedback includes `© OpenStreetMap contributors` attribution.
+
 ## Data flow and reuse
 
 ```text
@@ -98,4 +104,4 @@ Incident callouts use a compact hierarchy: category first, then an explicit text
 
 When the Map regains focus after a successful report returns the user to `/map`, it reloads the retained visible viewport with the active filters. The refresh keeps the current map context intact and announces a short loading state while public reports are updated.
 
-Support-place data integration is implemented through the Map-owned OSM/Overpass contract. Nearby-search UI, support-place map markers, and place-detail distance/category presentation remain separate HS-79, HS-77, and HS-134 work. Clustering and heatmap still await sufficient real incident data.
+Support-place data integration and explicit nearby search are implemented through the Map-owned OSM/Overpass contract. Support-place map markers remain HS-77 work; place-detail distance/category presentation remains HS-134 work. Clustering and heatmap still await sufficient real incident data.
