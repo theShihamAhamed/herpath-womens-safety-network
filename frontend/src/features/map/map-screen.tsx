@@ -12,6 +12,7 @@ import { IncidentMarker } from './incident-marker';
 import { mapApi } from './map-api';
 import type { AreaSummary, MapFilter, PublicIncidentMarker, ViewportBounds } from './map.types';
 import { ReportContextSheet } from './report-context-sheet';
+import { SupportPlaceSearchFeedback } from './support-place-search-feedback';
 import { DestinationMarker, useRouteContext } from '@/src/features/routing';
 import { FALLBACK_LOCATION, useUserLocation } from './use-user-location';
 import { useSupportPlaceSearch } from './use-support-place-search';
@@ -234,6 +235,13 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
           <Text style={styles.refreshText}>Refreshing reports</Text>
         </View>
       ) : null}
+
+      <SupportPlaceSearchFeedback
+        status={supportPlaceSearch.status}
+        resultCount={supportPlaceSearch.supportPlaces.length}
+        errorMessage={supportPlaceSearch.errorMessage}
+        onRetry={() => void supportPlaceSearch.retrySupportPlaces()}
+      />
 
       {filteredIncidents.length === 0 ? (
         <View accessible accessibilityRole="summary" style={styles.emptyCard}>
