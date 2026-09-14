@@ -23,4 +23,10 @@ export interface AreaSummaryQuery {
   occurredTo?: Date;
 }
 
+export interface SupportPlaceQuery {
+  latitude: number;
+  longitude: number;
+  radius: number;
+}
+
 export type PublicIncidentProjection = PublicIncident;
