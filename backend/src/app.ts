@@ -44,6 +44,7 @@ export interface AppRuntimeConfig {
   feedbackRateLimitMax?: number;
   flagRateLimitWindowMs?: number;
   flagRateLimitMax?: number;
+  overpassApiUrl?: string;
   trustProxy: boolean;
   accessTokenSecret: string;
   accessTokenTtl: string;
@@ -135,7 +136,14 @@ export function createApp(dependencies: AppDependencies): Express {
     }),
   );
 
-  app.use(`${API_PREFIX}/map`, createMapRouter());
+  app.use(
+    `${API_PREFIX}/map`,
+    createMapRouter(
+      dependencies.config.overpassApiUrl === undefined
+        ? {}
+        : { overpassApiUrl: dependencies.config.overpassApiUrl },
+    ),
+  );
 
   const incidentService = createIncidentService({
     windowMs: dependencies.config.reportRateLimitWindowMs,
