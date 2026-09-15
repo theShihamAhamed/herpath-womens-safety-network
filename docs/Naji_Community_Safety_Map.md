@@ -73,7 +73,11 @@ The Map retains normalized results locally for HS-77, but HS-79 does not render 
 
 HS-77 renders only the latest real support-place results retained by HS-79. Each resource uses a dedicated teal, rounded-square icon marker rather than the circular, category-coloured Incident marker with its inner dot. Category-aware icons give resource semantics, while accessible labels state the resource category and name so meaning does not depend on colour. Markers disappear when the current result set is empty or unavailable.
 
-Tapping a support-place marker selects it with a subtle accent outline and opens a concise callout containing the place name only. Selection does not alter Incident markers, approximate Incident polygons, Map filters, route UI, or report-context state. Distance, expanded category details, and routing/navigation remain HS-134 or later work.
+Tapping a support-place marker selects it with a subtle accent outline and opens a concise callout containing its name, a human-readable category, and approximate distance. Labels are `Police station`, `Hospital / medical centre`, `Emergency service`, `Women's support centre / shelter`, and `Counselling / support organisation`; raw category values are not shown to people.
+
+HS-134 calculates distance locally as a straight-line Haversine distance from the exact foreground location used for the latest Nearby support search, then formats it as rounded metres below 1 km or kilometres to one decimal place. It does not request location again, generate a provider query, calculate road/route distance, estimate travel time, or introduce navigation. If no valid search origin exists, no distance is shown. A new search uses its new origin, and selection is cleared if the selected place is not part of its latest result set.
+
+Selection does not alter Incident markers, approximate Incident polygons, Map filters, route UI, or report-context state. Route distance, travel time, route generation, and navigation remain Routing-owned work.
 
 ## Data flow and reuse
 
@@ -110,4 +114,4 @@ Incident callouts use a compact hierarchy: category first, then an explicit text
 
 When the Map regains focus after a successful report returns the user to `/map`, it reloads the retained visible viewport with the active filters. The refresh keeps the current map context intact and announces a short loading state while public reports are updated.
 
-Support-place data integration, explicit nearby search, and support-place Map markers are implemented through the Map-owned OSM/Overpass contract. Place-detail distance/category presentation remains HS-134 work. Clustering and heatmap still await sufficient real incident data.
+Support-place data integration, explicit nearby search, Map markers, and selected-place category/proximity presentation are implemented through the Map-owned OSM/Overpass contract. Clustering and heatmap still await sufficient real incident data.
