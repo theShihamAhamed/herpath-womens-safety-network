@@ -32,6 +32,8 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMapDataUnavailable, setIsMapDataUnavailable] = useState(false);
   const [selectedAreaSummary, setSelectedAreaSummary] = useState<AreaSummary | null>(null);
+  const [areaSummaryLocation, setAreaSummaryLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isAreaSummaryUnavailable, setIsAreaSummaryUnavailable] = useState(false);
   const [isSummaryVisible, setIsSummaryVisible] = useState(false);
   const [isReportSheetExpanded, setIsReportSheetExpanded] = useState(false);
   const [selectedSupportPlaceId, setSelectedSupportPlaceId] = useState<string | null>(null);
@@ -129,23 +131,22 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
   });
 
   const showAreaSummary = async (latitude: number, longitude: number) => {
+    setAreaSummaryLocation({ latitude, longitude });
     try {
       const summary = await mapApi.getAreaSummary(latitude, longitude);
       setSelectedAreaSummary(summary);
+      setIsAreaSummaryUnavailable(false);
       setIsSummaryVisible(true);
     } catch {
-      // Fallback mock area summary
-      setSelectedAreaSummary({
-        center: { latitude, longitude },
-        radiusMeters: 1000,
-        totalIncidents: filteredIncidents.length,
-        byCategory: Object.fromEntries(['HARASSMENT', 'THEFT', 'ASSAULT', 'STALKING', 'OTHER'].map((category) => [category, filteredIncidents.filter((incident) => incident.category === category).length])) as AreaSummary['byCategory'],
-        bySeverity: Object.fromEntries(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((severity) => [severity, filteredIncidents.filter((incident) => incident.severity === severity).length])) as AreaSummary['bySeverity'],
-        recentCount: filteredIncidents.filter((incident) => Date.now() - new Date(incident.occurredAt).getTime() <= 2_592_000_000).length,
-        dataDisclaimer: 'Based on available community data',
-      });
+      setSelectedAreaSummary(null);
+      setIsAreaSummaryUnavailable(true);
       setIsSummaryVisible(true);
     }
+  };
+
+  const retryAreaSummary = () => {
+    if (!areaSummaryLocation) return;
+    void showAreaSummary(areaSummaryLocation.latitude, areaSummaryLocation.longitude);
   };
 
   const handleLongPress = (event: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) => {
@@ -283,7 +284,9 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
       <AreaSummarySheet
         visible={isSummaryVisible}
         summary={selectedAreaSummary}
+        unavailable={isAreaSummaryUnavailable}
         onClose={() => setIsSummaryVisible(false)}
+        onRetry={retryAreaSummary}
       />
     </View>
   );
