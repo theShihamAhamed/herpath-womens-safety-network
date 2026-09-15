@@ -33,6 +33,7 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
   const [selectedAreaSummary, setSelectedAreaSummary] = useState<AreaSummary | null>(null);
   const [isSummaryVisible, setIsSummaryVisible] = useState(false);
   const [isReportSheetExpanded, setIsReportSheetExpanded] = useState(false);
+  const [selectedSupportPlaceId, setSelectedSupportPlaceId] = useState<string | null>(null);
   const lastViewportRef = useRef<ViewportBounds | null>(null);
   const mapRef = useRef<MapView>(null);
   const supportPlaceSearch = useSupportPlaceSearch({
@@ -62,6 +63,14 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
       );
     }
   }, [selectedDestination]);
+
+  React.useEffect(() => {
+    setSelectedSupportPlaceId((current) =>
+      current && !supportPlaceSearch.supportPlaces.some((place) => place.id === current)
+        ? null
+        : current,
+    );
+  }, [supportPlaceSearch.supportPlaces]);
 
   const initialRegion = {
     latitude: location?.latitude ?? FALLBACK_LOCATION.latitude,
@@ -188,7 +197,12 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
           <IncidentMarker key={`marker-${incident.id}`} incident={incident} />
         ))}
         {supportPlaceSearch.supportPlaces.map((place) => (
-          <SupportPlaceMarker key={`support-place-${place.id}`} place={place} />
+          <SupportPlaceMarker
+            key={`support-place-${place.id}`}
+            place={place}
+            selected={place.id === selectedSupportPlaceId}
+            onSelect={() => setSelectedSupportPlaceId(place.id)}
+          />
         ))}
         {selectedDestination ? (
           <DestinationMarker destination={selectedDestination} />
