@@ -37,7 +37,11 @@ The approved map renderer is Google Maps through `react-native-maps` (ADR-003); 
 
 Nearby support-place data is queried server-side from OpenStreetMap through Overpass. `OVERPASS_API_URL` defaults to the public interpreter endpoint and is configurable without credentials. The provider sends a HerPath User-Agent, applies a bounded timeout, and is protected by a small in-process spatial cache plus in-flight request deduplication. The Map API must not fabricate places or fall back to Routing/Nominatim data. When support places are presented in HS-77 or HS-79, the relevant Map surface must show `© OpenStreetMap contributors` attribution.
 
-The client initializes around the permitted user location or the non-sensitive fallback region. Camera changes make a bounding-box request. The backend uses the existing `/api/v1` envelope and validates all query parameters before handing them to its map service.
+The client initializes around the permitted user location or the non-sensitive fallback display region. Camera changes make a bounding-box request. The backend uses the existing `/api/v1` envelope and validates all query parameters before handing them to its map service.
+
+### Map location permission flow
+
+Map Home owns one shared foreground-location state for both the Map surface and its Routing entry integration. Opening the Map checks the existing foreground permission without prompting. The **Use my current location** and **Nearby support** actions request permission only when used; when it is already granted, they reuse it and obtain a real device position without another prompt. A denied or unavailable permission leaves the Map usable, keeps the display fallback separate from user location, and makes Nearby support show its existing location-unavailable feedback instead of querying with a fabricated coordinate.
 
 ## API/data contracts
 
