@@ -22,7 +22,7 @@ interface UseSupportPlaceSearchResult {
   searchOrigin: UserLocation | null;
   status: SupportPlaceSearchStatus;
   errorMessage: string | null;
-  searchSupportPlaces: () => Promise<void>;
+  searchSupportPlaces: (searchLocation?: UserLocation | null) => Promise<void>;
   retrySupportPlaces: () => Promise<void>;
 }
 
@@ -74,7 +74,7 @@ export function useSupportPlaceSearch({
   }, []);
 
   const searchSupportPlaces = useCallback(
-    async () => runSearch(location, hasUsableLocation),
+    async (searchLocation = location) => runSearch(searchLocation, searchLocation !== null),
     [hasUsableLocation, location, runSearch],
   );
 

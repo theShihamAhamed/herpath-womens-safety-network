@@ -16,17 +16,17 @@ import { SupportPlaceSearchFeedback } from './support-place-search-feedback';
 import { getSupportPlaceDistanceMetres } from './support-place-distance';
 import { SupportPlaceMarker } from './support-place-marker';
 import { DestinationMarker, useRouteContext } from '@/src/features/routing';
-import { FALLBACK_LOCATION, useUserLocation } from './use-user-location';
+import { FALLBACK_LOCATION, type UseUserLocationResult } from './use-user-location';
 import { useSupportPlaceSearch } from './use-support-place-search';
 
-export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: number }) {
+interface MapScreenProps {
+  controlsTopOffset?: number;
+  locationState: UseUserLocationResult;
+}
+
+export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenProps) {
   const { height: windowHeight } = useWindowDimensions();
-  const {
-    location,
-    permissionStatus,
-    error: locationError,
-    isLoading: isLocationLoading,
-  } = useUserLocation();
+  const { location, permissionStatus, error: locationError, isLoading: isLocationLoading, requestLocation } = locationState;
   const [incidents, setIncidents] = useState<PublicIncidentMarker[]>([]);
   const [filter, setFilter] = useState<MapFilter>({ category: 'ALL', severity: 'ALL', dateRange: 'all', timeOfDay: 'all' });
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -154,9 +154,15 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
     void showAreaSummary(latitude, longitude);
   };
 
-  const handleUseCurrentLocation = () => {
-    const center = location ?? FALLBACK_LOCATION;
-    mapRef.current?.animateToRegion({ ...center, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 300);
+  const handleUseCurrentLocation = async () => {
+    const currentLocation = await requestLocation();
+    if (!currentLocation) return;
+    mapRef.current?.animateToRegion({ ...currentLocation, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 300);
+  };
+
+  const handleNearbySupport = async () => {
+    const currentLocation = await requestLocation();
+    await supportPlaceSearch.searchSupportPlaces(currentLocation);
   };
 
   const handleCurrentAreaSummary = () => {
@@ -188,7 +194,7 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={initialRegion}
-        showsUserLocation
+        showsUserLocation={permissionStatus === Location.PermissionStatus.GRANTED}
         onRegionChangeComplete={handleRegionChangeComplete}
         onLongPress={handleLongPress}
       >
@@ -222,7 +228,7 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
           styles.actionControls,
           { bottom: isReportSheetExpanded ? Math.round(windowHeight * 0.58) + 16 : 128 },
         ]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Use my current location" onPress={handleUseCurrentLocation} style={styles.mapAction}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Use my current location" onPress={() => void handleUseCurrentLocation()} style={styles.mapAction}>
           <MaterialIcons name="my-location" size={22} color="#176B5B" />
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Show area safety context" onPress={handleCurrentAreaSummary} style={styles.mapAction}>
@@ -240,7 +246,7 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
             busy: supportPlaceSearch.status === 'loading',
           }}
           disabled={supportPlaceSearch.status === 'loading'}
-          onPress={() => void supportPlaceSearch.searchSupportPlaces()}
+          onPress={() => void handleNearbySupport()}
           style={({ pressed }) => [
             styles.supportPlaceAction,
             pressed && supportPlaceSearch.status !== 'loading' && styles.mapActionPressed,

@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import * as Location from 'expo-location';
 
 export interface UserLocation {
@@ -11,9 +11,10 @@ export interface UseUserLocationResult {
   permissionStatus: Location.PermissionStatus | null;
   isLoading: boolean;
   error: string | null;
+  requestLocation: () => Promise<UserLocation | null>;
 }
 
-/** Default fallback region center: Colombo, Sri Lanka. */
+/** Default Map display region: Colombo, Sri Lanka. This is never treated as a user location. */
 export const FALLBACK_LOCATION: UserLocation = {
   latitude: 6.9271,
   longitude: 79.8612,
@@ -26,50 +27,67 @@ export function useUserLocation(): UseUserLocationResult {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const readCurrentLocation = useCallback(async (): Promise<UserLocation | null> => {
+    try {
+      const position = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+      const currentLocation = {
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      };
+      setLocation(currentLocation);
+      setError(null);
+      return currentLocation;
+    } catch (err) {
+      setLocation(null);
+      setError(err instanceof Error ? err.message : 'Could not determine your location.');
+      return null;
+    }
+  }, []);
+
+  const requestLocation = useCallback(async (): Promise<UserLocation | null> => {
+    setIsLoading(true);
+    try {
+      const currentPermission = await Location.getForegroundPermissionsAsync();
+      const permission = currentPermission.status === Location.PermissionStatus.GRANTED
+        ? currentPermission
+        : await Location.requestForegroundPermissionsAsync();
+      setPermissionStatus(permission.status);
+
+      if (permission.status !== Location.PermissionStatus.GRANTED) {
+        setLocation(null);
+        setError(null);
+        return null;
+      }
+
+      return await readCurrentLocation();
+    } finally {
+      setIsLoading(false);
+    }
+  }, [readCurrentLocation]);
+
   useEffect(() => {
     let cancelled = false;
 
-    async function requestLocation(): Promise<void> {
+    async function restoreGrantedLocation(): Promise<void> {
       try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-
+        const permission = await Location.getForegroundPermissionsAsync();
         if (cancelled) return;
-        setPermissionStatus(status);
-
-        if (status !== Location.PermissionStatus.GRANTED) {
-          setLocation(FALLBACK_LOCATION);
-          setIsLoading(false);
-          return;
+        setPermissionStatus(permission.status);
+        if (permission.status === Location.PermissionStatus.GRANTED) {
+          await readCurrentLocation();
         }
-
-        const position = await Location.getCurrentPositionAsync({
-          accuracy: Location.Accuracy.Balanced,
-        });
-
-        if (cancelled) return;
-        setLocation({
-          latitude: position.coords.latitude,
-          longitude: position.coords.longitude,
-        });
       } catch (err) {
-        if (cancelled) return;
-        setError(
-          err instanceof Error
-            ? err.message
-            : 'Could not determine your location.',
-        );
-        setLocation(FALLBACK_LOCATION);
+        if (!cancelled) {
+          setError(err instanceof Error ? err.message : 'Could not check location permission.');
+        }
       } finally {
         if (!cancelled) setIsLoading(false);
       }
     }
 
-    void requestLocation();
+    void restoreGrantedLocation();
+    return () => { cancelled = true; };
+  }, [readCurrentLocation]);
 
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
-  return { location, permissionStatus, isLoading, error };
+  return { location, permissionStatus, isLoading, error, requestLocation };
 }
