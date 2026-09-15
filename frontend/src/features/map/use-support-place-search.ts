@@ -75,7 +75,7 @@ export function useSupportPlaceSearch({
 
   const searchSupportPlaces = useCallback(
     async (searchLocation = location) => runSearch(searchLocation, searchLocation !== null),
-    [hasUsableLocation, location, runSearch],
+    [location, runSearch],
   );
 
   const retrySupportPlaces = useCallback(async () => {
