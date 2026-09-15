@@ -20,11 +20,11 @@ export function MapHomeScreen() {
 
 function MapHomeContent() {
   const router = useRouter();
-  const { location } = useUserLocation();
+  const mapLocation = useUserLocation();
 
   return (
     <Screen contentStyle={styles.content}>
-      <MapScreen controlsTopOffset={144} />
+      <MapScreen controlsTopOffset={144} locationState={mapLocation} />
 
       <View pointerEvents="box-none" style={styles.topOverlay}>
         <View style={styles.header}>
@@ -48,7 +48,7 @@ function MapHomeContent() {
           </Pressable>
         </View>
 
-        <RoutePlanningEntry userLocation={location} />
+        <RoutePlanningEntry userLocation={mapLocation.location} />
       </View>
     </Screen>
   );
