@@ -25,7 +25,8 @@ interface MapScreenProps {
 }
 
 export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenProps) {
-  const { height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight, fontScale } = useWindowDimensions();
+  const useCompactFloatingControls = fontScale >= 1.35;
   const { location, permissionStatus, error: locationError, isLoading: isLocationLoading, requestLocation } = locationState;
   const [incidents, setIncidents] = useState<PublicIncidentMarker[]>([]);
   const [filter, setFilter] = useState<MapFilter>({ category: 'ALL', severity: 'ALL', dateRange: 'all', timeOfDay: 'all' });
@@ -187,7 +188,12 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
 
   return (
     <View style={styles.container}>
-      <FilterBar filter={filter} onChangeFilter={setFilter} topOffset={controlsTopOffset} />
+      <FilterBar
+        compactTrigger={useCompactFloatingControls}
+        filter={filter}
+        onChangeFilter={setFilter}
+        topOffset={controlsTopOffset}
+      />
 
       <MapView
         ref={mapRef}
@@ -249,6 +255,7 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
           onPress={() => void handleNearbySupport()}
           style={({ pressed }) => [
             styles.supportPlaceAction,
+            useCompactFloatingControls && styles.supportPlaceActionCompact,
             pressed && supportPlaceSearch.status !== 'loading' && styles.mapActionPressed,
           ]}>
           {supportPlaceSearch.status === 'loading' ? (
@@ -256,7 +263,9 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
           ) : (
             <MaterialIcons name="support-agent" size={20} color="#176B5B" />
           )}
-          <Text style={styles.supportPlaceActionText}>Nearby support</Text>
+          {!useCompactFloatingControls ? (
+            <Text style={styles.supportPlaceActionText}>Nearby support</Text>
+          ) : null}
         </Pressable>
       </View>
 
@@ -343,6 +352,10 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.14,
     shadowRadius: 4,
+  },
+  supportPlaceActionCompact: {
+    width: 48,
+    paddingHorizontal: 0,
   },
   supportPlaceActionText: { color: '#176B5B', fontSize: 13, fontWeight: '800' },
   refreshIndicator: {
