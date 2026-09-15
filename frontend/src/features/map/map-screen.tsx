@@ -13,6 +13,7 @@ import { mapApi } from './map-api';
 import type { AreaSummary, MapFilter, PublicIncidentMarker, ViewportBounds } from './map.types';
 import { ReportContextSheet } from './report-context-sheet';
 import { SupportPlaceSearchFeedback } from './support-place-search-feedback';
+import { SupportPlaceMarker } from './support-place-marker';
 import { DestinationMarker, useRouteContext } from '@/src/features/routing';
 import { FALLBACK_LOCATION, useUserLocation } from './use-user-location';
 import { useSupportPlaceSearch } from './use-support-place-search';
@@ -185,6 +186,9 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         ))}
         {filteredIncidents.map((incident) => (
           <IncidentMarker key={`marker-${incident.id}`} incident={incident} />
+        ))}
+        {supportPlaceSearch.supportPlaces.map((place) => (
+          <SupportPlaceMarker key={`support-place-${place.id}`} place={place} />
         ))}
         {selectedDestination ? (
           <DestinationMarker destination={selectedDestination} />
