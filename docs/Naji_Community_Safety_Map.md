@@ -96,6 +96,10 @@ Shiham supplies public incident projections through the Incident-owned public re
 
 The Map tab keeps the safety map as the primary workspace instead of placing it in a fixed-height card. The existing destination entry remains a Map-side integration point for the Routing feature; it does not calculate routes or perform geocoding itself. Incident filters live behind a compact overlay button, while current-location and area-context actions remain as labelled 48 dp floating controls. Long-pressing the map still opens area context, and the same context is available from the floating action at the current map center.
 
+### Dynamic Type and larger text
+
+The Map continues to support Dynamic Type. At very large accessibility text sizes, the Filters and Nearby support floating controls switch to icon-only 48 dp presentations while retaining their complete accessibility labels. Nearby support feedback uses a controlled, wrap-aware overlay and retains OpenStreetMap attribution. The filter sheet, expanded report content, and Area Safety Context are scrollable; report headers gain space for a readable title and count, and Area Safety Context stacks its report cards when required. Support-place callouts retain name, category, and approximate distance within a wrap-safe compact presentation. These adaptations preserve Map visibility and touch targets without globally disabling font scaling.
+
 The area-context sheet presents total and recent public-report counts, followed by available category and text-labelled severity breakdowns. It omits those breakdowns when there are no public reports, retaining the available-community-data disclaimer rather than inferring that the area is safe.
 
 If the backend area-summary request is unavailable, the Area Safety Context sheet shows `Safety information is temporarily unavailable.` with a Retry action. Retry repeats the real area-summary request for the selected coordinate. The Map never reconstructs or substitutes a local summary from loaded incident markers after a failed area-summary request.
