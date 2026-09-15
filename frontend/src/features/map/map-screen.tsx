@@ -13,6 +13,7 @@ import { mapApi } from './map-api';
 import type { AreaSummary, MapFilter, PublicIncidentMarker, ViewportBounds } from './map.types';
 import { ReportContextSheet } from './report-context-sheet';
 import { SupportPlaceSearchFeedback } from './support-place-search-feedback';
+import { SupportPlaceMarker } from './support-place-marker';
 import { DestinationMarker, useRouteContext } from '@/src/features/routing';
 import { FALLBACK_LOCATION, useUserLocation } from './use-user-location';
 import { useSupportPlaceSearch } from './use-support-place-search';
@@ -32,6 +33,7 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
   const [selectedAreaSummary, setSelectedAreaSummary] = useState<AreaSummary | null>(null);
   const [isSummaryVisible, setIsSummaryVisible] = useState(false);
   const [isReportSheetExpanded, setIsReportSheetExpanded] = useState(false);
+  const [selectedSupportPlaceId, setSelectedSupportPlaceId] = useState<string | null>(null);
   const lastViewportRef = useRef<ViewportBounds | null>(null);
   const mapRef = useRef<MapView>(null);
   const supportPlaceSearch = useSupportPlaceSearch({
@@ -61,6 +63,14 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
       );
     }
   }, [selectedDestination]);
+
+  React.useEffect(() => {
+    setSelectedSupportPlaceId((current) =>
+      current && !supportPlaceSearch.supportPlaces.some((place) => place.id === current)
+        ? null
+        : current,
+    );
+  }, [supportPlaceSearch.supportPlaces]);
 
   const initialRegion = {
     latitude: location?.latitude ?? FALLBACK_LOCATION.latitude,
@@ -186,6 +196,14 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         {filteredIncidents.map((incident) => (
           <IncidentMarker key={`marker-${incident.id}`} incident={incident} />
         ))}
+        {supportPlaceSearch.supportPlaces.map((place) => (
+          <SupportPlaceMarker
+            key={`support-place-${place.id}`}
+            place={place}
+            selected={place.id === selectedSupportPlaceId}
+            onSelect={() => setSelectedSupportPlaceId(place.id)}
+          />
+        ))}
         {selectedDestination ? (
           <DestinationMarker destination={selectedDestination} />
         ) : null}
@@ -243,10 +261,10 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         onRetry={() => void supportPlaceSearch.retrySupportPlaces()}
       />
 
-      {filteredIncidents.length === 0 ? (
+      {isMapDataUnavailable ? (
         <View accessible accessibilityRole="summary" style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>{isMapDataUnavailable ? 'Safety information is unavailable' : 'No reports are visible in this area'}</Text>
-          <Text style={styles.emptyText}>{isMapDataUnavailable ? 'Check your connection and try moving the map again. Safety information may be limited while the service is unavailable.' : 'This does not mean the area is safe. Adjust your filters or move the map to explore available community data.'}</Text>
+          <Text style={styles.emptyTitle}>Safety information is unavailable</Text>
+          <Text style={styles.emptyText}>Check your connection and try moving the map again. Safety information may be limited while the service is unavailable.</Text>
         </View>
       ) : null}
 

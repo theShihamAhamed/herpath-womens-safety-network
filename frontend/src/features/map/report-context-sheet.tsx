@@ -130,9 +130,9 @@ export function ReportContextSheet({ incidents, onSelectIncident, onExpandedChan
         </ScrollView>
       ) : (
         <View accessible accessibilityRole="summary" accessibilityLabel="No public reports are visible in this area" style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No public reports in this view</Text>
+          <Text style={styles.emptyTitle}>No reports are visible in this area</Text>
           <Text style={styles.emptyCopy}>
-            This does not mean the area is safe. Move the map or adjust filters to explore available community data.
+            This does not mean the area is safe. Adjust your filters or move the map to explore available community data.
           </Text>
         </View>
       )}

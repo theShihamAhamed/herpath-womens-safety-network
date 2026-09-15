@@ -69,6 +69,12 @@ HS-79 adds one explicit **Nearby support** Map action. It searches only around a
 
 The Map retains normalized results locally for HS-77, but HS-79 does not render support-place markers, place lists, category labels, distance, or routing actions. Its compact feedback distinguishes idle, loading, results, a neutral empty response, provider unavailability with retry, and unavailable location. Provider-derived result feedback includes `© OpenStreetMap contributors` attribution.
 
+### Nearby support-place markers
+
+HS-77 renders only the latest real support-place results retained by HS-79. Each resource uses a dedicated teal, rounded-square icon marker rather than the circular, category-coloured Incident marker with its inner dot. Category-aware icons give resource semantics, while accessible labels state the resource category and name so meaning does not depend on colour. Markers disappear when the current result set is empty or unavailable.
+
+Tapping a support-place marker selects it with a subtle accent outline and opens a concise callout containing the place name only. Selection does not alter Incident markers, approximate Incident polygons, Map filters, route UI, or report-context state. Distance, expanded category details, and routing/navigation remain HS-134 or later work.
+
 ## Data flow and reuse
 
 ```text
@@ -104,4 +110,4 @@ Incident callouts use a compact hierarchy: category first, then an explicit text
 
 When the Map regains focus after a successful report returns the user to `/map`, it reloads the retained visible viewport with the active filters. The refresh keeps the current map context intact and announces a short loading state while public reports are updated.
 
-Support-place data integration and explicit nearby search are implemented through the Map-owned OSM/Overpass contract. Support-place map markers remain HS-77 work; place-detail distance/category presentation remains HS-134 work. Clustering and heatmap still await sufficient real incident data.
+Support-place data integration, explicit nearby search, and support-place Map markers are implemented through the Map-owned OSM/Overpass contract. Place-detail distance/category presentation remains HS-134 work. Clustering and heatmap still await sufficient real incident data.
