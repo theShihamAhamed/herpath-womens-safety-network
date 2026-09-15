@@ -7,11 +7,13 @@ import { CATEGORY_CONFIG, SEVERITY_CONFIG, SEVERITY_LEVELS } from './map.types';
 interface AreaSummarySheetProps {
   visible: boolean;
   summary: AreaSummary | null;
+  unavailable: boolean;
   onClose: () => void;
+  onRetry: () => void;
 }
 
-export function AreaSummarySheet({ visible, summary, onClose }: AreaSummarySheetProps) {
-  if (!summary) return null;
+export function AreaSummarySheet({ visible, summary, unavailable, onClose, onRetry }: AreaSummarySheetProps) {
+  if (!summary && !unavailable) return null;
 
   return (
     <Modal
@@ -34,48 +36,38 @@ export function AreaSummarySheet({ visible, summary, onClose }: AreaSummarySheet
             </Pressable>
           </View>
 
-          <Text style={styles.disclaimerText}>{summary.dataDisclaimer}</Text>
-
-          <View style={styles.statsContainer}>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{summary.totalIncidents}</Text>
-              <Text style={styles.statLabel}>Total Reports</Text>
+          {unavailable ? (
+            <View accessible accessibilityRole="alert" style={styles.unavailableState}>
+              <Text style={styles.unavailableText}>Safety information is temporarily unavailable.</Text>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Retry area safety context"
+                onPress={onRetry}
+                style={styles.retryButton}>
+                <Text style={styles.retryText}>Retry</Text>
+              </Pressable>
             </View>
-            <View style={styles.statBox}>
-              <Text style={styles.statNumber}>{summary.recentCount}</Text>
-              <Text style={styles.statLabel}>Recent (30 days)</Text>
-            </View>
-          </View>
-
-          <Text style={styles.sectionTitle}>Incidents by Category</Text>
-          {Object.entries(summary.byCategory).map(([cat, count]) => {
-            const config = CATEGORY_CONFIG[cat as keyof typeof CATEGORY_CONFIG];
-            if (!config || count === 0) return null;
-            return (
-              <View key={cat} style={styles.categoryRow}>
-                <View style={styles.categoryInfo}>
-                  <View style={[styles.dot, { backgroundColor: config.color }]} />
-                  <Text style={styles.categoryName}>{config.label}</Text>
-                </View>
-                <Text style={styles.categoryCount}>{count}</Text>
-              </View>
-            );
-          })}
-
-          {summary.totalIncidents > 0 ? (
+          ) : summary ? (
             <>
-              <Text style={styles.sectionTitle}>Severity</Text>
-              {SEVERITY_LEVELS.slice().reverse().map((severity) => {
-                const count = summary.bySeverity[severity];
-                const config = SEVERITY_CONFIG[severity];
-                if (count === 0) return null;
+              <Text style={styles.disclaimerText}>{summary.dataDisclaimer}</Text>
 
+              <View style={styles.statsContainer}>
+                <View style={styles.statBox}>
+                  <Text style={styles.statNumber}>{summary.totalIncidents}</Text>
+                  <Text style={styles.statLabel}>Total Reports</Text>
+                </View>
+                <View style={styles.statBox}>
+                  <Text style={styles.statNumber}>{summary.recentCount}</Text>
+                  <Text style={styles.statLabel}>Recent (30 days)</Text>
+                </View>
+              </View>
+
+              <Text style={styles.sectionTitle}>Incidents by Category</Text>
+              {Object.entries(summary.byCategory).map(([cat, count]) => {
+                const config = CATEGORY_CONFIG[cat as keyof typeof CATEGORY_CONFIG];
+                if (!config || count === 0) return null;
                 return (
-                  <View
-                    key={severity}
-                    accessible
-                    accessibilityLabel={`${config.label}: ${count} reports`}
-                    style={styles.severityRow}>
+                  <View key={cat} style={styles.categoryRow}>
                     <View style={styles.categoryInfo}>
                       <View style={[styles.dot, { backgroundColor: config.color }]} />
                       <Text style={styles.categoryName}>{config.label}</Text>
@@ -84,6 +76,31 @@ export function AreaSummarySheet({ visible, summary, onClose }: AreaSummarySheet
                   </View>
                 );
               })}
+
+              {summary.totalIncidents > 0 ? (
+                <>
+                  <Text style={styles.sectionTitle}>Severity</Text>
+                  {SEVERITY_LEVELS.slice().reverse().map((severity) => {
+                    const count = summary.bySeverity[severity];
+                    const config = SEVERITY_CONFIG[severity];
+                    if (count === 0) return null;
+
+                    return (
+                      <View
+                        key={severity}
+                        accessible
+                        accessibilityLabel={`${config.label}: ${count} reports`}
+                        style={styles.severityRow}>
+                        <View style={styles.categoryInfo}>
+                          <View style={[styles.dot, { backgroundColor: config.color }]} />
+                          <Text style={styles.categoryName}>{config.label}</Text>
+                        </View>
+                        <Text style={styles.categoryCount}>{count}</Text>
+                      </View>
+                    );
+                  })}
+                </>
+              ) : null}
             </>
           ) : null}
         </View>
@@ -131,6 +148,29 @@ const styles = StyleSheet.create({
     color: '#5F6C68',
     fontStyle: 'italic',
     marginBottom: 16,
+  },
+  unavailableState: {
+    gap: 12,
+    paddingVertical: 8,
+  },
+  unavailableText: {
+    color: '#18201E',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  retryButton: {
+    alignSelf: 'flex-start',
+    minHeight: 40,
+    justifyContent: 'center',
+    paddingHorizontal: 14,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#176B5B',
+  },
+  retryText: {
+    color: '#176B5B',
+    fontSize: 13,
+    fontWeight: '800',
   },
   statsContainer: {
     flexDirection: 'row',
