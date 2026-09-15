@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { useRouter } from 'expo-router';
 import React from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { Screen } from '@/src/components/screen';
 import { RoutePlanningEntry, RouteProvider } from '@/src/features/routing';
@@ -20,6 +20,8 @@ export function MapHomeScreen() {
 
 function MapHomeContent() {
   const router = useRouter();
+  const { fontScale } = useWindowDimensions();
+  const useCompactBranding = fontScale >= 1.35;
   const mapLocation = useUserLocation();
 
   return (
@@ -33,9 +35,9 @@ function MapHomeContent() {
               accessible
               accessibilityRole="header"
               accessibilityLabel="HerPath community safety map"
-              style={styles.brandMark}>
-              <MaterialIcons name="shield" size={20} color={palette.white} />
-              <Text style={styles.brandName}>HerPath</Text>
+              style={[styles.brandMark, useCompactBranding && styles.brandMarkCompact]}>
+              <MaterialIcons name="shield" size={useCompactBranding ? 22 : 20} color={palette.white} />
+              {!useCompactBranding ? <Text style={styles.brandName}>HerPath</Text> : null}
             </View>
           </View>
           <Pressable
@@ -73,6 +75,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     borderRadius: radius.md,
     backgroundColor: palette.primary,
+  },
+  brandMarkCompact: {
+    width: 48,
+    justifyContent: 'center',
+    paddingHorizontal: 0,
   },
   brandName: { color: palette.white, fontSize: 17, fontWeight: '800', letterSpacing: -0.2 },
   iconButton: {
