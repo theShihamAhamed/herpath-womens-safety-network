@@ -1,5 +1,5 @@
 import React from 'react';
-import { Modal, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import type { AreaSummary } from './map.types';
 import { CATEGORY_CONFIG, SEVERITY_CONFIG, SEVERITY_LEVELS } from './map.types';
@@ -13,6 +13,8 @@ interface AreaSummarySheetProps {
 }
 
 export function AreaSummarySheet({ visible, summary, unavailable, onClose, onRetry }: AreaSummarySheetProps) {
+  const { fontScale } = useWindowDimensions();
+  const useStackedStats = fontScale >= 1.35;
   if (!summary && !unavailable) return null;
 
   return (
@@ -23,7 +25,7 @@ export function AreaSummarySheet({ visible, summary, unavailable, onClose, onRet
       onRequestClose={onClose}
     >
       <View style={styles.overlay}>
-        <View style={styles.sheetContainer}>
+        <ScrollView contentContainerStyle={styles.sheetContent} showsVerticalScrollIndicator={false} style={styles.sheetContainer}>
           <View style={styles.header}>
             <Text style={styles.title}>Area Safety Context</Text>
             <Pressable
@@ -51,12 +53,12 @@ export function AreaSummarySheet({ visible, summary, unavailable, onClose, onRet
             <>
               <Text style={styles.disclaimerText}>{summary.dataDisclaimer}</Text>
 
-              <View style={styles.statsContainer}>
-                <View style={styles.statBox}>
+              <View style={[styles.statsContainer, useStackedStats && styles.statsContainerStacked]}>
+                <View style={[styles.statBox, useStackedStats && styles.statBoxStacked]}>
                   <Text style={styles.statNumber}>{summary.totalIncidents}</Text>
                   <Text style={styles.statLabel}>Total Reports</Text>
                 </View>
-                <View style={styles.statBox}>
+                <View style={[styles.statBox, useStackedStats && styles.statBoxStacked]}>
                   <Text style={styles.statNumber}>{summary.recentCount}</Text>
                   <Text style={styles.statLabel}>Recent (30 days)</Text>
                 </View>
@@ -103,7 +105,7 @@ export function AreaSummarySheet({ visible, summary, unavailable, onClose, onRet
               ) : null}
             </>
           ) : null}
-        </View>
+        </ScrollView>
       </View>
     </Modal>
   );
@@ -119,8 +121,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    padding: 20,
     maxHeight: '80%',
+  },
+  sheetContent: {
+    padding: 20,
   },
   header: {
     flexDirection: 'row',
@@ -129,6 +133,8 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
+    flex: 1,
+    flexShrink: 1,
     fontSize: 20,
     fontWeight: '800',
     color: '#18201E',
@@ -177,12 +183,18 @@ const styles = StyleSheet.create({
     gap: 12,
     marginBottom: 20,
   },
+  statsContainerStacked: {
+    flexDirection: 'column',
+  },
   statBox: {
     flex: 1,
     backgroundColor: '#EEF2F1',
     borderRadius: 12,
     padding: 14,
     alignItems: 'center',
+  },
+  statBoxStacked: {
+    width: '100%',
   },
   statNumber: {
     fontSize: 22,
@@ -209,6 +221,8 @@ const styles = StyleSheet.create({
     borderBottomColor: '#EEF2F1',
   },
   categoryInfo: {
+    flex: 1,
+    flexShrink: 1,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -219,6 +233,7 @@ const styles = StyleSheet.create({
     borderRadius: 5,
   },
   categoryName: {
+    flexShrink: 1,
     fontSize: 14,
     color: '#18201E',
   },
