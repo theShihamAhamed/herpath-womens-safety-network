@@ -13,6 +13,7 @@ import { mapApi } from './map-api';
 import type { AreaSummary, MapFilter, PublicIncidentMarker, ViewportBounds } from './map.types';
 import { ReportContextSheet } from './report-context-sheet';
 import { SupportPlaceSearchFeedback } from './support-place-search-feedback';
+import { getSupportPlaceDistanceMetres } from './support-place-distance';
 import { SupportPlaceMarker } from './support-place-marker';
 import { DestinationMarker, useRouteContext } from '@/src/features/routing';
 import { FALLBACK_LOCATION, useUserLocation } from './use-user-location';
@@ -200,6 +201,11 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
           <SupportPlaceMarker
             key={`support-place-${place.id}`}
             place={place}
+            distanceMetres={
+              supportPlaceSearch.searchOrigin
+                ? getSupportPlaceDistanceMetres(supportPlaceSearch.searchOrigin, place.location)
+                : null
+            }
             selected={place.id === selectedSupportPlaceId}
             onSelect={() => setSelectedSupportPlaceId(place.id)}
           />

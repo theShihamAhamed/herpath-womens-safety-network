@@ -19,6 +19,7 @@ interface UseSupportPlaceSearchOptions {
 
 interface UseSupportPlaceSearchResult {
   supportPlaces: SupportPlace[];
+  searchOrigin: UserLocation | null;
   status: SupportPlaceSearchStatus;
   errorMessage: string | null;
   searchSupportPlaces: () => Promise<void>;
@@ -34,6 +35,7 @@ export function useSupportPlaceSearch({
   hasUsableLocation,
 }: UseSupportPlaceSearchOptions): UseSupportPlaceSearchResult {
   const [supportPlaces, setSupportPlaces] = useState<SupportPlace[]>([]);
+  const [searchOrigin, setSearchOrigin] = useState<UserLocation | null>(null);
   const [status, setStatus] = useState<SupportPlaceSearchStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const inFlight = useRef(false);
@@ -43,6 +45,7 @@ export function useSupportPlaceSearch({
     if (inFlight.current) return;
     if (!canUseLocation || !searchLocation) {
       setSupportPlaces([]);
+      setSearchOrigin(null);
       setErrorMessage(null);
       setStatus('location_unavailable');
       return;
@@ -50,6 +53,7 @@ export function useSupportPlaceSearch({
 
     inFlight.current = true;
     lastSearchLocation.current = searchLocation;
+    setSearchOrigin(searchLocation);
     setStatus('loading');
     setErrorMessage(null);
 
@@ -79,5 +83,5 @@ export function useSupportPlaceSearch({
     await runSearch(searchLocation, hasUsableLocation && searchLocation !== null);
   }, [hasUsableLocation, location, runSearch]);
 
-  return { supportPlaces, status, errorMessage, searchSupportPlaces, retrySupportPlaces };
+  return { supportPlaces, searchOrigin, status, errorMessage, searchSupportPlaces, retrySupportPlaces };
 }

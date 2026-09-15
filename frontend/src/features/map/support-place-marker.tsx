@@ -1,31 +1,31 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import React, { type ComponentProps } from 'react';
+import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Callout, Marker } from 'react-native-maps';
 
-import type { SupportPlace, SupportPlaceCategory } from './map.types';
+import type { SupportPlace } from './map.types';
+import { formatSupportPlaceDistance } from './support-place-distance';
+import { supportPlacePresentation } from './support-place-presentation';
 
 interface SupportPlaceMarkerProps {
   place: SupportPlace;
+  distanceMetres?: number | null;
   selected?: boolean;
   onSelect?: (place: SupportPlace) => void;
 }
 
-const categoryPresentation: Record<
-  SupportPlaceCategory,
-  { accessibilityLabel: string; icon: ComponentProps<typeof MaterialIcons>['name'] }
-> = {
-  POLICE: { accessibilityLabel: 'Police support place', icon: 'local-police' },
-  MEDICAL: { accessibilityLabel: 'Medical support place', icon: 'local-hospital' },
-  EMERGENCY: { accessibilityLabel: 'Emergency support place', icon: 'emergency' },
-  WOMENS_SUPPORT: { accessibilityLabel: "Women's support place", icon: 'volunteer-activism' },
-  COUNSELLING_SUPPORT: { accessibilityLabel: 'Counselling support place', icon: 'psychology' },
-};
-
 /** Presentation-only marker for real, normalized support-place search results. */
-export function SupportPlaceMarker({ place, selected = false, onSelect }: SupportPlaceMarkerProps) {
-  const presentation = categoryPresentation[place.category];
-  const accessibilityLabel = `${presentation.accessibilityLabel}: ${place.name}`;
+export function SupportPlaceMarker({
+  place,
+  distanceMetres = null,
+  selected = false,
+  onSelect,
+}: SupportPlaceMarkerProps) {
+  const presentation = supportPlacePresentation[place.category];
+  const distanceText = formatSupportPlaceDistance(distanceMetres);
+  const accessibilityLabel = [place.name, presentation.label, distanceText ? `approximately ${distanceText}` : null]
+    .filter(Boolean)
+    .join(', ');
 
   return (
     <Marker
@@ -42,6 +42,8 @@ export function SupportPlaceMarker({ place, selected = false, onSelect }: Suppor
       <Callout tooltip>
         <View style={styles.callout}>
           <Text style={styles.calloutName}>{place.name}</Text>
+          <Text style={styles.calloutCategory}>{presentation.label}</Text>
+          {distanceText ? <Text style={styles.calloutDistance}>Approx. {distanceText}</Text> : null}
         </View>
       </Callout>
     </Marker>
@@ -79,4 +81,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
   },
   calloutName: { color: '#18201E', fontSize: 14, fontWeight: '700' },
+  calloutCategory: { color: '#5F6C68', fontSize: 12, marginTop: 4 },
+  calloutDistance: { color: '#176B5B', fontSize: 12, fontWeight: '600', marginTop: 2 },
 });
