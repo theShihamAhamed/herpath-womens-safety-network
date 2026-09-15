@@ -10,6 +10,7 @@ import { clampReportSheetOffset, resolveReportSheetSnapOffset } from './report-s
 import { summarizeVisibleIncidents } from './report-context-summary';
 
 const COLLAPSED_SHEET_HEIGHT = 64;
+const LARGE_TEXT_COLLAPSED_SHEET_HEIGHT = 88;
 const SHEET_HEIGHT_RATIO = 0.58;
 const SETTLE_ANIMATION = { duration: 220, easing: Easing.out(Easing.cubic) };
 
@@ -21,12 +22,13 @@ interface ReportContextSheetProps {
 
 /** A compact, map-owned summary of the public reports currently in view. */
 export function ReportContextSheet({ incidents, onSelectIncident, onExpandedChange }: ReportContextSheetProps) {
-  const { height: windowHeight } = useWindowDimensions();
+  const { height: windowHeight, fontScale } = useWindowDimensions();
   const count = incidents.length;
   const visibleSummary = summarizeVisibleIncidents(incidents);
   const summary = count === 1 ? '1 public report in this area' : `${count} public reports in this area`;
+  const collapsedSheetHeight = fontScale >= 1.35 ? LARGE_TEXT_COLLAPSED_SHEET_HEIGHT : COLLAPSED_SHEET_HEIGHT;
   const sheetHeight = Math.round(windowHeight * SHEET_HEIGHT_RATIO);
-  const collapsedOffset = Math.max(sheetHeight - COLLAPSED_SHEET_HEIGHT, 0);
+  const collapsedOffset = Math.max(sheetHeight - collapsedSheetHeight, 0);
   const [expanded, setExpanded] = useState(false);
   const sheetOffset = useSharedValue(collapsedOffset);
   const dragStartOffset = useSharedValue(collapsedOffset);
@@ -76,25 +78,26 @@ export function ReportContextSheet({ incidents, onSelectIncident, onExpandedChan
             ]}
             onAccessibilityAction={(event) => settleSheet(event.nativeEvent.actionName === 'expand')}
             onPress={toggleExpanded}
-            style={styles.header}>
+            style={[styles.header, { minHeight: collapsedSheetHeight - 6 }]}>
             <View style={styles.handle} />
             <View style={styles.summaryRow}>
-              <Text style={styles.title}>Reports in this area</Text>
-              <Text style={styles.count}>{count}</Text>
+              <Text maxFontSizeMultiplier={1.6} style={styles.title}>Reports in this area</Text>
+              <Text maxFontSizeMultiplier={1.3} style={styles.count}>{count}</Text>
             </View>
           </Pressable>
         </View>
       </GestureDetector>
-      <View style={styles.expandedSummary}>
-        <Text style={styles.summary}>{count === 0 ? 'No visible public reports' : summary}</Text>
-        {visibleSummary.highSeverityCount > 0 ? (
-          <Text style={styles.prioritySummary}>
-            {visibleSummary.highSeverityCount} high-severity {visibleSummary.highSeverityCount === 1 ? 'report' : 'reports'}
-          </Text>
-        ) : null}
-      </View>
-      {count > 0 ? (
-        <ScrollView style={styles.reportListContainer} contentContainerStyle={styles.reportList} showsVerticalScrollIndicator={false}>
+      <ScrollView style={styles.reportListContainer} contentContainerStyle={styles.reportList} showsVerticalScrollIndicator={false}>
+        <View style={styles.expandedSummary}>
+          <Text style={styles.summary}>{count === 0 ? 'No visible public reports' : summary}</Text>
+          {visibleSummary.highSeverityCount > 0 ? (
+            <Text style={styles.prioritySummary}>
+              {visibleSummary.highSeverityCount} high-severity {visibleSummary.highSeverityCount === 1 ? 'report' : 'reports'}
+            </Text>
+          ) : null}
+        </View>
+        {count > 0 ? (
+          <>
           <Text style={styles.contextNote}>
             Community-reported locations are shown as approximate areas, not exact locations.
           </Text>
@@ -127,15 +130,16 @@ export function ReportContextSheet({ incidents, onSelectIncident, onExpandedChan
               </Pressable>
             );
           })}
-        </ScrollView>
-      ) : (
-        <View accessible accessibilityRole="summary" accessibilityLabel="No public reports are visible in this area" style={styles.emptyState}>
-          <Text style={styles.emptyTitle}>No reports are visible in this area</Text>
-          <Text style={styles.emptyCopy}>
-            This does not mean the area is safe. Adjust your filters or move the map to explore available community data.
-          </Text>
-        </View>
-      )}
+          </>
+        ) : (
+          <View accessible accessibilityRole="summary" accessibilityLabel="No public reports are visible in this area" style={styles.emptyState}>
+            <Text style={styles.emptyTitle}>No reports are visible in this area</Text>
+            <Text style={styles.emptyCopy}>
+              This does not mean the area is safe. Adjust your filters or move the map to explore available community data.
+            </Text>
+          </View>
+        )}
+      </ScrollView>
     </Animated.View>
   );
 }
@@ -156,7 +160,7 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surface,
     overflow: 'hidden',
   },
-  header: { minHeight: 58 },
+  header: { paddingBottom: 4 },
   handle: {
     alignSelf: 'center',
     width: 36,
@@ -165,13 +169,13 @@ const styles = StyleSheet.create({
     backgroundColor: palette.border,
   },
   summaryRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: spacing.md, marginTop: 6 },
-  title: { color: palette.text, fontSize: 17, fontWeight: '800' },
+  title: { flex: 1, flexShrink: 1, color: palette.text, fontSize: 17, fontWeight: '800', lineHeight: 22 },
   summary: { color: palette.textMuted, fontSize: 13, lineHeight: 18 },
   prioritySummary: { color: palette.text, fontSize: 12, fontWeight: '700' },
-  count: { color: palette.primary, fontSize: 24, fontWeight: '800' },
+  count: { flexShrink: 0, color: palette.primary, fontSize: 24, fontWeight: '800' },
   expandedSummary: { gap: spacing.xs, marginBottom: spacing.md },
   reportListContainer: { flex: 1 },
-  reportList: { gap: spacing.sm, paddingBottom: spacing.sm },
+  reportList: { gap: spacing.sm, paddingBottom: spacing.sm, flexGrow: 1 },
   contextNote: { color: palette.textMuted, fontSize: 12, lineHeight: 17, marginBottom: spacing.xs },
   reportRow: {
     gap: 3,
