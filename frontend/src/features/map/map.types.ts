@@ -100,3 +100,24 @@ export interface AreaSummary {
   recentCount: number;
   dataDisclaimer: string;
 }
+
+export const SUPPORT_PLACE_CATEGORIES = [
+  'POLICE',
+  'MEDICAL',
+  'EMERGENCY',
+  'WOMENS_SUPPORT',
+  'COUNSELLING_SUPPORT',
+] as const;
+
+export type SupportPlaceCategory = (typeof SUPPORT_PLACE_CATEGORIES)[number];
+
+/** Normalized public Map contract; no raw OSM tags reach the client. */
+export interface SupportPlace {
+  id: string;
+  name: string;
+  category: SupportPlaceCategory;
+  location: {
+    latitude: number;
+    longitude: number;
+  };
+}

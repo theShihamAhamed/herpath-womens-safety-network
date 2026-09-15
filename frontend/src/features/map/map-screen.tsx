@@ -3,6 +3,7 @@ import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
+import * as Location from 'expo-location';
 
 import { AreaSummarySheet } from './area-summary-sheet';
 import { FilterBar } from './filter-bar';
@@ -11,12 +12,19 @@ import { IncidentMarker } from './incident-marker';
 import { mapApi } from './map-api';
 import type { AreaSummary, MapFilter, PublicIncidentMarker, ViewportBounds } from './map.types';
 import { ReportContextSheet } from './report-context-sheet';
+import { SupportPlaceSearchFeedback } from './support-place-search-feedback';
 import { DestinationMarker, useRouteContext } from '@/src/features/routing';
 import { FALLBACK_LOCATION, useUserLocation } from './use-user-location';
+import { useSupportPlaceSearch } from './use-support-place-search';
 
 export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: number }) {
   const { height: windowHeight } = useWindowDimensions();
-  const { location, isLoading: isLocationLoading } = useUserLocation();
+  const {
+    location,
+    permissionStatus,
+    error: locationError,
+    isLoading: isLocationLoading,
+  } = useUserLocation();
   const [incidents, setIncidents] = useState<PublicIncidentMarker[]>([]);
   const [filter, setFilter] = useState<MapFilter>({ category: 'ALL', severity: 'ALL', dateRange: 'all', timeOfDay: 'all' });
   const [isRefreshing, setIsRefreshing] = useState(false);
@@ -26,6 +34,11 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
   const [isReportSheetExpanded, setIsReportSheetExpanded] = useState(false);
   const lastViewportRef = useRef<ViewportBounds | null>(null);
   const mapRef = useRef<MapView>(null);
+  const supportPlaceSearch = useSupportPlaceSearch({
+    location,
+    hasUsableLocation:
+      permissionStatus === Location.PermissionStatus.GRANTED && locationError === null,
+  });
 
   let selectedDestination = null;
   try {
@@ -190,6 +203,30 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         <Pressable accessibilityRole="button" accessibilityLabel="Show area safety context" onPress={handleCurrentAreaSummary} style={styles.mapAction}>
           <MaterialIcons name="analytics" size={22} color="#176B5B" />
         </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            supportPlaceSearch.status === 'loading'
+              ? 'Finding nearby support places'
+              : 'Find nearby support places'
+          }
+          accessibilityState={{
+            disabled: supportPlaceSearch.status === 'loading',
+            busy: supportPlaceSearch.status === 'loading',
+          }}
+          disabled={supportPlaceSearch.status === 'loading'}
+          onPress={() => void supportPlaceSearch.searchSupportPlaces()}
+          style={({ pressed }) => [
+            styles.supportPlaceAction,
+            pressed && supportPlaceSearch.status !== 'loading' && styles.mapActionPressed,
+          ]}>
+          {supportPlaceSearch.status === 'loading' ? (
+            <ActivityIndicator size="small" color="#176B5B" />
+          ) : (
+            <MaterialIcons name="support-agent" size={20} color="#176B5B" />
+          )}
+          <Text style={styles.supportPlaceActionText}>Nearby support</Text>
+        </Pressable>
       </View>
 
       {isRefreshing ? (
@@ -198,6 +235,13 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
           <Text style={styles.refreshText}>Refreshing reports</Text>
         </View>
       ) : null}
+
+      <SupportPlaceSearchFeedback
+        status={supportPlaceSearch.status}
+        resultCount={supportPlaceSearch.supportPlaces.length}
+        errorMessage={supportPlaceSearch.errorMessage}
+        onRetry={() => void supportPlaceSearch.retrySupportPlaces()}
+      />
 
       {filteredIncidents.length === 0 ? (
         <View accessible accessibilityRole="summary" style={styles.emptyCard}>
@@ -249,6 +293,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.14,
     shadowRadius: 4,
   },
+  mapActionPressed: { opacity: 0.72 },
+  supportPlaceAction: {
+    minHeight: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingHorizontal: 12,
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#D7DEDC',
+    backgroundColor: '#FFFFFF',
+    elevation: 3,
+    shadowColor: '#18201E',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.14,
+    shadowRadius: 4,
+  },
+  supportPlaceActionText: { color: '#176B5B', fontSize: 13, fontWeight: '800' },
   refreshIndicator: {
     position: 'absolute',
     top: 204,
