@@ -261,10 +261,10 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         onRetry={() => void supportPlaceSearch.retrySupportPlaces()}
       />
 
-      {filteredIncidents.length === 0 ? (
+      {isMapDataUnavailable ? (
         <View accessible accessibilityRole="summary" style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>{isMapDataUnavailable ? 'Safety information is unavailable' : 'No reports are visible in this area'}</Text>
-          <Text style={styles.emptyText}>{isMapDataUnavailable ? 'Check your connection and try moving the map again. Safety information may be limited while the service is unavailable.' : 'This does not mean the area is safe. Adjust your filters or move the map to explore available community data.'}</Text>
+          <Text style={styles.emptyTitle}>Safety information is unavailable</Text>
+          <Text style={styles.emptyText}>Check your connection and try moving the map again. Safety information may be limited while the service is unavailable.</Text>
         </View>
       ) : null}
 
