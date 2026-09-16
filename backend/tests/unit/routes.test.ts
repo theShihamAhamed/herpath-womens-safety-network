@@ -103,7 +103,7 @@ describe('GeocodingService retrieval', () => {
       },
     ]);
     const requestUrl = new URL(request.mock.calls[0]?.[0] as string);
-    expect(requestUrl.searchParams.get('filter')).toBe('countrycode:lk');
+    expect(requestUrl.searchParams.get('filter')).toBe('circle:79.8,6.9,15000|countrycode:lk');
     expect(requestUrl.searchParams.get('bias')).toBe('proximity:79.8,6.9');
   });
 

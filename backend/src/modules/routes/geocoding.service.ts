@@ -36,7 +36,12 @@ export class GeocodingService {
     url.searchParams.set('limit', '8');
     url.searchParams.set('lang', 'en');
     url.searchParams.set('apiKey', this.apiKey);
-    url.searchParams.set('filter', 'countrycode:lk');
+    url.searchParams.set(
+      'filter',
+      query.lat !== undefined && query.lng !== undefined
+        ? `circle:${query.lng},${query.lat},15000|countrycode:lk`
+        : 'countrycode:lk',
+    );
     if (query.lat !== undefined && query.lng !== undefined) {
       url.searchParams.set('bias', `proximity:${query.lng},${query.lat}`);
     }
