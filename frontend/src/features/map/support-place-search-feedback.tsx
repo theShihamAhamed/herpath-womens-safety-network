@@ -10,7 +10,7 @@ interface SupportPlaceSearchFeedbackProps {
   onRetry: () => void;
 }
 
-/** Compact search feedback only; support-place markers and details belong to later work. */
+/** Compact feedback for the current nearby-support search state. */
 export function SupportPlaceSearchFeedback({
   status,
   resultCount,

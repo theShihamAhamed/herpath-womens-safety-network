@@ -35,16 +35,16 @@
 - [x] lifecycle fields remain absent from owner and Map API responses
 - [x] lifecycle migration supports aggregate dry-run, idempotent apply, and restricted rollback
 - [x] occurrence-range filters use offset-aware `occurredFrom`/`occurredTo`
-- [ ] newly submitted public incident can render
-- [ ] Map renders `publicArea` as an honest approximate area rather than only a precise-looking pin
+- [x] newly submitted public incident can render
+- [x] Map renders `publicArea` as an honest approximate area rather than only a precise-looking pin
 - [ ] Android physical-device incident flow verified
 - [ ] iOS physical-device incident flow verified
 - [ ] increased-text and screen-reader checks completed on a device
 
 ## Map/Incidents → Route
 
-- [ ] Map consumes Routing only through its documented public feature exports
-- [ ] destination search begins from the Map experience
+- [x] Map consumes Routing only through its documented public feature exports
+- [x] destination search begins from the Map experience
 - [ ] route candidates available
 - [ ] route corridor can query relevant incidents
 - [ ] route uses approved terminology
