@@ -30,7 +30,7 @@ export function DestinationSearchModal({
   onSelectDestination,
   userLocation,
 }: DestinationSearchModalProps) {
-  const { query, setQuery, results, loading, errorMessage, locationRequired, clearSearch, retrySearch } = useDestinationSearch({
+  const { query, setQuery, results, loading, errorMessage, locationRequired, shortQuery, clearSearch, retrySearch } = useDestinationSearch({
     userLocation,
   });
   const [selectionError, setSelectionError] = React.useState<string | null>(null);
@@ -138,8 +138,16 @@ export function DestinationSearchModal({
             </View>
           ) : null}
 
+          {/* Short-query prompt */}
+          {!loading && shortQuery && !errorMessage ? (
+            <View style={styles.emptyPrompt}>
+              <MaterialIcons name="search" size={44} color={palette.textMuted} />
+              <Text style={styles.promptTitle}>Keep typing to search places</Text>
+            </View>
+          ) : null}
+
           {/* No results state */}
-          {!loading && query.trim().length >= 1 && results.length === 0 && !errorMessage ? (
+          {!loading && query.trim().length >= 2 && results.length === 0 && !errorMessage ? (
             <View style={styles.emptyPrompt}>
               <MaterialIcons name="location-off" size={44} color={palette.textMuted} />
               <Text style={styles.promptTitle}>No places found</Text>

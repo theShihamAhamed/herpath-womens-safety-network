@@ -16,6 +16,7 @@ interface UseDestinationSearchResult {
   loading: boolean;
   errorMessage: string | null;
   locationRequired: boolean;
+  shortQuery: boolean;
   clearSearch: () => void;
   retrySearch: () => void;
 }
@@ -91,5 +92,7 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
     };
   }, [query, retryVersion, userLocation]);
 
-  return { query, setQuery, results, loading, errorMessage, locationRequired, clearSearch, retrySearch };
+  const shortQuery = query.trim().length === 1 && results.length === 0 && !loading && !errorMessage;
+
+  return { query, setQuery, results, loading, errorMessage, locationRequired, shortQuery, clearSearch, retrySearch };
 }
