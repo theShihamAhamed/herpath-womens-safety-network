@@ -36,12 +36,6 @@ export class GeocodingService {
     url.searchParams.set('limit', '8');
     url.searchParams.set('lang', 'en');
     url.searchParams.set('apiKey', this.apiKey);
-    url.searchParams.set(
-      'filter',
-      query.lat !== undefined && query.lng !== undefined
-        ? `circle:${query.lng},${query.lat},15000|countrycode:lk`
-        : 'countrycode:lk',
-    );
     if (query.lat !== undefined && query.lng !== undefined) {
       url.searchParams.set('bias', `proximity:${query.lng},${query.lat}`);
     }
@@ -53,7 +47,6 @@ export class GeocodingService {
   private async searchNearbyPlaces(category: string, latitude: number, longitude: number): Promise<DestinationSuggestion[]> {
     const url = new URL('https://api.geoapify.com/v2/places');
     url.searchParams.set('categories', category);
-    url.searchParams.set('filter', `circle:${longitude},${latitude},15000`);
     url.searchParams.set('bias', `proximity:${longitude},${latitude}`);
     url.searchParams.set('limit', '8');
     url.searchParams.set('lang', 'en');

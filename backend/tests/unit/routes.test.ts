@@ -81,7 +81,7 @@ describe('GeocodingService retrieval', () => {
     const url = new URL(request.mock.calls[0]?.[0] as string);
     expect(url.pathname).toBe('/v2/places');
     expect(url.searchParams.get('categories')).toBe('healthcare.hospital');
-    expect(url.searchParams.get('filter')).toBe('circle:79.8612,6.9271,15000');
+    expect(url.searchParams.get('filter')).toBeNull();
     expect(url.searchParams.get('bias')).toBe('proximity:79.8612,6.9271');
   });
 
@@ -103,7 +103,7 @@ describe('GeocodingService retrieval', () => {
       },
     ]);
     const requestUrl = new URL(request.mock.calls[0]?.[0] as string);
-    expect(requestUrl.searchParams.get('filter')).toBe('circle:79.8,6.9,15000|countrycode:lk');
+    expect(requestUrl.searchParams.get('filter')).toBeNull();
     expect(requestUrl.searchParams.get('bias')).toBe('proximity:79.8,6.9');
   });
 
@@ -121,7 +121,7 @@ describe('GeocodingService retrieval', () => {
 
     await service.searchPlaces({ q: 'ap' });
     const requestUrl = new URL(request.mock.calls[0]?.[0] as string);
-    expect(requestUrl.searchParams.get('filter')).toBe('countrycode:lk');
+    expect(requestUrl.searchParams.get('filter')).toBeNull();
     expect(requestUrl.searchParams.get('bias')).toBeNull();
   });
 
@@ -133,7 +133,7 @@ describe('GeocodingService retrieval', () => {
     const requestUrl = new URL(request.mock.calls[0]?.[0] as string);
     expect(requestUrl.pathname).toBe('/v2/places');
     expect(requestUrl.searchParams.get('categories')).toBe('service.cleaning.laundry');
-    expect(requestUrl.searchParams.get('filter')).toBe('circle:79.8612,6.9271,15000');
+    expect(requestUrl.searchParams.get('filter')).toBeNull();
     expect(requestUrl.searchParams.get('bias')).toBe('proximity:79.8612,6.9271');
   });
 
@@ -151,7 +151,7 @@ describe('GeocodingService retrieval', () => {
 
     await expect(service.searchPlaces({ q: 'London' })).resolves.toEqual([]);
     expect(request).toHaveBeenCalledTimes(1);
-    expect(new URL(request.mock.calls[0]?.[0] as string).searchParams.get('filter')).toBe('countrycode:lk');
+    expect(new URL(request.mock.calls[0]?.[0] as string).searchParams.get('filter')).toBeNull();
   });
 
   it('reports provider failure instead of returning a synthetic destination', async () => {
