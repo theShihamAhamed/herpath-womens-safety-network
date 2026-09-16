@@ -34,9 +34,13 @@ describe('destination search validation contracts', () => {
     expect(validQuery.q).toBe('Galle Face Green');
   });
 
-  it('accepts one-character autocomplete queries and rejects blank input', () => {
-    expect(destinationSearchQuerySchema.parse({ q: 'a' }).q).toBe('a');
+  it.each(['a', 'A', 'h', 'H'])('accepts one-character autocomplete query %s', (query) => {
+    expect(destinationSearchQuerySchema.parse({ q: query }).q).toBe(query);
+  });
+
+  it('rejects blank autocomplete queries', () => {
     expect(() => destinationSearchQuerySchema.parse({ q: '   ' })).toThrow();
+    expect(() => destinationSearchQuerySchema.parse({ q: '' })).toThrow();
   });
 
   it('rejects queries exceeding max character limit', () => {
@@ -70,16 +74,48 @@ describe('GeocodingService retrieval', () => {
       },
     ]);
     const requestUrl = new URL(request.mock.calls[0]?.[0] as string);
-    expect(requestUrl.searchParams.get('bias')).toBe('proximity:79.8,6.9|countrycode:lk');
+    expect(requestUrl.searchParams.get('filter')).toBe('countrycode:lk');
+    expect(requestUrl.searchParams.get('bias')).toBe('proximity:79.8,6.9');
+  });
+
+  it.each(['a', 'A', 'h', 'H'])('sends one-character query %s to the provider', async (query) => {
+    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [] }), { status: 200 }));
+    const service = new GeocodingService('test-key', request);
+
+    await service.searchPlaces({ q: query });
+    expect(new URL(request.mock.calls[0]?.[0] as string).searchParams.get('text')).toBe(query);
+  });
+
+  it('keeps Sri Lanka filtering when no user location is available', async () => {
+    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [] }), { status: 200 }));
+    const service = new GeocodingService('test-key', request);
+
+    await service.searchPlaces({ q: 'ap' });
+    const requestUrl = new URL(request.mock.calls[0]?.[0] as string);
+    expect(requestUrl.searchParams.get('filter')).toBe('countrycode:lk');
+    expect(requestUrl.searchParams.get('bias')).toBeNull();
   });
 
   it('returns an empty array for a successful empty provider response without fabricating places', async () => {
     const service = new GeocodingService(
       'test-key',
-      vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [] }), { status: 200 })),
+      vi.fn()
+        .mockResolvedValueOnce(new Response(JSON.stringify({ results: [] }), { status: 200 }))
+        .mockResolvedValueOnce(new Response(JSON.stringify({ results: [] }), { status: 200 })),
     );
 
     await expect(service.searchPlaces({ q: 'zzz' })).resolves.toEqual([]);
+  });
+
+  it('uses one global fallback only for a zero-result query of three or more characters', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [{ place_id: 'global-1', name: 'London', lat: 51.5, lon: -0.1 }] }), { status: 200 }));
+    const service = new GeocodingService('test-key', request);
+
+    await expect(service.searchPlaces({ q: 'London' })).resolves.toMatchObject([{ id: 'global-1' }]);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(new URL(request.mock.calls[1]?.[0] as string).searchParams.get('filter')).toBeNull();
   });
 
   it('reports provider failure instead of returning a synthetic destination', async () => {

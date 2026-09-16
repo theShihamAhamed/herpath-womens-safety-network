@@ -28,14 +28,21 @@ export class GeocodingService {
     url.searchParams.set('limit', '8');
     url.searchParams.set('lang', 'en');
     url.searchParams.set('apiKey', this.apiKey);
-    url.searchParams.set(
-      'bias',
-      query.lat !== undefined && query.lng !== undefined
-        ? `proximity:${query.lng},${query.lat}|countrycode:lk`
-        : 'countrycode:lk',
-    );
+    url.searchParams.set('filter', 'countrycode:lk');
+    if (query.lat !== undefined && query.lng !== undefined) {
+      url.searchParams.set('bias', `proximity:${query.lng},${query.lat}`);
+    }
     const payload = await this.requestGeoapify(url);
     const results = Array.isArray(payload.results) ? payload.results : [];
+    const localSuggestions = this.normalizeResults(results);
+    if (localSuggestions.length > 0 || query.q.length < 3) return localSuggestions;
+
+    url.searchParams.delete('filter');
+    const globalPayload = await this.requestGeoapify(url);
+    return this.normalizeResults(Array.isArray(globalPayload.results) ? globalPayload.results : []);
+  }
+
+  private normalizeResults(results: unknown[]): DestinationSuggestion[] {
     return results.flatMap((entry: unknown): DestinationSuggestion[] => {
       const result = entry as GeoapifyResult;
       if (!result.place_id || typeof result.lat !== 'number' || typeof result.lon !== 'number') return [];

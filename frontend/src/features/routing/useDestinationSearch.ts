@@ -67,7 +67,11 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
       } catch (error) {
         if (latestRequestRef.current === requestId) {
           setResults([]);
-          setErrorMessage(error instanceof ApiError ? error.message : 'Unable to find destinations. Please try again.');
+          setErrorMessage(
+            error instanceof ApiError && error.code !== 'VALIDATION_ERROR'
+              ? error.message
+              : 'Destination suggestions are temporarily unavailable. Please try again.',
+          );
         }
       } finally {
         if (latestRequestRef.current === requestId) setLoading(false);
