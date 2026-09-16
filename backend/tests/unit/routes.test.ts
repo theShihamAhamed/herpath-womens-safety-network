@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from 'vitest';
 import type { NextFunction, Request, Response } from 'express';
 
+import type { AppError } from '../../src/common/errors/app-error.js';
 import { GeocodingService } from '../../src/modules/routes/geocoding.service.js';
 import { RoutesController } from '../../src/modules/routes/routes.controller.js';
 import { destinationSearchQuerySchema } from '../../src/modules/routes/routes.validation.js';
@@ -57,27 +58,38 @@ describe('destination search validation contracts', () => {
   });
 });
 
-describe('GeocodingService fallback & retrieval', () => {
-  it('returns curated matching destinations for common places', async () => {
-    const service = new GeocodingService();
-    const results = await service.searchPlaces({ q: 'Colombo Fort' });
+describe('GeocodingService retrieval', () => {
+  it('returns normalized real provider results, including a valid empty response', async () => {
+    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify([
+      {
+        place_id: 10,
+        lat: '6.9344',
+        lon: '79.8501',
+        display_name: 'Colombo Fort Railway Station, Colombo, Sri Lanka',
+        name: 'Colombo Fort Railway Station',
+      },
+    ]), { status: 200 }));
+    const service = new GeocodingService('https://nominatim.example/search', request);
 
-    expect(results.length).toBeGreaterThan(0);
-    expect(results[0]).toMatchObject({
-      name: expect.stringContaining('Colombo Fort'),
-      latitude: expect.any(Number),
-      longitude: expect.any(Number),
-    });
+    await expect(service.searchPlaces({ q: 'Colombo Fort' })).resolves.toEqual([
+      {
+        id: 'osm-10',
+        name: 'Colombo Fort Railway Station',
+        address: 'Colombo, Sri Lanka',
+        latitude: 6.9344,
+        longitude: 79.8501,
+      },
+    ]);
   });
 
-  it('returns synthetic destination fallback if no predefined place matches', async () => {
-    const service = new GeocodingService();
-    const results = await service.searchPlaces({ q: 'Custom Safe Hub' });
+  it('reports provider failure instead of returning a synthetic destination', async () => {
+    const request = vi.fn().mockResolvedValue(new Response('', { status: 429 }));
+    const service = new GeocodingService('https://nominatim.example/search', request);
 
-    expect(results.length).toBeGreaterThan(0);
-    expect(results[0].name).toBe('Custom Safe Hub');
-    expect(results[0].latitude).toBeDefined();
-    expect(results[0].longitude).toBeDefined();
+    await expect(service.searchPlaces({ q: 'Custom Safe Hub' })).rejects.toMatchObject({
+      statusCode: 503,
+      code: 'DESTINATION_SEARCH_UNAVAILABLE',
+    } satisfies Partial<AppError>);
   });
 });
 
