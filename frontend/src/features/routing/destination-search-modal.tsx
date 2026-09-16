@@ -30,7 +30,7 @@ export function DestinationSearchModal({
   onSelectDestination,
   userLocation,
 }: DestinationSearchModalProps) {
-  const { query, setQuery, results, loading, errorMessage, clearSearch, retrySearch } = useDestinationSearch({
+  const { query, setQuery, results, loading, errorMessage, locationRequired, clearSearch, retrySearch } = useDestinationSearch({
     userLocation,
   });
   const [selectionError, setSelectionError] = React.useState<string | null>(null);
@@ -116,13 +116,13 @@ export function DestinationSearchModal({
               <MaterialIcons name="error-outline" size={20} color={palette.error} />
               <View style={styles.errorCopy}>
                 <Text style={styles.errorText}>{selectionError ?? errorMessage}</Text>
-                <Pressable
+                {!locationRequired ? <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Retry destination search"
                   onPress={handleRetry}
                   style={styles.retryButton}>
                   <Text style={styles.retryText}>Retry</Text>
-                </Pressable>
+                </Pressable> : null}
               </View>
             </View>
           ) : null}

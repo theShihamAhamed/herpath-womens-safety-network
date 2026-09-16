@@ -1,5 +1,6 @@
 import { AppError } from '../../common/errors/app-error.js';
 import type { DestinationSearchQuery, DestinationSuggestion } from './routes.types.js';
+import { parseNearbyPlaceIntent } from './nearby-place-intent.js';
 
 interface GeoapifyResult {
   place_id?: string;
@@ -22,6 +23,11 @@ export class GeocodingService {
 
   public async searchPlaces(query: DestinationSearchQuery): Promise<DestinationSuggestion[]> {
     if (!this.apiKey) throw unavailableError();
+    const nearbyIntent = parseNearbyPlaceIntent(query.q);
+    if (nearbyIntent) {
+      if (query.lat === undefined || query.lng === undefined) throw locationRequiredError();
+      return this.searchNearbyPlaces(nearbyIntent.category, query.lat, query.lng);
+    }
     const searchText = query.q.replace(/\s+near\s+me\s*$/i, '').trim();
     if (!searchText) return [];
     const url = new URL('https://api.geoapify.com/v1/geocode/autocomplete');
@@ -37,6 +43,29 @@ export class GeocodingService {
     const payload = await this.requestGeoapify(url);
     const results = Array.isArray(payload.results) ? payload.results : [];
     return this.normalizeResults(results);
+  }
+
+  private async searchNearbyPlaces(category: string, latitude: number, longitude: number): Promise<DestinationSuggestion[]> {
+    const url = new URL('https://api.geoapify.com/v2/places');
+    url.searchParams.set('categories', category);
+    url.searchParams.set('filter', `circle:${longitude},${latitude},15000`);
+    url.searchParams.set('bias', `proximity:${longitude},${latitude}`);
+    url.searchParams.set('limit', '8');
+    url.searchParams.set('lang', 'en');
+    url.searchParams.set('apiKey', this.apiKey!);
+    const payload = await this.requestGeoapify(url);
+    const features = Array.isArray(payload.features) ? payload.features : [];
+    return features.flatMap((entry: unknown): DestinationSuggestion[] => {
+      const feature = entry as { properties?: GeoapifyResult; geometry?: { coordinates?: unknown[] } };
+      const properties = feature.properties;
+      const coordinates = feature.geometry?.coordinates;
+      const longitudeValue = typeof properties?.lon === 'number' ? properties.lon : coordinates?.[0];
+      const latitudeValue = typeof properties?.lat === 'number' ? properties.lat : coordinates?.[1];
+      if (!properties?.place_id || typeof latitudeValue !== 'number' || typeof longitudeValue !== 'number') return [];
+      const name = properties.name ?? properties.address_line1 ?? properties.formatted;
+      if (!name) return [];
+      return [{ id: properties.place_id, name, address: properties.address_line2 ?? properties.formatted ?? '', latitude: latitudeValue, longitude: longitudeValue, ...(typeof properties.distance === 'number' ? { distanceMeters: properties.distance } : {}) }];
+    }).slice(0, 8);
   }
 
   private normalizeResults(results: unknown[]): DestinationSuggestion[] {
@@ -80,4 +109,8 @@ function unavailableError(): AppError {
     code: 'DESTINATION_SEARCH_UNAVAILABLE',
     message: 'Destination search is temporarily unavailable. Please try again.',
   });
+}
+
+function locationRequiredError(): AppError {
+  return new AppError({ statusCode: 422, code: 'DESTINATION_LOCATION_REQUIRED', message: 'Your location is needed to find places near you.' });
 }

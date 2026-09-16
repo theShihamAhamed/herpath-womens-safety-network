@@ -15,6 +15,7 @@ interface UseDestinationSearchResult {
   results: DestinationSuggestion[];
   loading: boolean;
   errorMessage: string | null;
+  locationRequired: boolean;
   clearSearch: () => void;
   retrySearch: () => void;
 }
@@ -24,6 +25,7 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
   const [results, setResults] = useState<DestinationSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [locationRequired, setLocationRequired] = useState(false);
   const [retryVersion, setRetryVersion] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestRequestRef = useRef(0);
@@ -35,6 +37,7 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
     setQuery('');
     setResults([]);
     setErrorMessage(null);
+    setLocationRequired(false);
     setLoading(false);
   }, []);
 
@@ -53,12 +56,14 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
     if (trimmed.length < 1) {
       setResults([]);
       setErrorMessage(null);
+      setLocationRequired(false);
       setLoading(false);
       return;
     }
 
     setLoading(true);
     setErrorMessage(null);
+    setLocationRequired(false);
 
     debounceRef.current = setTimeout(async () => {
       try {
@@ -67,6 +72,7 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
       } catch (error) {
         if (latestRequestRef.current === requestId) {
           setResults([]);
+          setLocationRequired(error instanceof ApiError && error.code === 'DESTINATION_LOCATION_REQUIRED');
           setErrorMessage(
             error instanceof ApiError && error.code !== 'VALIDATION_ERROR'
               ? error.message
@@ -85,5 +91,5 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
     };
   }, [query, retryVersion, userLocation]);
 
-  return { query, setQuery, results, loading, errorMessage, clearSearch, retrySearch };
+  return { query, setQuery, results, loading, errorMessage, locationRequired, clearSearch, retrySearch };
 }
