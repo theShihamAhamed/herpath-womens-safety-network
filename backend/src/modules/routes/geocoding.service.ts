@@ -47,7 +47,8 @@ export class GeocodingService {
       if (query.lat === undefined || query.lng === undefined) throw locationRequiredError();
       return this.searchNearbyPlaces(nearbyIntent.category, query.lat, query.lng);
     }
-    return (await this.searchDestinationSources(query)).autocompleteResults;
+    const sources = await this.searchDestinationSources(query);
+    return mergeDestinationSuggestions(sources.placesResults, sources.autocompleteResults);
   }
 
   public async searchDestinationSources(query: DestinationSearchQuery): Promise<DestinationSearchSources> {
@@ -133,6 +134,19 @@ function normalizeGeoapifyResults(results: unknown[]): DestinationSuggestion[] {
         ...(typeof result.distance === 'number' ? { distanceMeters: result.distance } : {}),
       }];
     }).slice(0, 8);
+}
+
+function mergeDestinationSuggestions(
+  placesResults: DestinationSuggestion[],
+  autocompleteResults: DestinationSuggestion[],
+): DestinationSuggestion[] {
+  const seen = new Set<string>();
+  return [...placesResults, ...autocompleteResults].filter((suggestion) => {
+    const identity = `${suggestion.id}|${suggestion.name.trim().toLowerCase()}|${suggestion.latitude}|${suggestion.longitude}`;
+    if (seen.has(identity)) return false;
+    seen.add(identity);
+    return true;
+  }).slice(0, 8);
 }
 
 function unavailableError(): AppError {
