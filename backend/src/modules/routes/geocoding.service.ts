@@ -13,6 +13,19 @@ interface GeoapifyResult {
   distance?: number;
 }
 
+export interface GeoapifyAutocompleteResult {
+  results: DestinationSuggestion[];
+  categories: string[];
+}
+
+export function parseGeoapifyAutocompleteResponse(payload: Record<string, unknown>): GeoapifyAutocompleteResult {
+  const results = Array.isArray(payload.results) ? payload.results : [];
+  const categories = typeof payload.query === 'object' && payload.query !== null && Array.isArray((payload.query as { categories?: unknown }).categories)
+    ? (payload.query as { categories: unknown[] }).categories.filter((category): category is string => typeof category === 'string')
+    : [];
+  return { results: normalizeGeoapifyResults(results), categories };
+}
+
 export class GeocodingService {
   private readonly requestTimeoutMs = 5000;
 
@@ -39,9 +52,7 @@ export class GeocodingService {
     if (query.lat !== undefined && query.lng !== undefined) {
       url.searchParams.set('bias', `proximity:${query.lng},${query.lat}`);
     }
-    const payload = await this.requestGeoapify(url);
-    const results = Array.isArray(payload.results) ? payload.results : [];
-    return this.normalizeResults(results);
+    return (await this.searchAutocomplete(url)).results;
   }
 
   private async searchNearbyPlaces(category: string, latitude: number, longitude: number): Promise<DestinationSuggestion[]> {
@@ -67,20 +78,11 @@ export class GeocodingService {
   }
 
   private normalizeResults(results: unknown[]): DestinationSuggestion[] {
-    return results.flatMap((entry: unknown): DestinationSuggestion[] => {
-      const result = entry as GeoapifyResult;
-      if (!result.place_id || typeof result.lat !== 'number' || typeof result.lon !== 'number') return [];
-      const name = result.name ?? result.address_line1 ?? result.formatted;
-      if (!name) return [];
-      return [{
-        id: result.place_id,
-        name,
-        address: result.address_line2 ?? result.formatted ?? '',
-        latitude: result.lat,
-        longitude: result.lon,
-        ...(typeof result.distance === 'number' ? { distanceMeters: result.distance } : {}),
-      }];
-    }).slice(0, 8);
+    return normalizeGeoapifyResults(results);
+  }
+
+  private async searchAutocomplete(url: URL): Promise<GeoapifyAutocompleteResult> {
+    return parseGeoapifyAutocompleteResponse(await this.requestGeoapify(url));
   }
 
   private async requestGeoapify(url: URL): Promise<Record<string, unknown>> {
@@ -95,10 +97,26 @@ export class GeocodingService {
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw unavailableError();
-    } finally {
-      clearTimeout(timeout);
-    }
+    } finally { clearTimeout(timeout); }
   }
+
+}
+
+function normalizeGeoapifyResults(results: unknown[]): DestinationSuggestion[] {
+    return results.flatMap((entry: unknown): DestinationSuggestion[] => {
+      const result = entry as GeoapifyResult;
+      if (!result.place_id || typeof result.lat !== 'number' || typeof result.lon !== 'number') return [];
+      const name = result.name ?? result.address_line1 ?? result.formatted;
+      if (!name) return [];
+      return [{
+        id: result.place_id,
+        name,
+        address: result.address_line2 ?? result.formatted ?? '',
+        latitude: result.lat,
+        longitude: result.lon,
+        ...(typeof result.distance === 'number' ? { distanceMeters: result.distance } : {}),
+      }];
+    }).slice(0, 8);
 }
 
 function unavailableError(): AppError {
