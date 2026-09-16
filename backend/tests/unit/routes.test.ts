@@ -42,8 +42,10 @@ describe('Geoapify autocomplete category parsing', () => {
 describe('provider category relevance', () => {
   it.each([
     ['hosp', [{ keys: ['healthcare.hospital'], label: 'Hospitals' }], 'healthcare.hospital'],
+    ['ho', [{ keys: ['healthcare.hospital'], label: 'Hospitals' }], 'healthcare.hospital'],
     ['mosq', [{ keys: ['tourism.sights.place_of_worship.mosque'], label: 'Mosques' }], 'tourism.sights.place_of_worship.mosque'],
     ['tem', [{ keys: ['tourism.sights.place_of_worship.temple'], label: 'Temples' }], 'tourism.sights.place_of_worship.temple'],
+    ['hardware', [{ keys: ['commercial.houseware_and_hardware.hardware_and_tools'], label: 'Hardware Stores' }], 'commercial.houseware_and_hardware.hardware_and_tools'],
     ['sal', [{ keys: ['catering.restaurant.ukrainian'], label: 'Ukrainian Restaurants' }, { keys: ['adult.casino'], label: 'Casino' }], undefined],
   ])('selects the expected category for %s', (query, categories, expected) => {
     expect(selectRelevantGeoapifyCategory(query, categories)).toBe(expected);
@@ -124,6 +126,36 @@ describe('GeocodingService retrieval', () => {
     expect(placesUrl.searchParams.get('categories')).toBe('healthcare.hospital');
     expect(placesUrl.searchParams.get('bias')).toBe('proximity:79.8612,6.9271');
     expect(placesUrl.searchParams.get('filter')).toBeNull();
+  });
+  it('uses relevant category Places for a two-character prefix', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        results: [],
+        query: { categories: [{ keys: ['healthcare.hospital'], label: 'Hospitals' }] },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ features: [{
+        properties: { place_id: 'nearby-hospital', name: 'Nearby Hospital', distance: 50 },
+        geometry: { coordinates: [79.8, 6.9] },
+      }] }), { status: 200 }));
+
+    const results = await new GeocodingService('test-key', request).searchPlaces({ q: 'ho', lat: 6.9, lng: 79.8 });
+
+    expect(results).toMatchObject([{ id: 'nearby-hospital', name: 'Nearby Hospital', distanceMeters: 50 }]);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(new URL(request.mock.calls[1]?.[0] as string).pathname).toBe('/v2/places');
+  });
+  it('uses one amenity fallback for a two-character prefix without a useful category', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [], query: { categories: [] } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [{
+        place_id: 'nearby-salon', name: 'Nearby Salon', lat: 6.9, lon: 79.8, distance: 50,
+      }] }), { status: 200 }));
+
+    const results = await new GeocodingService('test-key', request).searchPlaces({ q: 'sa', lat: 6.9, lng: 79.8 });
+
+    expect(results).toMatchObject([{ id: 'nearby-salon', name: 'Nearby Salon', distanceMeters: 50 }]);
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(new URL(request.mock.calls[1]?.[0] as string).searchParams.get('type')).toBe('amenity');
   });
   it('uses amenity fallback once when all provider categories are irrelevant', async () => {
     const request = vi.fn()
@@ -224,21 +256,29 @@ describe('GeocodingService retrieval', () => {
   });
 
   it.each(['a', 'A', 'h', 'H'])('sends one-character query %s to the provider', async (query) => {
-    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [] }), { status: 200 }));
+    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({
+      results: [],
+      query: { categories: [{ keys: ['healthcare.hospital'], label: 'Hospitals' }] },
+    }), { status: 200 }));
     const service = new GeocodingService('test-key', request);
 
-    await service.searchPlaces({ q: query });
+    await expect(service.searchPlaces({ q: query })).resolves.toEqual([]);
     expect(new URL(request.mock.calls[0]?.[0] as string).searchParams.get('text')).toBe(query);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(new URL(request.mock.calls[0]?.[0] as string).searchParams.get('type')).toBeNull();
   });
 
-  it('keeps Sri Lanka filtering when no user location is available', async () => {
-    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [] }), { status: 200 }));
+  it('uses a no-location amenity fallback without inventing coordinates for two-character queries', async () => {
+    const request = vi.fn().mockImplementation(() => new Response(JSON.stringify({ results: [] }), { status: 200 }));
     const service = new GeocodingService('test-key', request);
 
     await service.searchPlaces({ q: 'ap' });
     const requestUrl = new URL(request.mock.calls[0]?.[0] as string);
     expect(requestUrl.searchParams.get('filter')).toBeNull();
     expect(requestUrl.searchParams.get('bias')).toBeNull();
+    expect(request).toHaveBeenCalledTimes(2);
+    expect(new URL(request.mock.calls[1]?.[0] as string).searchParams.get('type')).toBe('amenity');
+    expect(new URL(request.mock.calls[1]?.[0] as string).searchParams.get('bias')).toBeNull();
   });
 
   it('routes a recognized trailing near-me phrase to Places', async () => {
