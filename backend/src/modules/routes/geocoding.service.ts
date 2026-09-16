@@ -1,98 +1,58 @@
 import { AppError } from '../../common/errors/app-error.js';
-import type { Destination, DestinationSearchQuery } from './routes.types.js';
-
-interface NominatimPlace {
-  place_id: number;
-  osm_id?: number;
-  lat: string;
-  lon: string;
-  display_name: string;
-  name?: string;
-  address?: {
-    amenity?: string;
-    building?: string;
-    road?: string;
-    neighbourhood?: string;
-    suburb?: string;
-    city?: string;
-    town?: string;
-    state?: string;
-    country?: string;
-    [key: string]: string | undefined;
-  };
-}
+import type { Destination, DestinationDetailsQuery, DestinationSearchQuery, DestinationSuggestion } from './routes.types.js';
 
 export class GeocodingService {
-  private readonly userAgent = 'HerPath-Womens-Safety-Network/1.0 (safety-network@herpath.app)';
-  private readonly requestTimeoutMs = 4000;
+  private readonly requestTimeoutMs = 5000;
 
   public constructor(
-    private readonly endpoint = 'https://nominatim.openstreetmap.org/search',
+    private readonly apiKey?: string,
     private readonly request: typeof fetch = fetch,
   ) {}
 
-  public async searchPlaces(query: DestinationSearchQuery): Promise<Destination[]> {
-    const trimmedQuery = query.q.trim();
-    if (!trimmedQuery) {
-      return [];
+  public async searchPlaces(query: DestinationSearchQuery): Promise<DestinationSuggestion[]> {
+    const body: Record<string, unknown> = {
+      input: query.q,
+      sessionToken: query.sessionToken,
+      regionCode: 'LK',
+    };
+    if (query.lat !== undefined && query.lng !== undefined) {
+      const point = { latitude: query.lat, longitude: query.lng };
+      body.locationBias = { circle: { center: point, radius: 15_000 } };
+      body.origin = point;
     }
+    const payload = await this.requestGoogle('https://places.googleapis.com/v1/places:autocomplete', {
+      method: 'POST', body: JSON.stringify(body), headers: { 'Content-Type': 'application/json', 'X-Goog-FieldMask': 'suggestions.placePrediction.placeId,suggestions.placePrediction.text,suggestions.placePrediction.structuredFormat,suggestions.placePrediction.distanceMeters' },
+    });
+    const suggestions = Array.isArray(payload.suggestions) ? payload.suggestions : [];
+    return suggestions.flatMap((entry: unknown): DestinationSuggestion[] => {
+      const prediction = typeof entry === 'object' && entry !== null ? (entry as { placePrediction?: { placeId?: string; text?: { text?: string }; structuredFormat?: { mainText?: { text?: string }; secondaryText?: { text?: string } }; distanceMeters?: number } }).placePrediction : undefined;
+      if (!prediction?.placeId || !prediction?.text?.text) return [];
+      return [{ id: prediction.placeId, placeId: prediction.placeId, name: prediction.structuredFormat?.mainText?.text ?? prediction.text.text, address: prediction.structuredFormat?.secondaryText?.text ?? '', ...(typeof prediction.distanceMeters === 'number' ? { distanceMeters: prediction.distanceMeters } : {}) }];
+    }).slice(0, 8);
+  }
 
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+  public async getPlaceDetails(query: DestinationDetailsQuery): Promise<Destination> {
+    const payload = await this.requestGoogle(`https://places.googleapis.com/v1/places/${encodeURIComponent(query.placeId)}?sessionToken=${encodeURIComponent(query.sessionToken)}`, { headers: { 'X-Goog-FieldMask': 'id,displayName,formattedAddress,location' } });
+    const detail = payload as { id?: string; displayName?: { text?: string }; formattedAddress?: string; location?: { latitude?: number; longitude?: number } };
+    if (!detail.id || !detail.displayName?.text || typeof detail.location?.latitude !== 'number' || typeof detail.location?.longitude !== 'number') throw unavailableError();
+    return { id: detail.id, name: detail.displayName.text, address: detail.formattedAddress ?? '', latitude: detail.location.latitude, longitude: detail.location.longitude };
+  }
+
+  private async requestGoogle(url: string, init: RequestInit): Promise<Record<string, unknown>> {
+    if (!this.apiKey) throw unavailableError();
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
     try {
-      const url = new URL(this.endpoint);
-      url.searchParams.set('q', trimmedQuery);
-      url.searchParams.set('format', 'json');
-      url.searchParams.set('addressdetails', '1');
-      url.searchParams.set('limit', '8');
-
-      if (query.lat !== undefined && query.lng !== undefined) {
-        // Bias search towards user's current location with a ~0.5 deg bounding box
-        const delta = 0.25;
-        const left = query.lng - delta;
-        const bottom = query.lat - delta;
-        const right = query.lng + delta;
-        const top = query.lat + delta;
-        url.searchParams.set('viewbox', `${left},${top},${right},${bottom}`);
-      }
-
-      const controller = new AbortController();
-      timeoutId = setTimeout(() => controller.abort(), this.requestTimeoutMs);
-
-      const response = await this.request(url.toString(), {
-        headers: {
-          'User-Agent': this.userAgent,
-          Accept: 'application/json',
-        },
-        signal: controller.signal,
-      });
-
+      const response = await this.request(url, { ...init, headers: { Accept: 'application/json', 'X-Goog-Api-Key': this.apiKey, ...init.headers }, signal: controller.signal });
       if (!response.ok) throw unavailableError();
-
-      const places = await response.json();
-      if (!Array.isArray(places)) throw unavailableError();
-      return places.map((place, index) => this.mapNominatimPlace(place as NominatimPlace, index));
+      const payload: unknown = await response.json();
+      if (typeof payload !== 'object' || payload === null) throw unavailableError();
+      return payload as Record<string, unknown>;
     } catch (error) {
       if (error instanceof AppError) throw error;
       throw unavailableError();
-    } finally {
-      if (timeoutId) clearTimeout(timeoutId);
-    }
+    } finally { clearTimeout(timeout); }
   }
-
-  private mapNominatimPlace(place: NominatimPlace, index: number): Destination {
-    const displayNameParts = place.display_name.split(',').map((part) => part.trim());
-    const primaryName = place.name || displayNameParts[0] || 'Unknown Location';
-    const address = displayNameParts.length > 1 ? displayNameParts.slice(1).join(', ') : place.display_name;
-
-    return {
-      id: place.place_id ? `osm-${place.place_id}` : `dest-${index}-${Date.now()}`,
-      name: primaryName,
-      address,
-      latitude: parseFloat(place.lat),
-      longitude: parseFloat(place.lon),
-    };
-  }
-
 }
 
 function unavailableError(): AppError {

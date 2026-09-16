@@ -6,10 +6,24 @@ export interface Destination {
   longitude: number;
 }
 
+export interface DestinationSuggestion {
+  id: string;
+  placeId: string;
+  name: string;
+  address: string;
+  distanceMeters?: number;
+}
+
 export interface DestinationSearchQuery {
   q: string;
+  sessionToken: string;
   lat?: number | undefined;
   lng?: number | undefined;
+}
+
+export interface DestinationDetailsQuery {
+  placeId: string;
+  sessionToken: string;
 }
 
 
