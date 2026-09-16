@@ -94,12 +94,14 @@ export class GeocodingService {
       url.searchParams.set('bias', `proximity:${query.lng},${query.lat}`);
     }
     const autocomplete = await this.searchAutocomplete(url);
-    const category = selectRelevantGeoapifyCategory(searchText, autocomplete.categoryMetadata);
+    const category = searchText.length >= 2
+      ? selectRelevantGeoapifyCategory(searchText, autocomplete.categoryMetadata)
+      : undefined;
     const hasLocation = query.lat !== undefined && query.lng !== undefined;
     const placesResults = category && query.lat !== undefined && query.lng !== undefined
       ? await this.searchNearbyPlaces(category, query.lat, query.lng, { requireMeaningfulName: true })
       : [];
-    const shouldUseAmenityFallback = searchText.length >= 3
+    const shouldUseAmenityFallback = searchText.length >= 2
       && (!category || (hasLocation && placesResults.length === 0));
     const amenityResults = shouldUseAmenityFallback
       ? await this.searchAmenityAutocomplete(query.q.trim(), query.lat, query.lng)
@@ -173,7 +175,7 @@ export function selectRelevantGeoapifyCategory(
 ): string | undefined {
   const normalizedQuery = query.trim().toLowerCase();
   if (!normalizedQuery) return undefined;
-  if (normalizedQuery.length < 3) return categories.flatMap((category) => category.keys)[0];
+  if (normalizedQuery.length < 2) return undefined;
   for (const category of categories) {
     const labelTokens = tokenizeCategoryText(category.label ?? '');
     for (const key of category.keys) {
