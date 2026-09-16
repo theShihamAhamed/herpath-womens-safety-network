@@ -14,7 +14,8 @@ import {
 
 import { palette, radius, spacing } from '@/src/theme';
 
-import { Destination } from './types';
+import { resolveDestination } from './routing.api';
+import { Destination, DestinationSuggestion } from './types';
 import { useDestinationSearch } from './useDestinationSearch';
 
 interface DestinationSearchModalProps {
@@ -30,19 +31,37 @@ export function DestinationSearchModal({
   onSelectDestination,
   userLocation,
 }: DestinationSearchModalProps) {
-  const { query, setQuery, results, loading, errorMessage, clearSearch, retrySearch } = useDestinationSearch({
+  const { query, setQuery, results, loading, errorMessage, clearSearch, retrySearch, sessionToken, resetSession } = useDestinationSearch({
     userLocation,
   });
+  const [selectionError, setSelectionError] = React.useState<string | null>(null);
+  const [resolvingSelection, setResolvingSelection] = React.useState(false);
 
-  const handleSelect = (item: Destination) => {
-    clearSearch();
-    onSelectDestination(item);
-    onClose();
+  const handleSelect = async (item: DestinationSuggestion) => {
+    try {
+      setSelectionError(null);
+      setResolvingSelection(true);
+      const destination = await resolveDestination(item.placeId, sessionToken);
+      resetSession();
+      clearSearch();
+      onSelectDestination(destination);
+      onClose();
+    } catch {
+      setSelectionError('Destination details are temporarily unavailable. Please try again.');
+    } finally {
+      setResolvingSelection(false);
+    }
   };
 
   const handleClose = () => {
+    resetSession();
     clearSearch();
     onClose();
+  };
+
+  const handleRetry = () => {
+    setSelectionError(null);
+    retrySearch();
   };
 
   return (
@@ -69,7 +88,7 @@ export function DestinationSearchModal({
               <TextInput
                 accessible
                 accessibilityLabel="Destination search text input"
-                accessibilityHint="Type at least two characters to show matching places"
+                accessibilityHint="Type to show matching places"
                 style={styles.searchInput}
                 placeholder="Search destination or address..."
                 placeholderTextColor={palette.textMuted}
@@ -101,15 +120,15 @@ export function DestinationSearchModal({
           ) : null}
 
           {/* Error Message */}
-          {errorMessage ? (
+          {errorMessage || selectionError ? (
             <View accessible accessibilityRole="alert" style={styles.errorBox}>
               <MaterialIcons name="error-outline" size={20} color={palette.error} />
               <View style={styles.errorCopy}>
-                <Text style={styles.errorText}>{errorMessage}</Text>
+                <Text style={styles.errorText}>{selectionError ?? errorMessage}</Text>
                 <Pressable
                   accessibilityRole="button"
                   accessibilityLabel="Retry destination search"
-                  onPress={retrySearch}
+                  onPress={handleRetry}
                   style={styles.retryButton}>
                   <Text style={styles.retryText}>Retry</Text>
                 </Pressable>
@@ -118,18 +137,18 @@ export function DestinationSearchModal({
           ) : null}
 
           {/* Empty Prompt / Prompt to type */}
-          {!loading && query.trim().length < 2 && !errorMessage ? (
+          {!loading && query.trim().length < 1 && !errorMessage ? (
             <View style={styles.emptyPrompt}>
               <MaterialIcons name="place" size={48} color={palette.border} />
               <Text style={styles.promptTitle}>Where would you like to go?</Text>
               <Text style={styles.promptSubtitle}>
-                Type at least 2 characters to search for safe routes, places, and addresses.
+                Type a place, address, or business to see suggestions.
               </Text>
             </View>
           ) : null}
 
           {/* No results state */}
-          {!loading && query.trim().length >= 2 && results.length === 0 && !errorMessage ? (
+          {!loading && query.trim().length >= 1 && results.length === 0 && !errorMessage ? (
             <View style={styles.emptyPrompt}>
               <MaterialIcons name="location-off" size={44} color={palette.textMuted} />
               <Text style={styles.promptTitle}>No places found</Text>
@@ -149,8 +168,10 @@ export function DestinationSearchModal({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Select destination ${item.name}, ${item.address}`}
+                accessibilityState={{ disabled: resolvingSelection }}
+                disabled={resolvingSelection}
                 style={({ pressed }) => [styles.resultItem, pressed && styles.resultItemPressed]}
-                onPress={() => handleSelect(item)}>
+                onPress={() => void handleSelect(item)}>
                 <View style={styles.pinIconContainer}>
                   <MaterialIcons name="location-on" size={22} color={palette.primary} />
                 </View>

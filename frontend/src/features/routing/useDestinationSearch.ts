@@ -1,9 +1,10 @@
+import * as Crypto from 'expo-crypto';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError } from '@/src/services/api/errors';
 
 import { searchDestinations } from './routing.api';
-import { Destination } from './types';
+import { DestinationSuggestion } from './types';
 
 interface UseDestinationSearchOptions {
   userLocation?: { latitude: number; longitude: number } | null;
@@ -12,21 +13,24 @@ interface UseDestinationSearchOptions {
 interface UseDestinationSearchResult {
   query: string;
   setQuery: (text: string) => void;
-  results: Destination[];
+  results: DestinationSuggestion[];
   loading: boolean;
   errorMessage: string | null;
   clearSearch: () => void;
   retrySearch: () => void;
+  sessionToken: string;
+  resetSession: () => void;
 }
 
 export function useDestinationSearch(options: UseDestinationSearchOptions = {}): UseDestinationSearchResult {
   const [query, setQuery] = useState('');
-  const [results, setResults] = useState<Destination[]>([]);
+  const [results, setResults] = useState<DestinationSuggestion[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [retryVersion, setRetryVersion] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestRequestRef = useRef(0);
+  const sessionTokenRef = useRef(Crypto.randomUUID());
   const userLocation = options.userLocation;
 
   const clearSearch = useCallback(() => {
@@ -42,6 +46,8 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
     if (query.trim().length >= 2) setRetryVersion((version) => version + 1);
   }, [query]);
 
+  const resetSession = useCallback(() => { sessionTokenRef.current = Crypto.randomUUID(); }, []);
+
   useEffect(() => {
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
@@ -50,7 +56,7 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
     const trimmed = query.trim();
     const requestId = latestRequestRef.current + 1;
     latestRequestRef.current = requestId;
-    if (trimmed.length < 2) {
+    if (trimmed.length < 1) {
       setResults([]);
       setErrorMessage(null);
       setLoading(false);
@@ -62,7 +68,7 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
 
     debounceRef.current = setTimeout(async () => {
       try {
-        const data = await searchDestinations(trimmed, userLocation);
+        const data = await searchDestinations(trimmed, sessionTokenRef.current, userLocation);
         if (latestRequestRef.current === requestId) setResults(data);
       } catch (error) {
         if (latestRequestRef.current === requestId) {
@@ -81,5 +87,5 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
     };
   }, [query, retryVersion, userLocation]);
 
-  return { query, setQuery, results, loading, errorMessage, clearSearch, retrySearch };
+  return { query, setQuery, results, loading, errorMessage, clearSearch, retrySearch, sessionToken: sessionTokenRef.current, resetSession };
 }

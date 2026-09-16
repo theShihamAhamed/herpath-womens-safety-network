@@ -51,5 +51,6 @@ export const apiEndpoints = {
 
   routes: {
     search: '/routes/destinations/search',
+    details: '/routes/destinations/details',
   },
 } as const;
