@@ -22,8 +22,10 @@ export class GeocodingService {
 
   public async searchPlaces(query: DestinationSearchQuery): Promise<DestinationSuggestion[]> {
     if (!this.apiKey) throw unavailableError();
+    const searchText = query.q.replace(/\s+near\s+me\s*$/i, '').trim();
+    if (!searchText) return [];
     const url = new URL('https://api.geoapify.com/v1/geocode/autocomplete');
-    url.searchParams.set('text', query.q);
+    url.searchParams.set('text', searchText);
     url.searchParams.set('format', 'json');
     url.searchParams.set('limit', '8');
     url.searchParams.set('lang', 'en');

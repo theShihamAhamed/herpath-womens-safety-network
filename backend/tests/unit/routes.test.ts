@@ -96,6 +96,17 @@ describe('GeocodingService retrieval', () => {
     expect(requestUrl.searchParams.get('bias')).toBeNull();
   });
 
+  it('normalizes a trailing near-me phrase while preserving real location bias', async () => {
+    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [] }), { status: 200 }));
+    const service = new GeocodingService('test-key', request);
+
+    await service.searchPlaces({ q: 'Laundry near me', lat: 6.9271, lng: 79.8612 });
+    const requestUrl = new URL(request.mock.calls[0]?.[0] as string);
+    expect(requestUrl.searchParams.get('text')).toBe('Laundry');
+    expect(requestUrl.searchParams.get('filter')).toBe('countrycode:lk');
+    expect(requestUrl.searchParams.get('bias')).toBe('proximity:79.8612,6.9271');
+  });
+
   it('returns an empty array for a successful empty provider response without fabricating places', async () => {
     const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [] }), { status: 200 }));
     const service = new GeocodingService('test-key', request);
