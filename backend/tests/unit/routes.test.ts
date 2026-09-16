@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import type { NextFunction, Request, Response } from 'express';
 
 import type { AppError } from '../../src/common/errors/app-error.js';
-import { GeocodingService } from '../../src/modules/routes/geocoding.service.js';
+import { GeocodingService, parseGeoapifyAutocompleteResponse } from '../../src/modules/routes/geocoding.service.js';
 import { RoutesController } from '../../src/modules/routes/routes.controller.js';
 import { destinationSearchQuerySchema } from '../../src/modules/routes/routes.validation.js';
 import type { PublicIncidentReader } from '../../src/modules/incidents/incident.public-reader.js';
@@ -21,6 +21,12 @@ describe('nearby place intent parsing', () => {
 
   it.each(['Asiri Hospital', 'Pizza Hut', 'Commercial Bank', 'SLIIT', 'near me'])('does not treat %s as nearby intent', (query) => {
     expect(parseNearbyPlaceIntent(query)).toBeNull();
+  });
+});
+
+describe('Geoapify autocomplete category parsing', () => {
+  it('preserves provider category object keys in order and ignores malformed values', () => {
+    expect(parseGeoapifyAutocompleteResponse({ results: [], query: { categories: [{ keys: ['religion.place_of_worship', 'religion.place_of_worship.islam'] }, { keys: [null, 123, '', 'tourism'] }] } }).categories).toEqual(['religion.place_of_worship', 'religion.place_of_worship.islam', 'tourism']);
   });
 });
 
@@ -89,7 +95,7 @@ describe('GeocodingService retrieval', () => {
   });
   it('uses one dynamic Places request from provider-discovered categories', async () => {
     const request = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [{ place_id: 'auto', name: 'Hosp', lat: 6.9, lon: 79.8 }], query: { categories: ['healthcare.hospital', 'healthcare'] } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [{ place_id: 'auto', name: 'Hosp', lat: 6.9, lon: 79.8 }], query: { categories: [{ keys: ['healthcare.hospital', 'healthcare'] }] } }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ features: [{ properties: { place_id: 'poi', name: 'Hospital', distance: 20 }, geometry: { coordinates: [79.8612, 6.9271] } }] }), { status: 200 }));
     const result = await new GeocodingService('test-key', request).searchDestinationSources({ q: 'hosp', lat: 6.9271, lng: 79.8612 });
     expect(result.placesResults).toMatchObject([{ id: 'poi', distanceMeters: 20 }]);

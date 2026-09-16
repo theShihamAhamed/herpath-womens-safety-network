@@ -26,9 +26,14 @@ export interface DestinationSearchSources {
 
 export function parseGeoapifyAutocompleteResponse(payload: Record<string, unknown>): GeoapifyAutocompleteResult {
   const results = Array.isArray(payload.results) ? payload.results : [];
-  const categories = typeof payload.query === 'object' && payload.query !== null && Array.isArray((payload.query as { categories?: unknown }).categories)
-    ? (payload.query as { categories: unknown[] }).categories.filter((category): category is string => typeof category === 'string')
+  const categoryEntries = typeof payload.query === 'object' && payload.query !== null && Array.isArray((payload.query as { categories?: unknown }).categories)
+    ? (payload.query as { categories: unknown[] }).categories
     : [];
+  const categories = categoryEntries.flatMap((entry) => {
+    if (typeof entry === 'string') return entry.trim() ? [entry.trim()] : [];
+    if (typeof entry !== 'object' || entry === null || !Array.isArray((entry as { keys?: unknown }).keys)) return [];
+    return (entry as { keys: unknown[] }).keys.filter((key): key is string => typeof key === 'string' && key.trim().length > 0).map((key) => key.trim());
+  });
   return { results: normalizeGeoapifyResults(results), categories };
 }
 
