@@ -70,12 +70,14 @@ Moderation governance system
 - [x] authorization, privacy, concurrency, idempotency, and transaction rollback hardening
 
 ### Naji
-- [x] map shell
-- [x] markers/filters
-- [x] area summary
-- [x] incident repository/public projection integration
-- [x] approximate public-area polygon rendering
-- [x] refresh Map after successful report return
+- [x] interactive Community Safety Map with viewport queries, public Incident markers/callouts, privacy-safe approximate public-area polygons, and refresh after successful report return
+- [x] Map Incident filters: category, severity, occurrence date, and time of day
+- [x] draggable **Reports in this area** sheet with visible count/list, row-to-Map focus, and truthful zero-report state
+- [x] Area Safety Context: real total/recent reports, category/severity breakdowns, real zero state, truthful unavailable state, Retry, and no fabricated local summary
+- [x] HS-78/HS-79/HS-77/HS-134 nearby support places: server-side OpenStreetMap/Overpass data, explicit search, dedicated markers, human-readable category and approximate straight-line distance, OSM attribution, and no synthetic fallback
+- [x] shared Map location state with contextual foreground permission requests, granted-permission reuse, usable denied/unavailable state, and no fake user coordinate
+- [x] Map accessibility semantics, Dynamic Type/Larger Text adaptations, VoiceOver validation, and physical-device validation
+- [ ] optional/future: clustering and heatmap when real Incident volume warrants them
 
 
 ### Sandaruwan
