@@ -27,7 +27,7 @@ interface UseSupportPlaceSearchResult {
 }
 
 /**
- * Holds explicit nearby-search state for later Map marker presentation.
+ * Holds explicit nearby-search state for Map marker presentation.
  * It intentionally does not react to camera movement or request location.
  */
 export function useSupportPlaceSearch({
