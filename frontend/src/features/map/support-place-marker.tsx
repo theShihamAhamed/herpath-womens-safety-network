@@ -41,9 +41,9 @@ export function SupportPlaceMarker({
       </View>
       <Callout tooltip>
         <View style={styles.callout}>
-          <Text style={styles.calloutName}>{place.name}</Text>
-          <Text style={styles.calloutCategory}>{presentation.label}</Text>
-          {distanceText ? <Text style={styles.calloutDistance}>Approx. {distanceText}</Text> : null}
+          <Text maxFontSizeMultiplier={1.35} style={styles.calloutName}>{place.name}</Text>
+          <Text maxFontSizeMultiplier={1.35} style={styles.calloutCategory}>{presentation.label}</Text>
+          {distanceText ? <Text maxFontSizeMultiplier={1.35} style={styles.calloutDistance}>Approx. {distanceText}</Text> : null}
         </View>
       </Callout>
     </Marker>
@@ -73,14 +73,14 @@ const styles = StyleSheet.create({
   },
   callout: {
     minWidth: 140,
-    maxWidth: 240,
+    maxWidth: 280,
     padding: 10,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#D7DEDC',
     backgroundColor: '#FFFFFF',
   },
-  calloutName: { color: '#18201E', fontSize: 14, fontWeight: '700' },
-  calloutCategory: { color: '#5F6C68', fontSize: 12, marginTop: 4 },
-  calloutDistance: { color: '#176B5B', fontSize: 12, fontWeight: '600', marginTop: 2 },
+  calloutName: { color: '#18201E', fontSize: 14, fontWeight: '700', lineHeight: 19 },
+  calloutCategory: { color: '#5F6C68', fontSize: 12, lineHeight: 17, marginTop: 4 },
+  calloutDistance: { color: '#176B5B', fontSize: 12, fontWeight: '600', lineHeight: 17, marginTop: 2 },
 });

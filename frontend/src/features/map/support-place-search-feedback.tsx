@@ -1,5 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import type { SupportPlaceSearchStatus } from './use-support-place-search';
 
@@ -17,13 +17,15 @@ export function SupportPlaceSearchFeedback({
   errorMessage,
   onRetry,
 }: SupportPlaceSearchFeedbackProps) {
+  const { fontScale } = useWindowDimensions();
+  const useStackedUnavailableLayout = fontScale >= 1.35;
   if (status === 'idle') return null;
 
   if (status === 'loading') {
     return (
       <View accessible accessibilityRole="progressbar" accessibilityLabel="Finding nearby support places" style={styles.card}>
         <ActivityIndicator size="small" color="#176B5B" />
-        <Text style={styles.copy}>Finding nearby support places…</Text>
+        <Text maxFontSizeMultiplier={1.35} style={styles.copy}>Finding nearby support places…</Text>
       </View>
     );
   }
@@ -32,7 +34,7 @@ export function SupportPlaceSearchFeedback({
     return (
       <View accessible accessibilityRole="summary" style={styles.card}>
         <MaterialIcons name="location-off" size={19} color="#5F6C68" />
-        <Text style={styles.copy}>Your location is needed to find nearby support places.</Text>
+        <Text maxFontSizeMultiplier={1.35} style={styles.copy}>Your location is needed to find nearby support places.</Text>
       </View>
     );
   }
@@ -41,10 +43,10 @@ export function SupportPlaceSearchFeedback({
     return (
       <View accessible accessibilityRole="alert" style={styles.card}>
         <MaterialIcons name="cloud-off" size={19} color="#5F6C68" />
-        <View style={styles.unavailableCopy}>
-          <Text style={styles.copy}>{errorMessage ?? 'Nearby support places are temporarily unavailable.'}</Text>
+        <View style={[styles.unavailableCopy, useStackedUnavailableLayout && styles.unavailableCopyStacked]}>
+          <Text maxFontSizeMultiplier={1.35} style={styles.copy}>{errorMessage ?? 'Nearby support places are temporarily unavailable.'}</Text>
           <Pressable accessibilityRole="button" accessibilityLabel="Retry nearby support place search" onPress={onRetry} style={styles.retryButton}>
-            <Text style={styles.retryText}>Retry</Text>
+            <Text maxFontSizeMultiplier={1.2} style={styles.retryText}>Retry</Text>
           </Pressable>
         </View>
       </View>
@@ -59,8 +61,8 @@ export function SupportPlaceSearchFeedback({
     <View accessible accessibilityRole="summary" style={styles.card}>
       <MaterialIcons name="support-agent" size={19} color="#176B5B" />
       <View style={styles.resultCopy}>
-        <Text style={styles.copy}>{message}</Text>
-        <Text style={styles.attribution}>© OpenStreetMap contributors</Text>
+        <Text maxFontSizeMultiplier={1.35} style={styles.copy}>{message}</Text>
+        <Text maxFontSizeMultiplier={1.2} style={styles.attribution}>© OpenStreetMap contributors</Text>
       </View>
     </View>
   );
@@ -70,8 +72,9 @@ const styles = StyleSheet.create({
   card: {
     position: 'absolute',
     top: 204,
-    left: 16,
-    right: 16,
+    width: '84%',
+    maxWidth: 360,
+    alignSelf: 'center',
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -84,6 +87,7 @@ const styles = StyleSheet.create({
   resultCopy: { flex: 1, gap: 2 },
   attribution: { color: '#5F6C68', fontSize: 11 },
   unavailableCopy: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  unavailableCopyStacked: { alignItems: 'flex-start', flexDirection: 'column' },
   retryButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: '#176B5B' },
   retryText: { color: '#176B5B', fontSize: 13, fontWeight: '800' },
 });
