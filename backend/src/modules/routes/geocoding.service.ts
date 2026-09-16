@@ -34,12 +34,7 @@ export class GeocodingService {
     }
     const payload = await this.requestGeoapify(url);
     const results = Array.isArray(payload.results) ? payload.results : [];
-    const localSuggestions = this.normalizeResults(results);
-    if (localSuggestions.length > 0 || query.q.length < 3) return localSuggestions;
-
-    url.searchParams.delete('filter');
-    const globalPayload = await this.requestGeoapify(url);
-    return this.normalizeResults(Array.isArray(globalPayload.results) ? globalPayload.results : []);
+    return this.normalizeResults(results);
   }
 
   private normalizeResults(results: unknown[]): DestinationSuggestion[] {

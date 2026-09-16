@@ -97,25 +97,20 @@ describe('GeocodingService retrieval', () => {
   });
 
   it('returns an empty array for a successful empty provider response without fabricating places', async () => {
-    const service = new GeocodingService(
-      'test-key',
-      vi.fn()
-        .mockResolvedValueOnce(new Response(JSON.stringify({ results: [] }), { status: 200 }))
-        .mockResolvedValueOnce(new Response(JSON.stringify({ results: [] }), { status: 200 })),
-    );
-
-    await expect(service.searchPlaces({ q: 'zzz' })).resolves.toEqual([]);
-  });
-
-  it('uses one global fallback only for a zero-result query of three or more characters', async () => {
-    const request = vi.fn()
-      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [] }), { status: 200 }))
-      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [{ place_id: 'global-1', name: 'London', lat: 51.5, lon: -0.1 }] }), { status: 200 }));
+    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [] }), { status: 200 }));
     const service = new GeocodingService('test-key', request);
 
-    await expect(service.searchPlaces({ q: 'London' })).resolves.toMatchObject([{ id: 'global-1' }]);
-    expect(request).toHaveBeenCalledTimes(2);
-    expect(new URL(request.mock.calls[1]?.[0] as string).searchParams.get('filter')).toBeNull();
+    await expect(service.searchPlaces({ q: 'zzz' })).resolves.toEqual([]);
+    expect(request).toHaveBeenCalledTimes(1);
+  });
+
+  it('never makes an unfiltered global fallback request', async () => {
+    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [] }), { status: 200 }));
+    const service = new GeocodingService('test-key', request);
+
+    await expect(service.searchPlaces({ q: 'London' })).resolves.toEqual([]);
+    expect(request).toHaveBeenCalledTimes(1);
+    expect(new URL(request.mock.calls[0]?.[0] as string).searchParams.get('filter')).toBe('countrycode:lk');
   });
 
   it('reports provider failure instead of returning a synthetic destination', async () => {
