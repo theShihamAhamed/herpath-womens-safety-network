@@ -168,7 +168,7 @@ Anonymous reports remain with the pseudonymous account/session that created them
 
 ## Destination search endpoint
 
-`GET /api/v1/routes/destinations/search` accepts a trimmed `q` of 1 to 100 characters and optional `lat`/`lng` coordinates. The backend uses Geoapify Address Autocomplete, keeping `GEOAPIFY_API_KEY` server-side. It applies a Sri Lanka preference and, when real shared Map location is available, sends Geoapify a proximity bias to prioritize nearby predictions without restricting results to that area. The client debounces typed queries and ignores superseded responses.
+`GET /api/v1/routes/destinations/search` accepts a trimmed `q` of 1 to 100 characters and optional `lat`/`lng` coordinates. The backend uses Geoapify Address Autocomplete, keeping `GEOAPIFY_API_KEY` server-side. Normal requests use Geoapify's `filter=countrycode:lk`; when real shared Map location is available, they also use a `proximity:longitude,latitude` bias. If a Sri Lankan search has no results and the query has at least three characters, the backend makes one unfiltered fallback request so an intentional foreign destination can still be found. The client debounces typed queries and ignores superseded responses.
 
 The response is provider-neutral and contains predictions only; it does not disclose provider payloads or fabricated coordinates:
 
