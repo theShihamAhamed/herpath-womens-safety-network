@@ -43,7 +43,7 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
   }, []);
 
   const retrySearch = useCallback(() => {
-    if (query.trim().length >= 2) setRetryVersion((version) => version + 1);
+    if (query.trim().length >= 1) setRetryVersion((version) => version + 1);
   }, [query]);
 
   const resetSession = useCallback(() => { sessionTokenRef.current = Crypto.randomUUID(); }, []);

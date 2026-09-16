@@ -93,7 +93,10 @@ export function DestinationSearchModal({
                 placeholder="Search destination or address..."
                 placeholderTextColor={palette.textMuted}
                 value={query}
-                onChangeText={setQuery}
+                onChangeText={(text) => {
+                  setSelectionError(null);
+                  setQuery(text);
+                }}
                 autoFocus
                 returnKeyType="search"
                 clearButtonMode="while-editing"
