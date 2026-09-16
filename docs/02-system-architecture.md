@@ -20,7 +20,7 @@ Expo React Native App
 Node.js + Express modular backend
         |
         +-- MongoDB Atlas
-        +-- Google Places API
+        +-- Geoapify Address Autocomplete API
         +-- Google Routes API
         +-- notification infrastructure
 ```
