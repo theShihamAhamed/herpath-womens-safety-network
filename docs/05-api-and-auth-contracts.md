@@ -168,13 +168,17 @@ Anonymous reports remain with the pseudonymous account/session that created them
 
 ## Destination search endpoint
 
-`GET /api/v1/routes/destinations/search` accepts a trimmed `q` of 2 to 100 characters and optional `lat`/`lng` coordinates to bias results near the user. The client debounces typed queries before requesting suggestions and ignores superseded responses. A successful provider response returns normalized destinations:
+`GET /api/v1/routes/destinations/search` accepts a trimmed `q` of 1 to 100 characters, a UUID `sessionToken`, and optional `lat`/`lng` coordinates. The backend uses Google Places Autocomplete (New), keeping the Google API key server-side. It applies Sri Lanka as a regional preference and, when real shared Map location is available, uses a 15 km `locationBias` and `origin` to prioritize nearby predictions without restricting results to that area. The client debounces typed queries and ignores superseded responses.
+
+The response is provider-neutral and contains predictions only; it does not disclose provider payloads or fabricated coordinates:
 
 ```text
-id, name, address, latitude, longitude
+id, placeId, name, address, distanceMeters?
 ```
 
-An empty successful provider response returns `200 []`. A provider or network failure returns `503 DESTINATION_SEARCH_UNAVAILABLE`; the service never fabricates a destination or coordinate as a fallback.
+`GET /api/v1/routes/destinations/details` accepts the selected `placeId` and the same session token, then uses Google Place Details (New) to resolve the normalized route destination: `id, name, address, latitude, longitude`. A session token is created for each destination-search session and reset after selection or modal close.
+
+An empty successful provider response returns `200 []`. A missing key, provider, or network failure returns `503 DESTINATION_SEARCH_UNAVAILABLE`; the service never fabricates a suggestion, destination, or coordinate as a fallback. `GOOGLE_PLACES_API_KEY` must be configured only in the backend environment.
 
 ## Public Map incident endpoints
 
