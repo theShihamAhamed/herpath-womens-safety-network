@@ -166,6 +166,16 @@ Returns only reports owned by the authenticated actor, newest submission first. 
 
 Anonymous reports remain with the pseudonymous account/session that created them; sign-in, registration, or logout does not silently transfer ownership.
 
+## Destination search endpoint
+
+`GET /api/v1/routes/destinations/search` accepts a trimmed `q` of 2 to 100 characters and optional `lat`/`lng` coordinates to bias results near the user. The client debounces typed queries before requesting suggestions and ignores superseded responses. A successful provider response returns normalized destinations:
+
+```text
+id, name, address, latitude, longitude
+```
+
+An empty successful provider response returns `200 []`. A provider or network failure returns `503 DESTINATION_SEARCH_UNAVAILABLE`; the service never fabricates a destination or coordinate as a fallback.
+
 ## Public Map incident endpoints
 
 `GET /api/v1/map/incidents` accepts required `swLat`, `swLng`, `neLat`, `neLng`, with optional `category`, `severity`, `occurredFrom`, and `occurredTo`. `GET /api/v1/map/area-summary` accepts `lat`, `lng`, optional `radius` from 100 to 10,000 metres, and optional `occurredFrom`/`occurredTo`. Time bounds are inclusive absolute instants and require `Z` or an explicit numeric offset.

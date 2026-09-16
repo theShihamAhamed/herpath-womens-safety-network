@@ -30,7 +30,7 @@ export function DestinationSearchModal({
   onSelectDestination,
   userLocation,
 }: DestinationSearchModalProps) {
-  const { query, setQuery, results, loading, errorMessage, clearSearch } = useDestinationSearch({
+  const { query, setQuery, results, loading, errorMessage, clearSearch, retrySearch } = useDestinationSearch({
     userLocation,
   });
 
@@ -69,6 +69,7 @@ export function DestinationSearchModal({
               <TextInput
                 accessible
                 accessibilityLabel="Destination search text input"
+                accessibilityHint="Type at least two characters to show matching places"
                 style={styles.searchInput}
                 placeholder="Search destination or address..."
                 placeholderTextColor={palette.textMuted}
@@ -93,7 +94,7 @@ export function DestinationSearchModal({
 
           {/* Loading Indicator */}
           {loading ? (
-            <View style={styles.statusBox}>
+            <View accessible accessibilityRole="progressbar" accessibilityLabel="Searching destinations" style={styles.statusBox}>
               <ActivityIndicator size="small" color={palette.primary} />
               <Text style={styles.statusText}>Searching destinations...</Text>
             </View>
@@ -101,9 +102,18 @@ export function DestinationSearchModal({
 
           {/* Error Message */}
           {errorMessage ? (
-            <View style={styles.errorBox}>
+            <View accessible accessibilityRole="alert" style={styles.errorBox}>
               <MaterialIcons name="error-outline" size={20} color={palette.error} />
-              <Text style={styles.errorText}>{errorMessage}</Text>
+              <View style={styles.errorCopy}>
+                <Text style={styles.errorText}>{errorMessage}</Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry destination search"
+                  onPress={retrySearch}
+                  style={styles.retryButton}>
+                  <Text style={styles.retryText}>Retry</Text>
+                </Pressable>
+              </View>
             </View>
           ) : null}
 
@@ -145,10 +155,10 @@ export function DestinationSearchModal({
                   <MaterialIcons name="location-on" size={22} color={palette.primary} />
                 </View>
                 <View style={styles.resultCopy}>
-                  <Text style={styles.resultName} numberOfLines={1}>
+                  <Text style={styles.resultName}>
                     {item.name}
                   </Text>
-                  <Text style={styles.resultAddress} numberOfLines={2}>
+                  <Text style={styles.resultAddress}>
                     {item.address}
                   </Text>
                 </View>
@@ -231,9 +241,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE4E2',
   },
   errorText: {
-    flex: 1,
     color: palette.error,
     fontSize: 14,
+    lineHeight: 20,
+  },
+  errorCopy: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  retryButton: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: palette.error,
+  },
+  retryText: {
+    color: palette.error,
+    fontSize: 14,
+    fontWeight: '700',
   },
   emptyPrompt: {
     alignItems: 'center',
@@ -259,7 +287,7 @@ const styles = StyleSheet.create({
   },
   resultItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     gap: spacing.md,
@@ -278,9 +306,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F3F1',
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 1,
   },
   resultCopy: {
     flex: 1,
+    flexShrink: 1,
     gap: 2,
   },
   resultName: {

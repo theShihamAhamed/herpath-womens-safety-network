@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError } from '@/src/services/api/errors';
 
@@ -16,6 +16,7 @@ interface UseDestinationSearchResult {
   loading: boolean;
   errorMessage: string | null;
   clearSearch: () => void;
+  retrySearch: () => void;
 }
 
 export function useDestinationSearch(options: UseDestinationSearchOptions = {}): UseDestinationSearchResult {
@@ -23,15 +24,23 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
   const [results, setResults] = useState<Destination[]>([]);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [retryVersion, setRetryVersion] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const latestRequestRef = useRef(0);
   const userLocation = options.userLocation;
 
-  const clearSearch = () => {
+  const clearSearch = useCallback(() => {
+    latestRequestRef.current += 1;
+    if (debounceRef.current) clearTimeout(debounceRef.current);
     setQuery('');
     setResults([]);
     setErrorMessage(null);
     setLoading(false);
-  };
+  }, []);
+
+  const retrySearch = useCallback(() => {
+    if (query.trim().length >= 2) setRetryVersion((version) => version + 1);
+  }, [query]);
 
   useEffect(() => {
     if (debounceRef.current) {
@@ -39,6 +48,8 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
     }
 
     const trimmed = query.trim();
+    const requestId = latestRequestRef.current + 1;
+    latestRequestRef.current = requestId;
     if (trimmed.length < 2) {
       setResults([]);
       setErrorMessage(null);
@@ -52,12 +63,14 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
     debounceRef.current = setTimeout(async () => {
       try {
         const data = await searchDestinations(trimmed, userLocation);
-        setResults(data);
+        if (latestRequestRef.current === requestId) setResults(data);
       } catch (error) {
-        setResults([]);
-        setErrorMessage(error instanceof ApiError ? error.message : 'Unable to find destinations. Please try again.');
+        if (latestRequestRef.current === requestId) {
+          setResults([]);
+          setErrorMessage(error instanceof ApiError ? error.message : 'Unable to find destinations. Please try again.');
+        }
       } finally {
-        setLoading(false);
+        if (latestRequestRef.current === requestId) setLoading(false);
       }
     }, 350);
 
@@ -66,7 +79,7 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
         clearTimeout(debounceRef.current);
       }
     };
-  }, [query, userLocation]);
+  }, [query, retryVersion, userLocation]);
 
-  return { query, setQuery, results, loading, errorMessage, clearSearch };
+  return { query, setQuery, results, loading, errorMessage, clearSearch, retrySearch };
 }
