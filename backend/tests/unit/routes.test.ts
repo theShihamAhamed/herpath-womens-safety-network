@@ -74,6 +74,18 @@ describe('destination search validation contracts', () => {
 });
 
 describe('GeocodingService retrieval', () => {
+  it('uses one dynamic Places request from provider-discovered categories', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [{ place_id: 'auto', name: 'Hosp', lat: 6.9, lon: 79.8 }], query: { categories: ['healthcare.hospital', 'healthcare'] } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ features: [{ properties: { place_id: 'poi', name: 'Hospital', distance: 20 }, geometry: { coordinates: [79.8612, 6.9271] } }] }), { status: 200 }));
+    const result = await new GeocodingService('test-key', request).searchDestinationSources({ q: 'hosp', lat: 6.9271, lng: 79.8612 });
+    expect(result.placesResults).toMatchObject([{ id: 'poi', distanceMeters: 20 }]);
+    expect(request).toHaveBeenCalledTimes(2);
+    const placesUrl = new URL(request.mock.calls[1]?.[0] as string);
+    expect(placesUrl.searchParams.get('categories')).toBe('healthcare.hospital');
+    expect(placesUrl.searchParams.get('bias')).toBe('proximity:79.8612,6.9271');
+    expect(placesUrl.searchParams.get('filter')).toBeNull();
+  });
   it('uses Places with real coordinates for recognized nearby intent', async () => {
     const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ features: [{ properties: { place_id: 'poi-1', name: 'Police Hospital', formatted: 'Colombo, Sri Lanka', distance: 850 }, geometry: { coordinates: [79.8613, 6.9272] } }] }), { status: 200 }));
     const service = new GeocodingService('test-key', request);

@@ -18,6 +18,12 @@ export interface GeoapifyAutocompleteResult {
   categories: string[];
 }
 
+export interface DestinationSearchSources {
+  autocompleteResults: DestinationSuggestion[];
+  placesResults: DestinationSuggestion[];
+  categories: string[];
+}
+
 export function parseGeoapifyAutocompleteResponse(payload: Record<string, unknown>): GeoapifyAutocompleteResult {
   const results = Array.isArray(payload.results) ? payload.results : [];
   const categories = typeof payload.query === 'object' && payload.query !== null && Array.isArray((payload.query as { categories?: unknown }).categories)
@@ -41,8 +47,13 @@ export class GeocodingService {
       if (query.lat === undefined || query.lng === undefined) throw locationRequiredError();
       return this.searchNearbyPlaces(nearbyIntent.category, query.lat, query.lng);
     }
+    return (await this.searchDestinationSources(query)).autocompleteResults;
+  }
+
+  public async searchDestinationSources(query: DestinationSearchQuery): Promise<DestinationSearchSources> {
+    if (!this.apiKey) throw unavailableError();
     const searchText = query.q.replace(/\s+near\s+me\s*$/i, '').trim();
-    if (!searchText) return [];
+    if (!searchText) return { autocompleteResults: [], placesResults: [], categories: [] };
     const url = new URL('https://api.geoapify.com/v1/geocode/autocomplete');
     url.searchParams.set('text', searchText);
     url.searchParams.set('format', 'json');
@@ -52,7 +63,12 @@ export class GeocodingService {
     if (query.lat !== undefined && query.lng !== undefined) {
       url.searchParams.set('bias', `proximity:${query.lng},${query.lat}`);
     }
-    return (await this.searchAutocomplete(url)).results;
+    const autocomplete = await this.searchAutocomplete(url);
+    const category = autocomplete.categories[0];
+    const placesResults = category && query.lat !== undefined && query.lng !== undefined
+      ? await this.searchNearbyPlaces(category, query.lat, query.lng)
+      : [];
+    return { autocompleteResults: autocomplete.results, placesResults, categories: autocomplete.categories };
   }
 
   private async searchNearbyPlaces(category: string, latitude: number, longitude: number): Promise<DestinationSuggestion[]> {
