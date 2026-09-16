@@ -10,6 +10,19 @@ import type { PublicIncident } from '../../src/modules/incidents/incident.public
 import { prepareRoutesForRiskEvaluation } from '../../src/modules/routes/routeRisk.service.js';
 import { scoreRouteRisk } from '../../src/modules/routes/riskScoring.service.js';
 import type { RouteWithRiskContext } from '../../src/modules/routes/routes.types.js';
+import { parseNearbyPlaceIntent } from '../../src/modules/routes/nearby-place-intent.js';
+
+describe('nearby place intent parsing', () => {
+  it.each([
+    ['hospital near me', 'healthcare.hospital'], ['Laundry near me', 'service.cleaning.laundry'],
+    ['BANK NEAR ME', 'service.financial.bank'], ['pizza near me   ', 'catering.restaurant.pizza,catering.fast_food.pizza'],
+    ['fuel station near me', 'service.vehicle.fuel'], ['petrol station near me', 'service.vehicle.fuel'], ['gas station near me', 'service.vehicle.fuel'],
+  ])('recognizes %s', (query, category) => expect(parseNearbyPlaceIntent(query)?.category).toBe(category));
+
+  it.each(['Asiri Hospital', 'Pizza Hut', 'Commercial Bank', 'SLIIT', 'near me'])('does not treat %s as nearby intent', (query) => {
+    expect(parseNearbyPlaceIntent(query)).toBeNull();
+  });
+});
 
 describe('destination search validation contracts', () => {
   it('accepts valid query strings with optional coordinates', () => {
@@ -61,6 +74,22 @@ describe('destination search validation contracts', () => {
 });
 
 describe('GeocodingService retrieval', () => {
+  it('uses Places with real coordinates for recognized nearby intent', async () => {
+    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ features: [{ properties: { place_id: 'poi-1', name: 'Police Hospital', formatted: 'Colombo, Sri Lanka', distance: 850 }, geometry: { coordinates: [79.8613, 6.9272] } }] }), { status: 200 }));
+    const service = new GeocodingService('test-key', request);
+    await expect(service.searchPlaces({ q: 'hospital near me', lat: 6.9271, lng: 79.8612 })).resolves.toMatchObject([{ id: 'poi-1', latitude: 6.9272, longitude: 79.8613, distanceMeters: 850 }]);
+    const url = new URL(request.mock.calls[0]?.[0] as string);
+    expect(url.pathname).toBe('/v2/places');
+    expect(url.searchParams.get('categories')).toBe('healthcare.hospital');
+    expect(url.searchParams.get('filter')).toBe('circle:79.8612,6.9271,15000');
+    expect(url.searchParams.get('bias')).toBe('proximity:79.8612,6.9271');
+  });
+
+  it('requires location for nearby intent without calling Places', async () => {
+    const request = vi.fn();
+    await expect(new GeocodingService('test-key', request).searchPlaces({ q: 'hospital near me' })).rejects.toMatchObject({ code: 'DESTINATION_LOCATION_REQUIRED' });
+    expect(request).not.toHaveBeenCalled();
+  });
   it('returns normalized real provider results and biases them around real location', async () => {
     const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [{ place_id: 'geo-1', name: 'Colombo Fort', address_line2: 'Colombo, Sri Lanka', lat: 6.9344, lon: 79.8501, distance: 320 }] }), { status: 200 }));
     const service = new GeocodingService('test-key', request);
@@ -96,14 +125,15 @@ describe('GeocodingService retrieval', () => {
     expect(requestUrl.searchParams.get('bias')).toBeNull();
   });
 
-  it('normalizes a trailing near-me phrase while preserving real location bias', async () => {
+  it('routes a recognized trailing near-me phrase to Places', async () => {
     const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [] }), { status: 200 }));
     const service = new GeocodingService('test-key', request);
 
     await service.searchPlaces({ q: 'Laundry near me', lat: 6.9271, lng: 79.8612 });
     const requestUrl = new URL(request.mock.calls[0]?.[0] as string);
-    expect(requestUrl.searchParams.get('text')).toBe('Laundry');
-    expect(requestUrl.searchParams.get('filter')).toBe('countrycode:lk');
+    expect(requestUrl.pathname).toBe('/v2/places');
+    expect(requestUrl.searchParams.get('categories')).toBe('service.cleaning.laundry');
+    expect(requestUrl.searchParams.get('filter')).toBe('circle:79.8612,6.9271,15000');
     expect(requestUrl.searchParams.get('bias')).toBe('proximity:79.8612,6.9271');
   });
 
