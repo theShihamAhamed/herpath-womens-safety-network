@@ -142,7 +142,7 @@ function mergeDestinationSuggestions(
 ): DestinationSuggestion[] {
   const seen = new Set<string>();
   return [...placesResults, ...autocompleteResults].filter((suggestion) => {
-    const identity = `${suggestion.id}|${suggestion.name.trim().toLowerCase()}|${suggestion.latitude}|${suggestion.longitude}`;
+    const identity = `${suggestion.name.trim().toLowerCase()}|${suggestion.latitude}|${suggestion.longitude}`;
     if (seen.has(identity)) return false;
     seen.add(identity);
     return true;

@@ -74,6 +74,19 @@ describe('destination search validation contracts', () => {
 });
 
 describe('GeocodingService retrieval', () => {
+  it('returns prioritized, deduplicated merged dynamic place suggestions capped at eight', async () => {
+    const autocompleteResults = Array.from({ length: 8 }, (_, index) => ({ place_id: `auto-${index}`, name: index === 0 ? 'Nearby Hospital' : `Autocomplete ${index}`, lat: 6.9 + index / 1000, lon: 79.8 + index / 1000 }));
+    const request = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: autocompleteResults, query: { categories: ['healthcare.hospital'] } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ features: [
+        { properties: { place_id: 'place-1', name: 'Nearby Hospital', distance: 50 }, geometry: { coordinates: [79.8, 6.9] } },
+        { properties: { place_id: 'place-2', name: 'Nearby Hospital', distance: 100 }, geometry: { coordinates: [79.801, 6.901] } },
+      ] }), { status: 200 }));
+    const results = await new GeocodingService('test-key', request).searchPlaces({ q: 'hosp', lat: 6.9, lng: 79.8 });
+    expect(results).toHaveLength(8);
+    expect(results.slice(0, 2).map((item) => item.id)).toEqual(['place-1', 'place-2']);
+    expect(results.filter((item) => item.name === 'Nearby Hospital')).toHaveLength(2);
+  });
   it('uses one dynamic Places request from provider-discovered categories', async () => {
     const request = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ results: [{ place_id: 'auto', name: 'Hosp', lat: 6.9, lon: 79.8 }], query: { categories: ['healthcare.hospital', 'healthcare'] } }), { status: 200 }))
