@@ -14,7 +14,6 @@ import {
 
 import { palette, radius, spacing } from '@/src/theme';
 
-import { resolveDestination } from './routing.api';
 import { Destination, DestinationSuggestion } from './types';
 import { useDestinationSearch } from './useDestinationSearch';
 
@@ -31,30 +30,19 @@ export function DestinationSearchModal({
   onSelectDestination,
   userLocation,
 }: DestinationSearchModalProps) {
-  const { query, setQuery, results, loading, errorMessage, clearSearch, retrySearch, sessionToken, resetSession } = useDestinationSearch({
+  const { query, setQuery, results, loading, errorMessage, clearSearch, retrySearch } = useDestinationSearch({
     userLocation,
   });
   const [selectionError, setSelectionError] = React.useState<string | null>(null);
-  const [resolvingSelection, setResolvingSelection] = React.useState(false);
 
-  const handleSelect = async (item: DestinationSuggestion) => {
-    try {
-      setSelectionError(null);
-      setResolvingSelection(true);
-      const destination = await resolveDestination(item.placeId, sessionToken);
-      resetSession();
-      clearSearch();
-      onSelectDestination(destination);
-      onClose();
-    } catch {
-      setSelectionError('Destination details are temporarily unavailable. Please try again.');
-    } finally {
-      setResolvingSelection(false);
-    }
+  const handleSelect = (item: DestinationSuggestion) => {
+    setSelectionError(null);
+    clearSearch();
+    onSelectDestination(item);
+    onClose();
   };
 
   const handleClose = () => {
-    resetSession();
     clearSearch();
     onClose();
   };
@@ -171,10 +159,8 @@ export function DestinationSearchModal({
               <Pressable
                 accessibilityRole="button"
                 accessibilityLabel={`Select destination ${item.name}, ${item.address}`}
-                accessibilityState={{ disabled: resolvingSelection }}
-                disabled={resolvingSelection}
                 style={({ pressed }) => [styles.resultItem, pressed && styles.resultItemPressed]}
-                onPress={() => void handleSelect(item)}>
+                onPress={() => handleSelect(item)}>
                 <View style={styles.pinIconContainer}>
                   <MaterialIcons name="location-on" size={22} color={palette.primary} />
                 </View>

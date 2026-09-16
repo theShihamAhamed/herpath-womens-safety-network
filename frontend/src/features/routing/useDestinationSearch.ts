@@ -1,4 +1,3 @@
-import * as Crypto from 'expo-crypto';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import { ApiError } from '@/src/services/api/errors';
@@ -18,8 +17,6 @@ interface UseDestinationSearchResult {
   errorMessage: string | null;
   clearSearch: () => void;
   retrySearch: () => void;
-  sessionToken: string;
-  resetSession: () => void;
 }
 
 export function useDestinationSearch(options: UseDestinationSearchOptions = {}): UseDestinationSearchResult {
@@ -30,7 +27,6 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
   const [retryVersion, setRetryVersion] = useState(0);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const latestRequestRef = useRef(0);
-  const sessionTokenRef = useRef(Crypto.randomUUID());
   const userLocation = options.userLocation;
 
   const clearSearch = useCallback(() => {
@@ -45,8 +41,6 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
   const retrySearch = useCallback(() => {
     if (query.trim().length >= 1) setRetryVersion((version) => version + 1);
   }, [query]);
-
-  const resetSession = useCallback(() => { sessionTokenRef.current = Crypto.randomUUID(); }, []);
 
   useEffect(() => {
     if (debounceRef.current) {
@@ -68,7 +62,7 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
 
     debounceRef.current = setTimeout(async () => {
       try {
-        const data = await searchDestinations(trimmed, sessionTokenRef.current, userLocation);
+        const data = await searchDestinations(trimmed, userLocation);
         if (latestRequestRef.current === requestId) setResults(data);
       } catch (error) {
         if (latestRequestRef.current === requestId) {
@@ -87,5 +81,5 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
     };
   }, [query, retryVersion, userLocation]);
 
-  return { query, setQuery, results, loading, errorMessage, clearSearch, retrySearch, sessionToken: sessionTokenRef.current, resetSession };
+  return { query, setQuery, results, loading, errorMessage, clearSearch, retrySearch };
 }

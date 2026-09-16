@@ -6,7 +6,7 @@ import type { GeocodingService } from './geocoding.service.js';
 import { getRouteAlternatives } from './routeAlternatives.service.js';
 import { prepareRoutesForRiskEvaluation } from './routeRisk.service.js';
 import type { RouteAlternativesRequest } from './routes.types.js';
-import type { DestinationDetailsQuery, DestinationSearchQuery } from './routes.types.js';
+import type { DestinationSearchQuery } from './routes.types.js';
 
 export class RoutesController {
   public constructor(private readonly geocodingService: GeocodingService) {}
@@ -25,12 +25,6 @@ export class RoutesController {
     }
   };
 
-  public getDestinationDetails = async (request: Request, response: Response, next: NextFunction): Promise<void> => {
-    try {
-      const query = request.query as unknown as DestinationDetailsQuery;
-      sendSuccess(response, await this.geocodingService.getPlaceDetails(query));
-    } catch (error) { next(error); }
-  };
 }
 
 function parseLatLng(value: unknown): { lat: number; lng: number } | null {

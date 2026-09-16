@@ -45,7 +45,7 @@ export interface AppRuntimeConfig {
   flagRateLimitWindowMs?: number;
   flagRateLimitMax?: number;
   overpassApiUrl?: string;
-  googlePlacesApiKey?: string | undefined;
+  geoapifyApiKey?: string | undefined;
   trustProxy: boolean;
   accessTokenSecret: string;
   accessTokenTtl: string;
@@ -171,7 +171,7 @@ export function createApp(dependencies: AppDependencies): Express {
     `${API_PREFIX}/moderation`,
     createModerationWorkflowRouter(authService, createModerationWorkflowService()),
   );
-  app.use(`${API_PREFIX}/routes`, createRoutesRouter({ googlePlacesApiKey: dependencies.config.googlePlacesApiKey }));
+  app.use(`${API_PREFIX}/routes`, createRoutesRouter({ geoapifyApiKey: dependencies.config.geoapifyApiKey }));
 
 
   app.get(`${API_PREFIX}/health`, (_request, response, next) => {

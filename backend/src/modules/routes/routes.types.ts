@@ -8,22 +8,17 @@ export interface Destination {
 
 export interface DestinationSuggestion {
   id: string;
-  placeId: string;
   name: string;
   address: string;
+  latitude: number;
+  longitude: number;
   distanceMeters?: number;
 }
 
 export interface DestinationSearchQuery {
   q: string;
-  sessionToken: string;
   lat?: number | undefined;
   lng?: number | undefined;
-}
-
-export interface DestinationDetailsQuery {
-  placeId: string;
-  sessionToken: string;
 }
 
 

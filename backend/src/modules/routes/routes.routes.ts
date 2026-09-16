@@ -4,11 +4,11 @@ import { validate } from '../../common/middleware/validate.js';
 import { GeocodingService } from './geocoding.service.js';
 import { getRouteRecommendationHandler } from './recommendation.controller.js';
 import { getAlternativeRoutes, RoutesController } from './routes.controller.js';
-import { destinationDetailsQuerySchema, destinationSearchQuerySchema } from './routes.validation.js';
+import { destinationSearchQuerySchema } from './routes.validation.js';
 
-export function createRoutesRouter(options: { geocodingService?: GeocodingService; googlePlacesApiKey?: string | undefined } = {}): Router {
+export function createRoutesRouter(options: { geocodingService?: GeocodingService; geoapifyApiKey?: string | undefined } = {}): Router {
   const router = Router();
-  const service = options.geocodingService ?? new GeocodingService(options.googlePlacesApiKey);
+  const service = options.geocodingService ?? new GeocodingService(options.geoapifyApiKey);
   const controller = new RoutesController(service);
 
   // HS-119–HS-122: Destination search
@@ -17,7 +17,6 @@ export function createRoutesRouter(options: { geocodingService?: GeocodingServic
     validate({ query: destinationSearchQuerySchema }),
     controller.searchDestinations,
   );
-  router.get('/destinations/details', validate({ query: destinationDetailsQuerySchema }), controller.getDestinationDetails);
 
   // HS-119–HS-122: Fetch alternative routes with risk context
   router.get('/alternatives', getAlternativeRoutes);

@@ -4,27 +4,23 @@ import type { NextFunction, Request, Response } from 'express';
 import type { AppError } from '../../src/common/errors/app-error.js';
 import { GeocodingService } from '../../src/modules/routes/geocoding.service.js';
 import { RoutesController } from '../../src/modules/routes/routes.controller.js';
-import { destinationDetailsQuerySchema, destinationSearchQuerySchema } from '../../src/modules/routes/routes.validation.js';
+import { destinationSearchQuerySchema } from '../../src/modules/routes/routes.validation.js';
 import type { PublicIncidentReader } from '../../src/modules/incidents/incident.public-reader.js';
 import type { PublicIncident } from '../../src/modules/incidents/incident.public.js';
 import { prepareRoutesForRiskEvaluation } from '../../src/modules/routes/routeRisk.service.js';
 import { scoreRouteRisk } from '../../src/modules/routes/riskScoring.service.js';
 import type { RouteWithRiskContext } from '../../src/modules/routes/routes.types.js';
 
-const sessionToken = '123e4567-e89b-42d3-a456-426614174000';
-
 describe('destination search validation contracts', () => {
   it('accepts valid query strings with optional coordinates', () => {
     const validQuery = destinationSearchQuerySchema.parse({
       q: 'Colombo Fort',
-      sessionToken,
       lat: 6.9344,
       lng: 79.8501,
     });
 
     expect(validQuery).toEqual({
       q: 'Colombo Fort',
-      sessionToken,
       lat: 6.9344,
       lng: 79.8501,
     });
@@ -33,91 +29,64 @@ describe('destination search validation contracts', () => {
   it('trims whitespace and accepts valid single-parameter search query', () => {
     const validQuery = destinationSearchQuerySchema.parse({
       q: '  Galle Face Green  ',
-      sessionToken,
     });
 
     expect(validQuery.q).toBe('Galle Face Green');
   });
 
   it('accepts one-character autocomplete queries and rejects blank input', () => {
-    expect(destinationSearchQuerySchema.parse({ q: 'a', sessionToken }).q).toBe('a');
-    expect(() => destinationSearchQuerySchema.parse({ q: '   ', sessionToken })).toThrow();
-  });
-
-  it('requires a UUID session token for autocomplete and details', () => {
-    expect(() => destinationSearchQuerySchema.parse({ q: 'a' })).toThrow();
-    expect(destinationDetailsQuerySchema.parse({ placeId: 'place-1', sessionToken })).toEqual({
-      placeId: 'place-1',
-      sessionToken,
-    });
+    expect(destinationSearchQuerySchema.parse({ q: 'a' }).q).toBe('a');
+    expect(() => destinationSearchQuerySchema.parse({ q: '   ' })).toThrow();
   });
 
   it('rejects queries exceeding max character limit', () => {
     const longQuery = 'x'.repeat(101);
-    expect(() => destinationSearchQuerySchema.parse({ q: longQuery, sessionToken })).toThrow(
+    expect(() => destinationSearchQuerySchema.parse({ q: longQuery })).toThrow(
       /not exceed 100 characters/,
     );
   });
 
   it('rejects out-of-range coordinates', () => {
     expect(() =>
-      destinationSearchQuerySchema.parse({ q: 'Test', sessionToken, lat: 95, lng: 80 }),
+      destinationSearchQuerySchema.parse({ q: 'Test', lat: 95, lng: 80 }),
     ).toThrow();
     expect(() =>
-      destinationSearchQuerySchema.parse({ q: 'Test', sessionToken, lat: 6, lng: 190 }),
+      destinationSearchQuerySchema.parse({ q: 'Test', lat: 6, lng: 190 }),
     ).toThrow();
   });
 });
 
 describe('GeocodingService retrieval', () => {
   it('returns normalized real provider results and biases them around real location', async () => {
-    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ suggestions: [{ placePrediction: { placeId: 'place-1', text: { text: 'Colombo Fort' }, structuredFormat: { mainText: { text: 'Colombo Fort' }, secondaryText: { text: 'Colombo, Sri Lanka' } }, distanceMeters: 320 } }] }), { status: 200 }));
+    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [{ place_id: 'geo-1', name: 'Colombo Fort', address_line2: 'Colombo, Sri Lanka', lat: 6.9344, lon: 79.8501, distance: 320 }] }), { status: 200 }));
     const service = new GeocodingService('test-key', request);
 
-    await expect(service.searchPlaces({ q: 'Colombo Fort', sessionToken, lat: 6.9, lng: 79.8 })).resolves.toEqual([
+    await expect(service.searchPlaces({ q: 'Colombo Fort', lat: 6.9, lng: 79.8 })).resolves.toEqual([
       {
-        id: 'place-1', placeId: 'place-1', name: 'Colombo Fort',
+        id: 'geo-1', name: 'Colombo Fort',
         address: 'Colombo, Sri Lanka',
+        latitude: 6.9344, longitude: 79.8501,
         distanceMeters: 320,
       },
     ]);
-    const requestBody = JSON.parse((request.mock.calls[0]?.[1] as RequestInit).body as string);
-    expect(requestBody).toMatchObject({
-      input: 'Colombo Fort',
-      sessionToken,
-      regionCode: 'LK',
-      origin: { latitude: 6.9, longitude: 79.8 },
-      locationBias: { circle: { center: { latitude: 6.9, longitude: 79.8 }, radius: 15_000 } },
-    });
+    const requestUrl = new URL(request.mock.calls[0]?.[0] as string);
+    expect(requestUrl.searchParams.get('bias')).toBe('proximity:79.8,6.9|countrycode:lk');
   });
 
   it('returns an empty array for a successful empty provider response without fabricating places', async () => {
     const service = new GeocodingService(
       'test-key',
-      vi.fn().mockResolvedValue(new Response(JSON.stringify({ suggestions: [] }), { status: 200 })),
+      vi.fn().mockResolvedValue(new Response(JSON.stringify({ results: [] }), { status: 200 })),
     );
 
-    await expect(service.searchPlaces({ q: 'zzz', sessionToken })).resolves.toEqual([]);
-  });
-
-  it('resolves a selected prediction through Place Details using the same session', async () => {
-    const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      id: 'place-1', displayName: { text: 'Colombo Fort' }, formattedAddress: 'Colombo, Sri Lanka',
-      location: { latitude: 6.9344, longitude: 79.8501 },
-    }), { status: 200 }));
-    const service = new GeocodingService('test-key', request);
-
-    await expect(service.getPlaceDetails({ placeId: 'place-1', sessionToken })).resolves.toEqual({
-      id: 'place-1', name: 'Colombo Fort', address: 'Colombo, Sri Lanka', latitude: 6.9344, longitude: 79.8501,
-    });
-    expect(request.mock.calls[0]?.[0]).toContain(`places/place-1?sessionToken=${sessionToken}`);
+    await expect(service.searchPlaces({ q: 'zzz' })).resolves.toEqual([]);
   });
 
   it('reports provider failure instead of returning a synthetic destination', async () => {
     const request = vi.fn().mockResolvedValue(new Response('', { status: 429 }));
     const service = new GeocodingService('test-key', request);
 
-    await expect(service.searchPlaces({ q: 'Custom Safe Hub', sessionToken })).rejects.toMatchObject({
+    await expect(service.searchPlaces({ q: 'Custom Safe Hub' })).rejects.toMatchObject({
       statusCode: 503,
       code: 'DESTINATION_SEARCH_UNAVAILABLE',
     } satisfies Partial<AppError>);

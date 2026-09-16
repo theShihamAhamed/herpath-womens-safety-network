@@ -36,7 +36,7 @@ const rawEnvironmentSchema = z.object({
   FLAG_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
   FLAG_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5),
   OVERPASS_API_URL: z.url().default('https://overpass-api.de/api/interpreter'),
-  GOOGLE_PLACES_API_KEY: z.string().trim().optional(),
+  GEOAPIFY_API_KEY: z.string().trim().optional(),
   TRUST_PROXY: z.enum(['true', 'false']).default('false'),
   ACCESS_TOKEN_SECRET: z.string().min(32, 'ACCESS_TOKEN_SECRET must contain at least 32 characters'),
   ACCESS_TOKEN_TTL: accessTokenTtlSchema.default('15m'),
@@ -89,7 +89,7 @@ export interface Environment {
   flagRateLimitWindowMs: number;
   flagRateLimitMax: number;
   overpassApiUrl: string;
-  googlePlacesApiKey: string | undefined;
+  geoapifyApiKey: string | undefined;
   trustProxy: boolean;
   accessTokenSecret: string;
   accessTokenTtl: string;
@@ -141,7 +141,7 @@ export function loadEnvironment(source: NodeJS.ProcessEnv = process.env): Enviro
     flagRateLimitWindowMs: result.data.FLAG_RATE_LIMIT_WINDOW_MS,
     flagRateLimitMax: result.data.FLAG_RATE_LIMIT_MAX,
     overpassApiUrl: result.data.OVERPASS_API_URL,
-    googlePlacesApiKey: result.data.GOOGLE_PLACES_API_KEY,
+    geoapifyApiKey: result.data.GEOAPIFY_API_KEY,
     trustProxy: result.data.TRUST_PROXY === 'true',
     accessTokenSecret: result.data.ACCESS_TOKEN_SECRET,
     accessTokenTtl: result.data.ACCESS_TOKEN_TTL,
