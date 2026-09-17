@@ -349,6 +349,7 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
           query={routeContext.submittedSearchQuery}
           results={searchMapResults}
           selectedResult={selectedSearchResult}
+          expanded={isSearchResultsSheetExpanded}
           onSelectResult={handleSelectSearchResult}
           onSetDestination={handleSetSearchResultDestination}
           onClear={() => {
