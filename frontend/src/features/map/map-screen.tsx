@@ -15,7 +15,13 @@ import { ReportContextSheet } from './report-context-sheet';
 import { SupportPlaceSearchFeedback } from './support-place-search-feedback';
 import { getSupportPlaceDistanceMetres } from './support-place-distance';
 import { SupportPlaceMarker } from './support-place-marker';
-import { DestinationMarker, useRouteContext } from '@/src/features/routing';
+import {
+  DestinationMarker,
+  DestinationResultsSheet,
+  DestinationSearchResultMarker,
+  type DestinationSuggestion,
+  useRouteContext,
+} from '@/src/features/routing';
 import { FALLBACK_LOCATION, type UseUserLocationResult } from './use-user-location';
 import { useSupportPlaceSearch } from './use-support-place-search';
 
@@ -37,6 +43,7 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
   const [isAreaSummaryUnavailable, setIsAreaSummaryUnavailable] = useState(false);
   const [isSummaryVisible, setIsSummaryVisible] = useState(false);
   const [isReportSheetExpanded, setIsReportSheetExpanded] = useState(false);
+  const [isSearchResultsSheetExpanded, setIsSearchResultsSheetExpanded] = useState(false);
   const [selectedSupportPlaceId, setSelectedSupportPlaceId] = useState<string | null>(null);
   const lastViewportRef = useRef<ViewportBounds | null>(null);
   const mapRef = useRef<MapView>(null);
@@ -46,13 +53,11 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
       permissionStatus === Location.PermissionStatus.GRANTED && locationError === null,
   });
 
-  let selectedDestination = null;
-  try {
-    const routeContext = useRouteContext();
-    selectedDestination = routeContext.selectedDestination;
-  } catch {
-    // Graceful fallback if rendered without RouteProvider
-  }
+  const routeContext = useRouteContext();
+  const selectedDestination = routeContext.selectedDestination;
+  const searchMapResults = routeContext.searchMapResults;
+  const selectedSearchResult = routeContext.selectedSearchResult;
+  const isSearchResultsActive = searchMapResults.length > 0;
 
   React.useEffect(() => {
     if (selectedDestination && mapRef.current) {
@@ -67,6 +72,25 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
       );
     }
   }, [selectedDestination]);
+
+  React.useEffect(() => {
+    if (!mapRef.current || searchMapResults.length === 0) return;
+    const resultsToFrame = getInitialCameraResults(searchMapResults);
+    if (resultsToFrame.length === 1) {
+      const result = resultsToFrame[0];
+      mapRef.current.animateToRegion({
+        latitude: result.latitude,
+        longitude: result.longitude,
+        latitudeDelta: 0.03,
+        longitudeDelta: 0.03,
+      }, 300);
+      return;
+    }
+    mapRef.current.fitToCoordinates(
+      resultsToFrame.map((result) => ({ latitude: result.latitude, longitude: result.longitude })),
+      { edgePadding: { top: 190, right: 88, bottom: 220, left: 28 }, animated: true },
+    );
+  }, [searchMapResults]);
 
   React.useEffect(() => {
     setSelectedSupportPlaceId((current) =>
@@ -186,6 +210,22 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
     mapRef.current?.animateToRegion({ latitude, longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 300);
   };
 
+  const handleSelectSearchResult = (result: DestinationSuggestion) => {
+    routeContext.setSelectedSearchResult(result);
+    setIsSearchResultsSheetExpanded(true);
+    mapRef.current?.animateToRegion({
+      latitude: result.latitude,
+      longitude: result.longitude,
+      latitudeDelta: 0.018,
+      longitudeDelta: 0.018,
+    }, 250);
+  };
+
+  const handleSetSearchResultDestination = (result: DestinationSuggestion) => {
+    routeContext.setSelectedDestination(result);
+    routeContext.clearSearchMapResults();
+  };
+
   const retryMapData = () => {
     const bounds = lastViewportRef.current;
     if (bounds) void loadIncidents(bounds, filter);
@@ -237,6 +277,14 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
             onSelect={() => setSelectedSupportPlaceId(place.id)}
           />
         ))}
+        {searchMapResults.map((result) => (
+          <DestinationSearchResultMarker
+            key={`destination-search-${result.id}`}
+            result={result}
+            selected={result.id === selectedSearchResult?.id}
+            onSelect={() => handleSelectSearchResult(result)}
+          />
+        ))}
         {selectedDestination ? (
           <DestinationMarker destination={selectedDestination} />
         ) : null}
@@ -246,7 +294,7 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
         pointerEvents="box-none"
         style={[
           styles.actionControls,
-          { bottom: isReportSheetExpanded ? Math.round(windowHeight * 0.58) + 16 : 128 },
+          { bottom: (isSearchResultsActive ? isSearchResultsSheetExpanded : isReportSheetExpanded) ? Math.round(windowHeight * 0.58) + 16 : 128 },
         ]}>
         <Pressable accessibilityRole="button" accessibilityLabel="Use my current location" onPress={() => void handleUseCurrentLocation()} style={styles.mapAction}>
           <MaterialIcons name="my-location" size={22} color="#176B5B" />
@@ -296,13 +344,28 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
         onDismiss={supportPlaceSearch.dismissSupportPlaces}
       />
 
-      <ReportContextSheet
-        incidents={filteredIncidents}
-        onSelectIncident={handleFocusIncident}
-        onExpandedChange={setIsReportSheetExpanded}
-        safetyInformationUnavailable={isMapDataUnavailable}
-        onRetrySafetyInformation={retryMapData}
-      />
+      {isSearchResultsActive && routeContext.submittedSearchQuery ? (
+        <DestinationResultsSheet
+          query={routeContext.submittedSearchQuery}
+          results={searchMapResults}
+          selectedResult={selectedSearchResult}
+          onSelectResult={handleSelectSearchResult}
+          onSetDestination={handleSetSearchResultDestination}
+          onClear={() => {
+            setIsSearchResultsSheetExpanded(false);
+            routeContext.clearSearchMapResults();
+          }}
+          onExpandedChange={setIsSearchResultsSheetExpanded}
+        />
+      ) : (
+        <ReportContextSheet
+          incidents={filteredIncidents}
+          onSelectIncident={handleFocusIncident}
+          onExpandedChange={setIsReportSheetExpanded}
+          safetyInformationUnavailable={isMapDataUnavailable}
+          onRetrySafetyInformation={retryMapData}
+        />
+      )}
 
       <AreaSummarySheet
         visible={isSummaryVisible}
@@ -370,3 +433,8 @@ const styles = StyleSheet.create({
     color: '#5F6C68',
   },
 });
+
+function getInitialCameraResults(results: DestinationSuggestion[]) {
+  const localResults = results.filter((result) => result.distanceMeters !== undefined && result.distanceMeters <= 25_000);
+  return (localResults.length > 0 ? localResults : results).slice(0, 8);
+}
