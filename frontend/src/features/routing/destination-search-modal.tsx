@@ -32,12 +32,14 @@ export function DestinationSearchModal({
   onSubmitResults,
   userLocation,
 }: DestinationSearchModalProps) {
-  const { query, setQuery, results, resultsQuery, loading, errorMessage, locationRequired, shortQuery, clearSearch, retrySearch } = useDestinationSearch({
+  const { query, setQuery, results, loading, errorMessage, locationRequired, shortQuery, clearSearch, retrySearch } = useDestinationSearch({
     userLocation,
   });
   const [selectionError, setSelectionError] = React.useState<string | null>(null);
+  const [pendingSubmitQuery, setPendingSubmitQuery] = React.useState<string | null>(null);
 
   const handleSelect = (item: DestinationSuggestion) => {
+    setPendingSubmitQuery(null);
     setSelectionError(null);
     clearSearch();
     onSelectDestination(item);
@@ -45,6 +47,7 @@ export function DestinationSearchModal({
   };
 
   const handleClose = () => {
+    setPendingSubmitQuery(null);
     clearSearch();
     onClose();
   };
@@ -54,12 +57,30 @@ export function DestinationSearchModal({
     retrySearch();
   };
 
+  const submitVisibleResults = React.useCallback((submittedQuery: string, visibleResults: DestinationSuggestion[]) => {
+    if (visibleResults.length === 0) return;
+    setPendingSubmitQuery(null);
+    onSubmitResults(submittedQuery, visibleResults.slice(0, 8));
+    onClose();
+  }, [onClose, onSubmitResults]);
+
   const handleSubmit = () => {
     const submittedQuery = query.trim();
-    if (loading || !submittedQuery || results.length === 0 || resultsQuery !== submittedQuery) return;
-    onSubmitResults(submittedQuery, results.slice(0, 8));
-    onClose();
+    if (!submittedQuery) return;
+    if (results.length > 0) {
+      submitVisibleResults(submittedQuery, results);
+      return;
+    }
+    if (loading) setPendingSubmitQuery(submittedQuery);
   };
+
+  React.useEffect(() => {
+    if (!pendingSubmitQuery || loading) return;
+    setPendingSubmitQuery(null);
+    if (query.trim() === pendingSubmitQuery && results.length > 0) {
+      submitVisibleResults(pendingSubmitQuery, results);
+    }
+  }, [loading, pendingSubmitQuery, query, results, submitVisibleResults]);
 
   return (
     <Modal
@@ -91,11 +112,13 @@ export function DestinationSearchModal({
                 placeholderTextColor={palette.textMuted}
                 value={query}
                 onChangeText={(text) => {
+                  setPendingSubmitQuery(null);
                   setSelectionError(null);
                   setQuery(text);
                 }}
                 autoFocus
                 returnKeyType="search"
+                submitBehavior="submit"
                 onSubmitEditing={handleSubmit}
                 clearButtonMode="while-editing"
               />
