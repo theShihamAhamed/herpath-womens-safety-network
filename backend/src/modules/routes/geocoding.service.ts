@@ -2,6 +2,9 @@ import { AppError } from '../../common/errors/app-error.js';
 import type { DestinationSearchQuery, DestinationSuggestion } from './routes.types.js';
 import { parseNearbyPlaceIntent } from './nearby-place-intent.js';
 
+// Used for local amenity circles and local-first category result selection; global fallback remains available.
+const LOCAL_SEARCH_RADIUS_METERS = 25_000;
+
 interface GeoapifyResult {
   place_id?: string;
   name?: string;
@@ -74,10 +77,9 @@ export class GeocodingService {
       return this.searchNearbyPlaces(nearbyIntent.category, query.lat, query.lng);
     }
     const sources = await this.searchDestinationSources(query);
-    return mergeDestinationSuggestions(
-      sources.placesResults.length > 0 ? sources.placesResults : sources.amenityResults,
-      sources.autocompleteResults,
-    );
+    const primaryResults = sources.placesResults.length > 0 ? sources.placesResults : sources.amenityResults;
+    if (primaryResults.length > 0) return mergeDestinationSuggestions(primaryResults, []);
+    return mergeDestinationSuggestions(filterTextRelevantSuggestions(query.q, sources.autocompleteResults), []);
   }
 
   public async searchDestinationSources(query: DestinationSearchQuery): Promise<DestinationSearchSources> {
@@ -98,14 +100,27 @@ export class GeocodingService {
       ? selectRelevantGeoapifyCategory(searchText, autocomplete.categoryMetadata)
       : undefined;
     const hasLocation = query.lat !== undefined && query.lng !== undefined;
-    const placesResults = category && query.lat !== undefined && query.lng !== undefined
-      ? await this.searchNearbyPlaces(category, query.lat, query.lng, { requireMeaningfulName: true })
-      : [];
-    const shouldUseAmenityFallback = searchText.length >= 2
-      && (!category || (hasLocation && placesResults.length === 0));
-    const amenityResults = shouldUseAmenityFallback
-      ? await this.searchAmenityAutocomplete(query.q.trim(), query.lat, query.lng)
-      : [];
+    let placesResults: DestinationSuggestion[] = [];
+    if (category && hasLocation) {
+      placesResults = preferLocalSuggestions(filterTextRelevantSuggestions(searchText, await this.searchNearbyPlaces(
+        category,
+        query.lat!,
+        query.lng!,
+        { requireMeaningfulName: true },
+      )));
+    }
+    let amenityResults: DestinationSuggestion[] = [];
+    if (searchText.length >= 2 && placesResults.length === 0) {
+      const localAmenityResults = hasLocation
+        ? filterTextRelevantSuggestions(searchText, await this.searchAmenityAutocomplete(query.q.trim(), query.lat, query.lng, { localOnly: true }))
+        : [];
+      amenityResults = localAmenityResults.length > 0
+        ? localAmenityResults
+        : preferLocalSuggestions(filterTextRelevantSuggestions(
+          searchText,
+          await this.searchAmenityAutocomplete(query.q.trim(), query.lat, query.lng),
+        ));
+    }
     return { autocompleteResults: autocomplete.results, placesResults, amenityResults, categories: autocomplete.categories };
   }
 
@@ -138,6 +153,7 @@ export class GeocodingService {
     searchText: string,
     latitude?: number,
     longitude?: number,
+    options: { localOnly?: boolean } = {},
   ): Promise<DestinationSuggestion[]> {
     const url = new URL('https://api.geoapify.com/v1/geocode/autocomplete');
     url.searchParams.set('text', searchText);
@@ -148,6 +164,9 @@ export class GeocodingService {
     url.searchParams.set('apiKey', this.apiKey!);
     if (latitude !== undefined && longitude !== undefined) {
       url.searchParams.set('bias', `proximity:${longitude},${latitude}`);
+      if (options.localOnly) {
+        url.searchParams.set('filter', `circle:${longitude},${latitude},${LOCAL_SEARCH_RADIUS_METERS}`);
+      }
     }
     return (await this.searchAutocomplete(url)).results;
   }
@@ -188,6 +207,25 @@ export function selectRelevantGeoapifyCategory(
 
 function tokenizeCategoryText(value: string): string[] {
   return value.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((token) => token.length >= 3);
+}
+
+function filterTextRelevantSuggestions(query: string, suggestions: DestinationSuggestion[]): DestinationSuggestion[] {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return [];
+  return suggestions.filter((suggestion) => {
+    const normalizedName = normalizeSearchText(suggestion.name);
+    if (normalizedName.includes(normalizedQuery)) return true;
+    return tokenizeCategoryText(suggestion.name).some((token) => token.startsWith(normalizedQuery));
+  });
+}
+
+function normalizeSearchText(value: string): string {
+  return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '').trim();
+}
+
+function preferLocalSuggestions(suggestions: DestinationSuggestion[]): DestinationSuggestion[] {
+  const localSuggestions = suggestions.filter((suggestion) => suggestion.distanceMeters !== undefined && suggestion.distanceMeters <= LOCAL_SEARCH_RADIUS_METERS);
+  return localSuggestions.length > 0 ? localSuggestions : suggestions;
 }
 
 function normalizeGeoapifyPlaceFeatures(
