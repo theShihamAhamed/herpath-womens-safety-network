@@ -6,9 +6,9 @@ import { getRouteRecommendationHandler } from './recommendation.controller.js';
 import { getAlternativeRoutes, RoutesController } from './routes.controller.js';
 import { destinationSearchQuerySchema } from './routes.validation.js';
 
-export function createRoutesRouter(geocodingService?: GeocodingService): Router {
+export function createRoutesRouter(options: { geocodingService?: GeocodingService; geoapifyApiKey?: string | undefined } = {}): Router {
   const router = Router();
-  const service = geocodingService ?? new GeocodingService();
+  const service = options.geocodingService ?? new GeocodingService(options.geoapifyApiKey);
   const controller = new RoutesController(service);
 
   // HS-119–HS-122: Destination search

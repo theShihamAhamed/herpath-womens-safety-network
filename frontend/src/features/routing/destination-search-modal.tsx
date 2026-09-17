@@ -14,13 +14,14 @@ import {
 
 import { palette, radius, spacing } from '@/src/theme';
 
-import { Destination } from './types';
+import { Destination, DestinationSuggestion } from './types';
 import { useDestinationSearch } from './useDestinationSearch';
 
 interface DestinationSearchModalProps {
   visible: boolean;
   onClose: () => void;
   onSelectDestination: (destination: Destination) => void;
+  onSubmitResults: (query: string, results: DestinationSuggestion[]) => void;
   userLocation?: { latitude: number; longitude: number } | null;
 }
 
@@ -28,22 +29,58 @@ export function DestinationSearchModal({
   visible,
   onClose,
   onSelectDestination,
+  onSubmitResults,
   userLocation,
 }: DestinationSearchModalProps) {
-  const { query, setQuery, results, loading, errorMessage, clearSearch } = useDestinationSearch({
+  const { query, setQuery, results, loading, errorMessage, locationRequired, shortQuery, clearSearch, retrySearch } = useDestinationSearch({
     userLocation,
   });
+  const [selectionError, setSelectionError] = React.useState<string | null>(null);
+  const [pendingSubmitQuery, setPendingSubmitQuery] = React.useState<string | null>(null);
 
-  const handleSelect = (item: Destination) => {
+  const handleSelect = (item: DestinationSuggestion) => {
+    setPendingSubmitQuery(null);
+    setSelectionError(null);
     clearSearch();
     onSelectDestination(item);
     onClose();
   };
 
   const handleClose = () => {
+    setPendingSubmitQuery(null);
     clearSearch();
     onClose();
   };
+
+  const handleRetry = () => {
+    setSelectionError(null);
+    retrySearch();
+  };
+
+  const submitVisibleResults = React.useCallback((submittedQuery: string, visibleResults: DestinationSuggestion[]) => {
+    if (visibleResults.length === 0) return;
+    setPendingSubmitQuery(null);
+    onSubmitResults(submittedQuery, visibleResults.slice(0, 8));
+    onClose();
+  }, [onClose, onSubmitResults]);
+
+  const handleSubmit = () => {
+    const submittedQuery = query.trim();
+    if (!submittedQuery) return;
+    if (results.length > 0) {
+      submitVisibleResults(submittedQuery, results);
+      return;
+    }
+    if (loading) setPendingSubmitQuery(submittedQuery);
+  };
+
+  React.useEffect(() => {
+    if (!pendingSubmitQuery || loading) return;
+    setPendingSubmitQuery(null);
+    if (query.trim() === pendingSubmitQuery && results.length > 0) {
+      submitVisibleResults(pendingSubmitQuery, results);
+    }
+  }, [loading, pendingSubmitQuery, query, results, submitVisibleResults]);
 
   return (
     <Modal
@@ -69,13 +106,20 @@ export function DestinationSearchModal({
               <TextInput
                 accessible
                 accessibilityLabel="Destination search text input"
+                accessibilityHint="Type to show matching places"
                 style={styles.searchInput}
                 placeholder="Search destination or address..."
                 placeholderTextColor={palette.textMuted}
                 value={query}
-                onChangeText={setQuery}
+                onChangeText={(text) => {
+                  setPendingSubmitQuery(null);
+                  setSelectionError(null);
+                  setQuery(text);
+                }}
                 autoFocus
                 returnKeyType="search"
+                submitBehavior="submit"
+                onSubmitEditing={handleSubmit}
                 clearButtonMode="while-editing"
               />
               {query.length > 0 ? (
@@ -93,28 +137,45 @@ export function DestinationSearchModal({
 
           {/* Loading Indicator */}
           {loading ? (
-            <View style={styles.statusBox}>
+            <View accessible accessibilityRole="progressbar" accessibilityLabel="Searching destinations" style={styles.statusBox}>
               <ActivityIndicator size="small" color={palette.primary} />
               <Text style={styles.statusText}>Searching destinations...</Text>
             </View>
           ) : null}
 
           {/* Error Message */}
-          {errorMessage ? (
-            <View style={styles.errorBox}>
+          {errorMessage || selectionError ? (
+            <View accessible accessibilityRole="alert" style={styles.errorBox}>
               <MaterialIcons name="error-outline" size={20} color={palette.error} />
-              <Text style={styles.errorText}>{errorMessage}</Text>
+              <View style={styles.errorCopy}>
+                <Text style={styles.errorText}>{selectionError ?? errorMessage}</Text>
+                {!locationRequired ? <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel="Retry destination search"
+                  onPress={handleRetry}
+                  style={styles.retryButton}>
+                  <Text style={styles.retryText}>Retry</Text>
+                </Pressable> : null}
+              </View>
             </View>
           ) : null}
 
           {/* Empty Prompt / Prompt to type */}
-          {!loading && query.trim().length < 2 && !errorMessage ? (
+          {!loading && query.trim().length < 1 && !errorMessage ? (
             <View style={styles.emptyPrompt}>
               <MaterialIcons name="place" size={48} color={palette.border} />
               <Text style={styles.promptTitle}>Where would you like to go?</Text>
               <Text style={styles.promptSubtitle}>
-                Type at least 2 characters to search for safe routes, places, and addresses.
+                Type a place, address, or business to see suggestions.
               </Text>
+            </View>
+          ) : null}
+
+          {/* Short-query prompt */}
+          {!loading && shortQuery && !errorMessage ? (
+            <View style={styles.emptyPrompt}>
+              <MaterialIcons name="search" size={44} color={palette.textMuted} />
+              <Text style={styles.promptTitle}>Keep typing to search places</Text>
             </View>
           ) : null}
 
@@ -145,10 +206,10 @@ export function DestinationSearchModal({
                   <MaterialIcons name="location-on" size={22} color={palette.primary} />
                 </View>
                 <View style={styles.resultCopy}>
-                  <Text style={styles.resultName} numberOfLines={1}>
+                  <Text style={styles.resultName}>
                     {item.name}
                   </Text>
-                  <Text style={styles.resultAddress} numberOfLines={2}>
+                  <Text style={styles.resultAddress}>
                     {item.address}
                   </Text>
                 </View>
@@ -231,9 +292,27 @@ const styles = StyleSheet.create({
     backgroundColor: '#FEE4E2',
   },
   errorText: {
-    flex: 1,
     color: palette.error,
     fontSize: 14,
+    lineHeight: 20,
+  },
+  errorCopy: {
+    flex: 1,
+    gap: spacing.sm,
+  },
+  retryButton: {
+    alignSelf: 'flex-start',
+    minHeight: 44,
+    justifyContent: 'center',
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: palette.error,
+  },
+  retryText: {
+    color: palette.error,
+    fontSize: 14,
+    fontWeight: '700',
   },
   emptyPrompt: {
     alignItems: 'center',
@@ -259,7 +338,7 @@ const styles = StyleSheet.create({
   },
   resultItem: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.md,
     gap: spacing.md,
@@ -278,9 +357,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8F3F1',
     alignItems: 'center',
     justifyContent: 'center',
+    marginTop: 1,
   },
   resultCopy: {
     flex: 1,
+    flexShrink: 1,
     gap: 2,
   },
   resultName: {

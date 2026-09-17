@@ -1,6 +1,6 @@
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { palette, radius, spacing } from '@/src/theme';
@@ -18,10 +18,18 @@ interface ReportContextSheetProps {
   incidents: PublicIncidentMarker[];
   onSelectIncident?: (incident: PublicIncidentMarker) => void;
   onExpandedChange?: (expanded: boolean) => void;
+  safetyInformationUnavailable?: boolean;
+  onRetrySafetyInformation?: () => void;
 }
 
 /** A compact, map-owned summary of the public reports currently in view. */
-export function ReportContextSheet({ incidents, onSelectIncident, onExpandedChange }: ReportContextSheetProps) {
+export function ReportContextSheet({
+  incidents,
+  onSelectIncident,
+  onExpandedChange,
+  safetyInformationUnavailable = false,
+  onRetrySafetyInformation,
+}: ReportContextSheetProps) {
   const { height: windowHeight, fontScale } = useWindowDimensions();
   const count = incidents.length;
   const visibleSummary = summarizeVisibleIncidents(incidents);
@@ -36,6 +44,11 @@ export function ReportContextSheet({ incidents, onSelectIncident, onExpandedChan
     setExpanded(nextExpanded);
     onExpandedChange?.(nextExpanded);
   }, [onExpandedChange]);
+  useEffect(() => {
+    const offset = expanded ? 0 : collapsedOffset;
+    sheetOffset.value = offset;
+    dragStartOffset.value = offset;
+  }, [collapsedOffset, dragStartOffset, expanded, sheetOffset]);
   const settleSheet = useCallback((nextExpanded: boolean) => {
     sheetOffset.value = withTiming(nextExpanded ? 0 : collapsedOffset, SETTLE_ANIMATION);
     updateExpanded(nextExpanded);
@@ -88,6 +101,24 @@ export function ReportContextSheet({ incidents, onSelectIncident, onExpandedChan
         </View>
       </GestureDetector>
       <ScrollView style={styles.reportListContainer} contentContainerStyle={styles.reportList} showsVerticalScrollIndicator={false}>
+        {safetyInformationUnavailable ? (
+          <View accessible accessibilityRole="alert" style={styles.safetyUnavailable}>
+            <Text style={styles.sectionTitle}>Safety information</Text>
+            <Text style={styles.safetyUnavailableTitle}>Safety information is unavailable</Text>
+            <Text style={styles.safetyUnavailableCopy}>
+              Check your connection and try moving the map again. Safety information may be limited while the service is unavailable.
+            </Text>
+            {onRetrySafetyInformation ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Retry safety information"
+                onPress={onRetrySafetyInformation}
+                style={styles.retryButton}>
+                <Text style={styles.retryText}>Retry</Text>
+              </Pressable>
+            ) : null}
+          </View>
+        ) : null}
         <View style={styles.expandedSummary}>
           <Text style={styles.summary}>{count === 0 ? 'No visible public reports' : summary}</Text>
           {visibleSummary.highSeverityCount > 0 ? (
@@ -172,6 +203,20 @@ const styles = StyleSheet.create({
   title: { flex: 1, flexShrink: 1, color: palette.text, fontSize: 17, fontWeight: '800', lineHeight: 22 },
   summary: { color: palette.textMuted, fontSize: 13, lineHeight: 18 },
   prioritySummary: { color: palette.text, fontSize: 12, fontWeight: '700' },
+  sectionTitle: { color: palette.text, fontSize: 15, fontWeight: '800', lineHeight: 20 },
+  safetyUnavailable: {
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+    padding: spacing.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    borderRadius: radius.md,
+    backgroundColor: palette.background,
+  },
+  safetyUnavailableTitle: { color: palette.text, fontSize: 14, fontWeight: '800', lineHeight: 19 },
+  safetyUnavailableCopy: { color: palette.textMuted, fontSize: 13, lineHeight: 18 },
+  retryButton: { alignSelf: 'flex-start', minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: radius.sm, borderWidth: 1, borderColor: palette.primary },
+  retryText: { color: palette.primary, fontSize: 13, fontWeight: '800' },
   count: { flexShrink: 0, color: palette.primary, fontSize: 24, fontWeight: '800' },
   expandedSummary: { gap: spacing.xs, marginBottom: spacing.md },
   reportListContainer: { flex: 1 },

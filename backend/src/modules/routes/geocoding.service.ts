@@ -1,168 +1,290 @@
-import type { Destination, DestinationSearchQuery } from './routes.types.js';
+import { AppError } from '../../common/errors/app-error.js';
+import type { DestinationSearchQuery, DestinationSuggestion } from './routes.types.js';
+import { parseNearbyPlaceIntent } from './nearby-place-intent.js';
 
-// Curated fallback places for testing, offline resilience, and demo reliability
-const CURATED_FALLBACK_DESTINATIONS: Destination[] = [
-  {
-    id: 'dest-colombo-fort',
-    name: 'Colombo Fort Railway Station',
-    address: 'Olcott Mawatha, Colombo 01100, Sri Lanka',
-    latitude: 6.9344,
-    longitude: 79.8501,
-  },
-  {
-    id: 'dest-galle-face',
-    name: 'Galle Face Green',
-    address: 'Galle Main Road, Colombo 00300, Sri Lanka',
-    latitude: 6.9271,
-    longitude: 79.8436,
-  },
-  {
-    id: 'dest-pettah-market',
-    name: 'Pettah Floating Market',
-    address: 'Bastian Mawatha, Colombo 01100, Sri Lanka',
-    latitude: 6.9332,
-    longitude: 79.8542,
-  },
-  {
-    id: 'dest-independence-square',
-    name: 'Independence Memorial Hall',
-    address: 'Independence Avenue, Colombo 00700, Sri Lanka',
-    latitude: 6.9044,
-    longitude: 79.8679,
-  },
-  {
-    id: 'dest-bmich',
-    name: 'BMICH (Bandaranaike Memorial International Conference Hall)',
-    address: 'Bauddhaloka Mawatha, Colombo 00700, Sri Lanka',
-    latitude: 6.9015,
-    longitude: 79.8736,
-  },
-  {
-    id: 'dest-majestic-city',
-    name: 'Majestic City',
-    address: '10 Station Road, Bambalapitiya, Colombo 00400, Sri Lanka',
-    latitude: 6.8942,
-    longitude: 79.8550,
-  },
-  {
-    id: 'dest-kandy-center',
-    name: 'Kandy City Centre',
-    address: 'Sri Dalada Veediya, Kandy 20000, Sri Lanka',
-    latitude: 7.2936,
-    longitude: 80.6385,
-  },
-];
+// Used for local amenity circles and local-first category result selection; global fallback remains available.
+const LOCAL_SEARCH_RADIUS_METERS = 25_000;
 
-interface NominatimPlace {
-  place_id: number;
-  osm_id?: number;
-  lat: string;
-  lon: string;
-  display_name: string;
+interface GeoapifyResult {
+  place_id?: string;
   name?: string;
-  address?: {
-    amenity?: string;
-    building?: string;
-    road?: string;
-    neighbourhood?: string;
-    suburb?: string;
-    city?: string;
-    town?: string;
-    state?: string;
-    country?: string;
-    [key: string]: string | undefined;
+  formatted?: string;
+  address_line1?: string;
+  address_line2?: string;
+  lat?: number;
+  lon?: number;
+  distance?: number;
+}
+
+export interface GeoapifyCategoryMetadata {
+  keys: string[];
+  label?: string;
+}
+
+export interface GeoapifyAutocompleteResult {
+  results: DestinationSuggestion[];
+  categories: string[];
+  categoryMetadata: GeoapifyCategoryMetadata[];
+}
+
+export interface DestinationSearchSources {
+  autocompleteResults: DestinationSuggestion[];
+  placesResults: DestinationSuggestion[];
+  amenityResults: DestinationSuggestion[];
+  categories: string[];
+}
+
+export function parseGeoapifyAutocompleteResponse(payload: Record<string, unknown>): GeoapifyAutocompleteResult {
+  const results = Array.isArray(payload.results) ? payload.results : [];
+  const categoryEntries = typeof payload.query === 'object' && payload.query !== null && Array.isArray((payload.query as { categories?: unknown }).categories)
+    ? (payload.query as { categories: unknown[] }).categories
+    : [];
+  const categoryMetadata = categoryEntries.flatMap((entry): GeoapifyCategoryMetadata[] => {
+    if (typeof entry === 'string') {
+      const key = entry.trim();
+      return key ? [{ keys: [key] }] : [];
+    }
+    if (typeof entry !== 'object' || entry === null || !Array.isArray((entry as { keys?: unknown }).keys)) return [];
+    const keys = (entry as { keys: unknown[] }).keys
+      .filter((key): key is string => typeof key === 'string' && key.trim().length > 0)
+      .map((key) => key.trim());
+    if (keys.length === 0) return [];
+    const label = typeof (entry as { label?: unknown }).label === 'string'
+      ? (entry as { label: string }).label.trim()
+      : undefined;
+    return [{ keys, ...(label ? { label } : {}) }];
+  });
+  return {
+    results: normalizeGeoapifyResults(results),
+    categories: categoryMetadata.flatMap((category) => category.keys),
+    categoryMetadata,
   };
 }
 
 export class GeocodingService {
-  private readonly userAgent = 'HerPath-Womens-Safety-Network/1.0 (safety-network@herpath.app)';
-  private readonly requestTimeoutMs = 4000;
+  private readonly requestTimeoutMs = 5000;
 
-  public async searchPlaces(query: DestinationSearchQuery): Promise<Destination[]> {
-    const trimmedQuery = query.q.trim();
-    if (!trimmedQuery) {
-      return [];
+  public constructor(
+    private readonly apiKey?: string,
+    private readonly request: typeof fetch = fetch,
+  ) {}
+
+  public async searchPlaces(query: DestinationSearchQuery): Promise<DestinationSuggestion[]> {
+    if (!this.apiKey) throw unavailableError();
+    const nearbyIntent = parseNearbyPlaceIntent(query.q);
+    if (nearbyIntent) {
+      if (query.lat === undefined || query.lng === undefined) throw locationRequiredError();
+      return this.searchNearbyPlaces(nearbyIntent.category, query.lat, query.lng);
     }
+    const sources = await this.searchDestinationSources(query);
+    const primaryResults = sources.placesResults.length > 0 ? sources.placesResults : sources.amenityResults;
+    if (primaryResults.length > 0) return mergeDestinationSuggestions(primaryResults, []);
+    return mergeDestinationSuggestions(filterTextRelevantSuggestions(query.q, sources.autocompleteResults), []);
+  }
 
+  public async searchDestinationSources(query: DestinationSearchQuery): Promise<DestinationSearchSources> {
+    if (!this.apiKey) throw unavailableError();
+    const searchText = query.q.replace(/\s+near\s+me\s*$/i, '').trim();
+    if (!searchText) return { autocompleteResults: [], placesResults: [], amenityResults: [], categories: [] };
+    const url = new URL('https://api.geoapify.com/v1/geocode/autocomplete');
+    url.searchParams.set('text', searchText);
+    url.searchParams.set('format', 'json');
+    url.searchParams.set('limit', '8');
+    url.searchParams.set('lang', 'en');
+    url.searchParams.set('apiKey', this.apiKey);
+    if (query.lat !== undefined && query.lng !== undefined) {
+      url.searchParams.set('bias', `proximity:${query.lng},${query.lat}`);
+    }
+    const autocomplete = await this.searchAutocomplete(url);
+    const category = searchText.length >= 2
+      ? selectRelevantGeoapifyCategory(searchText, autocomplete.categoryMetadata)
+      : undefined;
+    const hasLocation = query.lat !== undefined && query.lng !== undefined;
+    let placesResults: DestinationSuggestion[] = [];
+    if (category && hasLocation) {
+      placesResults = preferLocalSuggestions(filterTextRelevantSuggestions(searchText, await this.searchNearbyPlaces(
+        category,
+        query.lat!,
+        query.lng!,
+        { requireMeaningfulName: true },
+      )));
+    }
+    let amenityResults: DestinationSuggestion[] = [];
+    if (searchText.length >= 2 && placesResults.length === 0) {
+      const localAmenityResults = hasLocation
+        ? filterTextRelevantSuggestions(searchText, await this.searchAmenityAutocomplete(query.q.trim(), query.lat, query.lng, { localOnly: true }))
+        : [];
+      amenityResults = localAmenityResults.length > 0
+        ? localAmenityResults
+        : preferLocalSuggestions(filterTextRelevantSuggestions(
+          searchText,
+          await this.searchAmenityAutocomplete(query.q.trim(), query.lat, query.lng),
+        ));
+    }
+    return { autocompleteResults: autocomplete.results, placesResults, amenityResults, categories: autocomplete.categories };
+  }
+
+  private async searchNearbyPlaces(
+    category: string,
+    latitude: number,
+    longitude: number,
+    options: { requireMeaningfulName?: boolean } = {},
+  ): Promise<DestinationSuggestion[]> {
+    const url = new URL('https://api.geoapify.com/v2/places');
+    url.searchParams.set('categories', category);
+    url.searchParams.set('bias', `proximity:${longitude},${latitude}`);
+    url.searchParams.set('limit', '8');
+    url.searchParams.set('lang', 'en');
+    url.searchParams.set('apiKey', this.apiKey!);
+    const payload = await this.requestGeoapify(url);
+    const features = Array.isArray(payload.features) ? payload.features : [];
+    return normalizeGeoapifyPlaceFeatures(features, options);
+  }
+
+  private normalizeResults(results: unknown[]): DestinationSuggestion[] {
+    return normalizeGeoapifyResults(results);
+  }
+
+  private async searchAutocomplete(url: URL): Promise<GeoapifyAutocompleteResult> {
+    return parseGeoapifyAutocompleteResponse(await this.requestGeoapify(url));
+  }
+
+  private async searchAmenityAutocomplete(
+    searchText: string,
+    latitude?: number,
+    longitude?: number,
+    options: { localOnly?: boolean } = {},
+  ): Promise<DestinationSuggestion[]> {
+    const url = new URL('https://api.geoapify.com/v1/geocode/autocomplete');
+    url.searchParams.set('text', searchText);
+    url.searchParams.set('type', 'amenity');
+    url.searchParams.set('format', 'json');
+    url.searchParams.set('limit', '8');
+    url.searchParams.set('lang', 'en');
+    url.searchParams.set('apiKey', this.apiKey!);
+    if (latitude !== undefined && longitude !== undefined) {
+      url.searchParams.set('bias', `proximity:${longitude},${latitude}`);
+      if (options.localOnly) {
+        url.searchParams.set('filter', `circle:${longitude},${latitude},${LOCAL_SEARCH_RADIUS_METERS}`);
+      }
+    }
+    return (await this.searchAutocomplete(url)).results;
+  }
+
+  private async requestGeoapify(url: URL): Promise<Record<string, unknown>> {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), this.requestTimeoutMs);
     try {
-      const url = new URL('https://nominatim.openstreetmap.org/search');
-      url.searchParams.set('q', trimmedQuery);
-      url.searchParams.set('format', 'json');
-      url.searchParams.set('addressdetails', '1');
-      url.searchParams.set('limit', '8');
+      const response = await this.request(url.toString(), { headers: { Accept: 'application/json' }, signal: controller.signal });
+      if (!response.ok) throw unavailableError();
+      const payload: unknown = await response.json();
+      if (typeof payload !== 'object' || payload === null) throw unavailableError();
+      return payload as Record<string, unknown>;
+    } catch (error) {
+      if (error instanceof AppError) throw error;
+      throw unavailableError();
+    } finally { clearTimeout(timeout); }
+  }
 
-      if (query.lat !== undefined && query.lng !== undefined) {
-        // Bias search towards user's current location with a ~0.5 deg bounding box
-        const delta = 0.25;
-        const left = query.lng - delta;
-        const bottom = query.lat - delta;
-        const right = query.lng + delta;
-        const top = query.lat + delta;
-        url.searchParams.set('viewbox', `${left},${top},${right},${bottom}`);
-      }
+}
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), this.requestTimeoutMs);
-
-      const response = await fetch(url.toString(), {
-        headers: {
-          'User-Agent': this.userAgent,
-          Accept: 'application/json',
-        },
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeoutId);
-
-      if (response.ok) {
-        const places = (await response.json()) as NominatimPlace[];
-        if (Array.isArray(places) && places.length > 0) {
-          return places.map((place, index) => this.mapNominatimPlace(place, index));
-        }
-      }
-    } catch {
-      // Gracefully fall back on network timeout / provider errors
+export function selectRelevantGeoapifyCategory(
+  query: string,
+  categories: GeoapifyCategoryMetadata[],
+): string | undefined {
+  const normalizedQuery = query.trim().toLowerCase();
+  if (!normalizedQuery) return undefined;
+  if (normalizedQuery.length < 2) return undefined;
+  for (const category of categories) {
+    const labelTokens = tokenizeCategoryText(category.label ?? '');
+    for (const key of category.keys) {
+      const tokens = [...labelTokens, ...tokenizeCategoryText(key)];
+      if (tokens.some((token) => token.startsWith(normalizedQuery))) return key;
     }
-
-    // Curated fallback filtering
-    return this.searchCuratedFallback(trimmedQuery);
   }
+  return undefined;
+}
 
-  private mapNominatimPlace(place: NominatimPlace, index: number): Destination {
-    const displayNameParts = place.display_name.split(',').map((part) => part.trim());
-    const primaryName = place.name || displayNameParts[0] || 'Unknown Location';
-    const address = displayNameParts.length > 1 ? displayNameParts.slice(1).join(', ') : place.display_name;
+function tokenizeCategoryText(value: string): string[] {
+  return value.toLowerCase().split(/[^\p{L}\p{N}]+/u).filter((token) => token.length >= 3);
+}
 
-    return {
-      id: place.place_id ? `osm-${place.place_id}` : `dest-${index}-${Date.now()}`,
-      name: primaryName,
-      address,
-      latitude: parseFloat(place.lat),
-      longitude: parseFloat(place.lon),
-    };
-  }
+function filterTextRelevantSuggestions(query: string, suggestions: DestinationSuggestion[]): DestinationSuggestion[] {
+  const normalizedQuery = normalizeSearchText(query);
+  if (!normalizedQuery) return [];
+  return suggestions.filter((suggestion) => {
+    const normalizedName = normalizeSearchText(suggestion.name);
+    if (normalizedName.includes(normalizedQuery)) return true;
+    return tokenizeCategoryText(suggestion.name).some((token) => token.startsWith(normalizedQuery));
+  });
+}
 
-  private searchCuratedFallback(query: string): Destination[] {
-    const lowerQuery = query.toLowerCase();
-    const matches = CURATED_FALLBACK_DESTINATIONS.filter(
-      (dest) =>
-        dest.name.toLowerCase().includes(lowerQuery) ||
-        dest.address.toLowerCase().includes(lowerQuery),
-    );
+function normalizeSearchText(value: string): string {
+  return value.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '').trim();
+}
 
-    if (matches.length > 0) {
-      return matches;
-    }
+function preferLocalSuggestions(suggestions: DestinationSuggestion[]): DestinationSuggestion[] {
+  const localSuggestions = suggestions.filter((suggestion) => suggestion.distanceMeters !== undefined && suggestion.distanceMeters <= LOCAL_SEARCH_RADIUS_METERS);
+  return localSuggestions.length > 0 ? localSuggestions : suggestions;
+}
 
-    // If query didn't match specific curated places, generate a synthetic coordinate result based on the query
-    return [
-      {
-        id: `mock-${Date.now()}`,
-        name: query,
-        address: `${query}, Safe Area Context`,
-        latitude: 6.9271 + (Math.sin(query.length) * 0.02),
-        longitude: 79.8612 + (Math.cos(query.length) * 0.02),
-      },
-    ];
-  }
+function normalizeGeoapifyPlaceFeatures(
+  features: unknown[],
+  options: { requireMeaningfulName?: boolean },
+): DestinationSuggestion[] {
+  return features.flatMap((entry: unknown): DestinationSuggestion[] => {
+    const feature = entry as { properties?: GeoapifyResult; geometry?: { coordinates?: unknown[] } };
+    const properties = feature.properties;
+    const coordinates = feature.geometry?.coordinates;
+    const longitudeValue = typeof properties?.lon === 'number' ? properties.lon : coordinates?.[0];
+    const latitudeValue = typeof properties?.lat === 'number' ? properties.lat : coordinates?.[1];
+    if (!properties?.place_id || typeof latitudeValue !== 'number' || typeof longitudeValue !== 'number') return [];
+    const providerName = typeof properties.name === 'string' && properties.name.trim() ? properties.name.trim() : undefined;
+    if (options.requireMeaningfulName && !providerName) return [];
+    const name = providerName ?? properties.address_line1 ?? properties.formatted;
+    if (!name) return [];
+    return [{ id: properties.place_id, name, address: properties.address_line2 ?? properties.formatted ?? '', latitude: latitudeValue, longitude: longitudeValue, ...(typeof properties.distance === 'number' ? { distanceMeters: properties.distance } : {}) }];
+  }).slice(0, 8);
+}
+
+function normalizeGeoapifyResults(results: unknown[]): DestinationSuggestion[] {
+    return results.flatMap((entry: unknown): DestinationSuggestion[] => {
+      const result = entry as GeoapifyResult;
+      if (!result.place_id || typeof result.lat !== 'number' || typeof result.lon !== 'number') return [];
+      const name = result.name ?? result.address_line1 ?? result.formatted;
+      if (!name) return [];
+      return [{
+        id: result.place_id,
+        name,
+        address: result.address_line2 ?? result.formatted ?? '',
+        latitude: result.lat,
+        longitude: result.lon,
+        ...(typeof result.distance === 'number' ? { distanceMeters: result.distance } : {}),
+      }];
+    }).slice(0, 8);
+}
+
+function mergeDestinationSuggestions(
+  placesResults: DestinationSuggestion[],
+  autocompleteResults: DestinationSuggestion[],
+): DestinationSuggestion[] {
+  const seen = new Set<string>();
+  return [...placesResults, ...autocompleteResults].filter((suggestion) => {
+    const identity = `${suggestion.name.trim().toLowerCase()}|${suggestion.latitude}|${suggestion.longitude}`;
+    if (seen.has(identity)) return false;
+    seen.add(identity);
+    return true;
+  }).slice(0, 8);
+}
+
+function unavailableError(): AppError {
+  return new AppError({
+    statusCode: 503,
+    code: 'DESTINATION_SEARCH_UNAVAILABLE',
+    message: 'Destination search is temporarily unavailable. Please try again.',
+  });
+}
+
+function locationRequiredError(): AppError {
+  return new AppError({ statusCode: 422, code: 'DESTINATION_LOCATION_REQUIRED', message: 'Your location is needed to find places near you.' });
 }

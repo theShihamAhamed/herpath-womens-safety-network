@@ -6,6 +6,15 @@ export interface Destination {
   longitude: number;
 }
 
+export interface DestinationSuggestion {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  distanceMeters?: number;
+}
+
 export interface DestinationSearchQuery {
   q: string;
   lat?: number | undefined;

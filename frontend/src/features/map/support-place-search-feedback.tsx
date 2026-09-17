@@ -8,6 +8,7 @@ interface SupportPlaceSearchFeedbackProps {
   resultCount: number;
   errorMessage: string | null;
   onRetry: () => void;
+  onDismiss: () => void;
 }
 
 /** Compact feedback for the current nearby-support search state. */
@@ -16,6 +17,7 @@ export function SupportPlaceSearchFeedback({
   resultCount,
   errorMessage,
   onRetry,
+  onDismiss,
 }: SupportPlaceSearchFeedbackProps) {
   const { fontScale } = useWindowDimensions();
   const useStackedUnavailableLayout = fontScale >= 1.35;
@@ -64,6 +66,14 @@ export function SupportPlaceSearchFeedback({
         <Text maxFontSizeMultiplier={1.35} style={styles.copy}>{message}</Text>
         <Text maxFontSizeMultiplier={1.2} style={styles.attribution}>© OpenStreetMap contributors</Text>
       </View>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss nearby support places"
+        hitSlop={6}
+        onPress={onDismiss}
+        style={styles.dismissButton}>
+        <MaterialIcons name="close" size={20} color="#5F6C68" />
+      </Pressable>
     </View>
   );
 }
@@ -90,4 +100,5 @@ const styles = StyleSheet.create({
   unavailableCopyStacked: { alignItems: 'flex-start', flexDirection: 'column' },
   retryButton: { minHeight: 40, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 10, borderWidth: 1, borderColor: '#176B5B' },
   retryText: { color: '#176B5B', fontSize: 13, fontWeight: '800' },
+  dismissButton: { width: 40, minHeight: 40, alignItems: 'center', justifyContent: 'center', borderRadius: 10 },
 });
