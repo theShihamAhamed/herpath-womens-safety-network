@@ -29,6 +29,10 @@ export function RoutePlanningEntry({
     setIsSearching,
     isPlanning,
     setIsPlanning,
+    submittedSearchQuery,
+    searchMapResults,
+    submitSearchMapResults,
+    clearSearchMapResults,
     clearRoutePlanning,
   } = useRouteContext();
 
@@ -55,10 +59,17 @@ export function RoutePlanningEntry({
   };
 
   const handleSelectDestination = (dest: any) => {
+    clearSearchMapResults();
     setSelectedDestination(dest);
     setIsSearching(false);
     setModalVisible(false);
     onDestinationSelected?.({ latitude: dest.latitude, longitude: dest.longitude });
+  };
+
+  const handleSubmitResults = (query: string, results: Parameters<typeof submitSearchMapResults>[1]) => {
+    submitSearchMapResults(query, results);
+    setIsSearching(false);
+    setModalVisible(false);
   };
 
   return (
@@ -70,6 +81,17 @@ export function RoutePlanningEntry({
           onClearDestination={clearRoutePlanning}
           onPlanRoute={() => setIsPlanning(true)}
         />
+      ) : searchMapResults.length > 0 && submittedSearchQuery ? (
+        <Pressable
+          accessible
+          accessibilityRole="button"
+          accessibilityLabel="Edit destination search"
+          onPress={handleOpenSearch}
+          style={({ pressed }) => [styles.activeSearchChip, pressed && styles.pressed]}>
+          <MaterialIcons name="search" size={18} color={palette.primary} />
+          <Text numberOfLines={1} style={styles.activeSearchText}>{submittedSearchQuery}</Text>
+          <MaterialIcons name="edit" size={18} color={palette.textMuted} />
+        </Pressable>
       ) : (
         <Pressable
           accessible
@@ -96,6 +118,7 @@ export function RoutePlanningEntry({
         visible={modalVisible || isSearching}
         onClose={handleCloseSearch}
         onSelectDestination={handleSelectDestination}
+        onSubmitResults={handleSubmitResults}
         userLocation={userLocation}
       />
     </View>
@@ -262,6 +285,20 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 3,
   },
+  activeSearchChip: {
+    alignSelf: 'flex-start',
+    maxWidth: '78%',
+    minHeight: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: radius.md,
+    borderWidth: 1,
+    borderColor: palette.border,
+    backgroundColor: palette.surface,
+  },
+  activeSearchText: { flexShrink: 1, color: palette.text, fontSize: 14, fontWeight: '800' },
   searchIconCircle: {
     width: 36,
     height: 36,

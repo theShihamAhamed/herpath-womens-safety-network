@@ -21,6 +21,7 @@ interface DestinationSearchModalProps {
   visible: boolean;
   onClose: () => void;
   onSelectDestination: (destination: Destination) => void;
+  onSubmitResults: (query: string, results: DestinationSuggestion[]) => void;
   userLocation?: { latitude: number; longitude: number } | null;
 }
 
@@ -28,9 +29,10 @@ export function DestinationSearchModal({
   visible,
   onClose,
   onSelectDestination,
+  onSubmitResults,
   userLocation,
 }: DestinationSearchModalProps) {
-  const { query, setQuery, results, loading, errorMessage, locationRequired, shortQuery, clearSearch, retrySearch } = useDestinationSearch({
+  const { query, setQuery, results, resultsQuery, loading, errorMessage, locationRequired, shortQuery, clearSearch, retrySearch } = useDestinationSearch({
     userLocation,
   });
   const [selectionError, setSelectionError] = React.useState<string | null>(null);
@@ -50,6 +52,13 @@ export function DestinationSearchModal({
   const handleRetry = () => {
     setSelectionError(null);
     retrySearch();
+  };
+
+  const handleSubmit = () => {
+    const submittedQuery = query.trim();
+    if (loading || !submittedQuery || results.length === 0 || resultsQuery !== submittedQuery) return;
+    onSubmitResults(submittedQuery, results.slice(0, 8));
+    onClose();
   };
 
   return (
@@ -87,6 +96,7 @@ export function DestinationSearchModal({
                 }}
                 autoFocus
                 returnKeyType="search"
+                onSubmitEditing={handleSubmit}
                 clearButtonMode="while-editing"
               />
               {query.length > 0 ? (

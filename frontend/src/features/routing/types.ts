@@ -13,6 +13,8 @@ export interface DestinationSuggestion {
   latitude: number;
   longitude: number;
   distanceMeters?: number;
+  /** Optional broad provider category, if the search API supplies one. */
+  category?: string;
 }
 
 export interface RouteOrigin {

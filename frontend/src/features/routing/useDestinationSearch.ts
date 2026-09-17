@@ -13,6 +13,7 @@ interface UseDestinationSearchResult {
   query: string;
   setQuery: (text: string) => void;
   results: DestinationSuggestion[];
+  resultsQuery: string | null;
   loading: boolean;
   errorMessage: string | null;
   locationRequired: boolean;
@@ -24,6 +25,7 @@ interface UseDestinationSearchResult {
 export function useDestinationSearch(options: UseDestinationSearchOptions = {}): UseDestinationSearchResult {
   const [query, setQuery] = useState('');
   const [results, setResults] = useState<DestinationSuggestion[]>([]);
+  const [resultsQuery, setResultsQuery] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [locationRequired, setLocationRequired] = useState(false);
@@ -37,6 +39,7 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
     if (debounceRef.current) clearTimeout(debounceRef.current);
     setQuery('');
     setResults([]);
+    setResultsQuery(null);
     setErrorMessage(null);
     setLocationRequired(false);
     setLoading(false);
@@ -56,6 +59,7 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
     latestRequestRef.current = requestId;
     if (trimmed.length < 1) {
       setResults([]);
+      setResultsQuery(null);
       setErrorMessage(null);
       setLocationRequired(false);
       setLoading(false);
@@ -63,16 +67,22 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
     }
 
     setLoading(true);
+    setResults([]);
+    setResultsQuery(null);
     setErrorMessage(null);
     setLocationRequired(false);
 
     debounceRef.current = setTimeout(async () => {
       try {
         const data = await searchDestinations(trimmed, userLocation);
-        if (latestRequestRef.current === requestId) setResults(data);
+        if (latestRequestRef.current === requestId) {
+          setResults(data);
+          setResultsQuery(trimmed);
+        }
       } catch (error) {
         if (latestRequestRef.current === requestId) {
           setResults([]);
+          setResultsQuery(null);
           setLocationRequired(error instanceof ApiError && error.code === 'DESTINATION_LOCATION_REQUIRED');
           setErrorMessage(
             error instanceof ApiError && error.code !== 'VALIDATION_ERROR'
@@ -94,5 +104,5 @@ export function useDestinationSearch(options: UseDestinationSearchOptions = {}):
 
   const shortQuery = query.trim().length === 1 && results.length === 0 && !loading && !errorMessage;
 
-  return { query, setQuery, results, loading, errorMessage, locationRequired, shortQuery, clearSearch, retrySearch };
+  return { query, setQuery, results, resultsQuery, loading, errorMessage, locationRequired, shortQuery, clearSearch, retrySearch };
 }
