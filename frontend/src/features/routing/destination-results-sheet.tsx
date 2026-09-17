@@ -1,7 +1,7 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import { Gesture, GestureDetector } from 'react-native-gesture-handler';
 import Animated, { Easing, runOnJS, useAnimatedStyle, useSharedValue, withTiming } from 'react-native-reanimated';
-import React, { useCallback, useEffect, useMemo } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { palette, radius, spacing } from '@/src/theme';
@@ -42,6 +42,10 @@ export function DestinationResultsSheet({
   const collapsedOffset = Math.max(sheetHeight - collapsedSheetHeight, 0);
   const sheetOffset = useSharedValue(expanded ? 0 : collapsedOffset);
   const dragStartOffset = useSharedValue(expanded ? 0 : collapsedOffset);
+  const listRef = useRef<ScrollView>(null);
+  const resultLayoutsRef = useRef(new Map<string, { y: number; height: number }>());
+  const listOffsetRef = useRef(0);
+  const listHeightRef = useRef(0);
 
   useEffect(() => {
     const offset = expanded ? 0 : collapsedOffset;
@@ -70,6 +74,20 @@ export function DestinationResultsSheet({
     [collapsedOffset, dragStartOffset, handleGestureEnd, sheetOffset],
   );
   const animatedSheetStyle = useAnimatedStyle(() => ({ transform: [{ translateY: sheetOffset.value }] }));
+  const scrollSelectedIntoView = useCallback(() => {
+    if (!expanded || !selectedResult) return;
+    const layout = resultLayoutsRef.current.get(selectedResult.id);
+    const listHeight = listHeightRef.current;
+    if (!layout || listHeight <= 0) return;
+    const listOffset = listOffsetRef.current;
+    const cardBottom = layout.y + layout.height;
+    if (layout.y >= listOffset + 8 && cardBottom <= listOffset + listHeight - 8) return;
+    listRef.current?.scrollTo({ y: Math.max(layout.y - 8, 0), animated: true });
+  }, [expanded, selectedResult]);
+
+  useEffect(() => {
+    scrollSelectedIntoView();
+  }, [scrollSelectedIntoView]);
 
   return (
     <Animated.View style={[styles.sheet, { height: sheetHeight }, animatedSheetStyle]}>
@@ -103,22 +121,19 @@ export function DestinationResultsSheet({
         </View>
       </GestureDetector>
 
-      <ScrollView style={styles.listContainer} contentContainerStyle={styles.list} showsVerticalScrollIndicator={false}>
-        {selectedResult ? (
-          <View accessible accessibilityRole="summary" style={styles.detailCard}>
-            <Text style={styles.detailTitle}>{selectedResult.name}</Text>
-            <Text style={styles.address}>{selectedResult.address}</Text>
-            {selectedResult.category ? <Text style={styles.category}>{formatCategory(selectedResult.category)}</Text> : null}
-            {formatDistance(selectedResult.distanceMeters) ? <Text style={styles.distance}>{formatDistance(selectedResult.distanceMeters)}</Text> : null}
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel={`Set ${selectedResult.name} as destination`}
-              onPress={() => onSetDestination(selectedResult)}
-              style={styles.destinationButton}>
-              <Text style={styles.destinationButtonText}>Set as destination</Text>
-            </Pressable>
-          </View>
-        ) : null}
+      <ScrollView
+        ref={listRef}
+        style={styles.listContainer}
+        contentContainerStyle={styles.list}
+        showsVerticalScrollIndicator={false}
+        scrollEventThrottle={16}
+        onLayout={(event) => {
+          listHeightRef.current = event.nativeEvent.layout.height;
+          scrollSelectedIntoView();
+        }}
+        onScroll={(event) => {
+          listOffsetRef.current = event.nativeEvent.contentOffset.y;
+        }}>
         {results.map((result) => {
           const selected = result.id === selectedResult?.id;
           return (
@@ -128,12 +143,25 @@ export function DestinationResultsSheet({
               accessibilityLabel={`${result.name}, search result`}
               accessibilityState={{ selected }}
               onPress={() => onSelectResult(result)}
+              onLayout={(event) => {
+                resultLayoutsRef.current.set(result.id, event.nativeEvent.layout);
+                if (selected) scrollSelectedIntoView();
+              }}
               style={[styles.resultCard, selected && styles.resultCardSelected]}>
               <View style={styles.resultCopy}>
                 <Text style={styles.resultName}>{result.name}</Text>
                 <Text style={styles.address}>{result.address}</Text>
                 {result.category ? <Text style={styles.category}>{formatCategory(result.category)}</Text> : null}
                 {formatDistance(result.distanceMeters) ? <Text style={styles.distance}>{formatDistance(result.distanceMeters)}</Text> : null}
+                {selected ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Set ${result.name} as destination`}
+                    onPress={() => onSetDestination(result)}
+                    style={styles.destinationButton}>
+                    <Text maxFontSizeMultiplier={1.3} style={styles.destinationButtonText}>Set as destination</Text>
+                  </Pressable>
+                ) : null}
               </View>
               <MaterialIcons name="chevron-right" size={22} color={palette.textMuted} />
             </Pressable>
@@ -178,8 +206,6 @@ const styles = StyleSheet.create({
   clearButton: { width: 44, height: 44, alignItems: 'center', justifyContent: 'center', borderRadius: radius.sm },
   listContainer: { flex: 1 },
   list: { gap: spacing.sm, paddingBottom: spacing.sm, flexGrow: 1 },
-  detailCard: { gap: spacing.xs, padding: spacing.md, borderRadius: radius.md, backgroundColor: palette.surfaceMuted },
-  detailTitle: { color: palette.text, fontSize: 16, fontWeight: '800' },
   resultCard: { minHeight: 72, flexDirection: 'row', alignItems: 'center', gap: spacing.sm, padding: spacing.md, borderWidth: 1, borderColor: palette.border, borderRadius: radius.md, backgroundColor: palette.background },
   resultCardSelected: { borderColor: palette.primary, backgroundColor: palette.surfaceMuted },
   resultCopy: { flex: 1, gap: 2 },
