@@ -58,6 +58,7 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
   const searchMapResults = routeContext.searchMapResults;
   const selectedSearchResult = routeContext.selectedSearchResult;
   const isSearchResultsActive = searchMapResults.length > 0;
+  const isRouteActive = selectedDestination !== null || routeContext.isPlanning;
 
   React.useEffect(() => {
     if (selectedDestination && mapRef.current) {
@@ -242,12 +243,14 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
 
   return (
     <View style={styles.container}>
-      <FilterBar
-        compactTrigger={useCompactFloatingControls}
-        filter={filter}
-        onChangeFilter={setFilter}
-        topOffset={controlsTopOffset}
-      />
+      {!isRouteActive ? (
+        <FilterBar
+          compactTrigger={useCompactFloatingControls}
+          filter={filter}
+          onChangeFilter={setFilter}
+          topOffset={controlsTopOffset}
+        />
+      ) : null}
 
       <MapView
         ref={mapRef}
