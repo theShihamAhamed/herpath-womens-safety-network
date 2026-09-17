@@ -168,7 +168,9 @@ Anonymous reports remain with the pseudonymous account/session that created them
 
 ## Destination search endpoint
 
-`GET /api/v1/routes/destinations/search` accepts a trimmed `q` of 1 to 100 characters and optional `lat`/`lng` coordinates. The backend uses Geoapify Address Autocomplete, keeping `GEOAPIFY_API_KEY` server-side. Every normal request uses Geoapify's `filter=countrycode:lk`; when real shared Map location is available, it also uses a `proximity:longitude,latitude` bias. A successful Sri Lanka-only request with no results returns an empty collection and never falls back to worldwide suggestions. The client debounces typed queries and ignores superseded responses.
+`GET /api/v1/routes/destinations/search` accepts a trimmed `q` of 1 to 100 characters and optional `lat`/`lng` coordinates. `GEOAPIFY_API_KEY` remains server-side. The first provider stage is Geoapify Address Autocomplete. For two or more characters, the backend parses the provider's ordered `query.categories` metadata and uses a generic relevance gate before it may run a Geoapify Places category search. If that does not yield relevant named places, it may use a `type=amenity` autocomplete pass. Explicit supported `&lt;category&gt; near me` requests require real coordinates and use the applicable Geoapify Places category.
+
+When real shared Map location is available, provider requests use it only as a proximity bias. Local results are preferred through a 25 km local-first pass where applicable, but there is no permanent country filter or worldwide distance limit: global provider results remain available when useful local results are absent. The service normalizes, relevance/proximity-orders, deduplicates, and caps results at eight. It never invents destinations, coordinates, or provider results. One-character input remains a truthful short-prefix state in the client; two or more characters are debounced and superseded responses are ignored.
 
 The response is provider-neutral and contains predictions only; it does not disclose provider payloads or fabricated coordinates:
 
@@ -176,7 +178,7 @@ The response is provider-neutral and contains predictions only; it does not disc
 id, name, address, latitude, longitude, distanceMeters?
 ```
 
-Autocomplete results already contain real coordinates, so selecting a normalized suggestion sets the route destination without a second provider request. An empty successful provider response returns `200 []`. A missing key, provider, or network failure returns `503 DESTINATION_SEARCH_UNAVAILABLE`; the service never fabricates a suggestion, destination, or coordinate as a fallback.
+Normalized results already contain real coordinates, so selecting a suggestion sets the route destination without a second geocoding request. Search/Enter can instead submit up to eight current results to the Map for temporary markers and a Search Results sheet. An empty successful provider response returns `200 []`. A missing key, provider, or network failure returns `503 DESTINATION_SEARCH_UNAVAILABLE`; the service never fabricates a suggestion, destination, or coordinate as a fallback.
 
 ## Public Map incident endpoints
 
