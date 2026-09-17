@@ -177,6 +177,11 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
     mapRef.current?.animateToRegion({ latitude, longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 300);
   };
 
+  const retryMapData = () => {
+    const bounds = lastViewportRef.current;
+    if (bounds) void loadIncidents(bounds, filter);
+  };
+
   if (isLocationLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -250,22 +255,20 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
           accessibilityState={{
             disabled: supportPlaceSearch.status === 'loading',
             busy: supportPlaceSearch.status === 'loading',
+            selected: supportPlaceSearch.status === 'success',
           }}
           disabled={supportPlaceSearch.status === 'loading'}
           onPress={() => void handleNearbySupport()}
           style={({ pressed }) => [
-            styles.supportPlaceAction,
-            useCompactFloatingControls && styles.supportPlaceActionCompact,
+            styles.mapAction,
+            supportPlaceSearch.status === 'success' && styles.mapActionActive,
             pressed && supportPlaceSearch.status !== 'loading' && styles.mapActionPressed,
           ]}>
           {supportPlaceSearch.status === 'loading' ? (
             <ActivityIndicator size="small" color="#176B5B" />
           ) : (
-            <MaterialIcons name="support-agent" size={20} color="#176B5B" />
+            <MaterialIcons name="support-agent" size={22} color={supportPlaceSearch.status === 'success' ? '#FFFFFF' : '#176B5B'} />
           )}
-          {!useCompactFloatingControls ? (
-            <Text style={styles.supportPlaceActionText}>Nearby support</Text>
-          ) : null}
         </Pressable>
       </View>
 
@@ -281,19 +284,15 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
         resultCount={supportPlaceSearch.supportPlaces.length}
         errorMessage={supportPlaceSearch.errorMessage}
         onRetry={() => void supportPlaceSearch.retrySupportPlaces()}
+        onDismiss={supportPlaceSearch.dismissSupportPlaces}
       />
-
-      {isMapDataUnavailable ? (
-        <View accessible accessibilityRole="summary" style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>Safety information is unavailable</Text>
-          <Text style={styles.emptyText}>Check your connection and try moving the map again. Safety information may be limited while the service is unavailable.</Text>
-        </View>
-      ) : null}
 
       <ReportContextSheet
         incidents={filteredIncidents}
         onSelectIncident={handleFocusIncident}
         onExpandedChange={setIsReportSheetExpanded}
+        safetyInformationUnavailable={isMapDataUnavailable}
+        onRetrySafetyInformation={retryMapData}
       />
 
       <AreaSummarySheet
@@ -336,28 +335,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   mapActionPressed: { opacity: 0.72 },
-  supportPlaceAction: {
-    minHeight: 48,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 12,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#D7DEDC',
-    backgroundColor: '#FFFFFF',
-    elevation: 3,
-    shadowColor: '#18201E',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.14,
-    shadowRadius: 4,
-  },
-  supportPlaceActionCompact: {
-    width: 48,
-    paddingHorizontal: 0,
-  },
-  supportPlaceActionText: { color: '#176B5B', fontSize: 13, fontWeight: '800' },
+  mapActionActive: { borderColor: '#176B5B', backgroundColor: '#176B5B' },
   refreshIndicator: {
     position: 'absolute',
     top: 204,
@@ -382,16 +360,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#5F6C68',
   },
-  emptyCard: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 128,
-    gap: 4,
-    padding: 14,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-  },
-  emptyTitle: { color: '#18201E', fontSize: 15, fontWeight: '800' },
-  emptyText: { color: '#5F6C68', fontSize: 13, lineHeight: 18 },
 });

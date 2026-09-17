@@ -24,6 +24,7 @@ interface UseSupportPlaceSearchResult {
   errorMessage: string | null;
   searchSupportPlaces: (searchLocation?: UserLocation | null) => Promise<void>;
   retrySupportPlaces: () => Promise<void>;
+  dismissSupportPlaces: () => void;
 }
 
 /**
@@ -83,5 +84,20 @@ export function useSupportPlaceSearch({
     await runSearch(searchLocation, hasUsableLocation && searchLocation !== null);
   }, [hasUsableLocation, location, runSearch]);
 
-  return { supportPlaces, searchOrigin, status, errorMessage, searchSupportPlaces, retrySupportPlaces };
+  const dismissSupportPlaces = useCallback(() => {
+    setSupportPlaces([]);
+    setSearchOrigin(null);
+    setErrorMessage(null);
+    setStatus('idle');
+  }, []);
+
+  return {
+    supportPlaces,
+    searchOrigin,
+    status,
+    errorMessage,
+    searchSupportPlaces,
+    retrySupportPlaces,
+    dismissSupportPlaces,
+  };
 }
