@@ -102,18 +102,36 @@ describe('destination search validation contracts', () => {
 });
 
 describe('GeocodingService retrieval', () => {
-  it('returns prioritized, deduplicated merged dynamic place suggestions capped at eight', async () => {
+  it('returns strong dynamic category results without padding them with global autocomplete noise', async () => {
     const autocompleteResults = Array.from({ length: 8 }, (_, index) => ({ place_id: `auto-${index}`, name: index === 0 ? 'Nearby Hospital' : `Autocomplete ${index}`, lat: 6.9 + index / 1000, lon: 79.8 + index / 1000 }));
     const request = vi.fn()
       .mockResolvedValueOnce(new Response(JSON.stringify({ results: autocompleteResults, query: { categories: ['healthcare.hospital'] } }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ features: [
         { properties: { place_id: 'place-1', name: 'Nearby Hospital', distance: 50 }, geometry: { coordinates: [79.8, 6.9] } },
         { properties: { place_id: 'place-2', name: 'Nearby Hospital', distance: 100 }, geometry: { coordinates: [79.801, 6.901] } },
+        { properties: { place_id: 'place-distant', name: 'Nearby Hospital Abroad', distance: 1000000 }, geometry: { coordinates: [80, 7] } },
       ] }), { status: 200 }));
     const results = await new GeocodingService('test-key', request).searchPlaces({ q: 'hosp', lat: 6.9, lng: 79.8 });
-    expect(results).toHaveLength(8);
+    expect(results).toHaveLength(2);
     expect(results.slice(0, 2).map((item) => item.id)).toEqual(['place-1', 'place-2']);
     expect(results.filter((item) => item.name === 'Nearby Hospital')).toHaveLength(2);
+    expect(results.map((item) => item.id)).not.toContain('place-distant');
+  });
+  it('deduplicates and caps relevant primary results at eight', async () => {
+    const features = Array.from({ length: 9 }, (_, index) => ({
+      properties: { place_id: `hospital-${index}`, name: `Nearby Hospital ${index}`, distance: index + 1 },
+      geometry: { coordinates: [79.8 + index / 1000, 6.9 + index / 1000] },
+    }));
+    const request = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        results: [], query: { categories: [{ keys: ['healthcare.hospital'], label: 'Hospitals' }] },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ features }), { status: 200 }));
+
+    const results = await new GeocodingService('test-key', request).searchPlaces({ q: 'hosp', lat: 6.9, lng: 79.8 });
+
+    expect(results).toHaveLength(8);
+    expect(new Set(results.map((result) => result.id)).size).toBe(8);
   });
   it('uses one dynamic Places request from provider-discovered categories', async () => {
     const request = vi.fn()
@@ -179,7 +197,7 @@ describe('GeocodingService retrieval', () => {
 
     const results = await new GeocodingService('test-key', request).searchPlaces({ q: 'salon', lat: 6.9, lng: 79.8 });
 
-    expect(results.map((result) => result.id)).toEqual(['amenity', 'auto']);
+    expect(results.map((result) => result.id)).toEqual(['amenity']);
     expect(request).toHaveBeenCalledTimes(2);
     expect(new URL(request.mock.calls[1]?.[0] as string).searchParams.get('type')).toBe('amenity');
   });
@@ -197,7 +215,7 @@ describe('GeocodingService retrieval', () => {
 
     const results = await new GeocodingService('test-key', request).searchPlaces({ q: 'temple', lat: 6.9, lng: 79.8 });
 
-    expect(results.map((result) => result.id)).toEqual(['named-temple', 'auto']);
+    expect(results.map((result) => result.id)).toEqual(['named-temple']);
     expect(results.map((result) => result.name)).not.toContain('Ganemulla-Weligampitiya Road');
     expect(request).toHaveBeenCalledTimes(3);
     expect(new URL(request.mock.calls[1]?.[0] as string).pathname).toBe('/v2/places');
@@ -216,9 +234,70 @@ describe('GeocodingService retrieval', () => {
 
     const results = await new GeocodingService('test-key', request).searchPlaces({ q: 'mosq', lat: 6.9, lng: 79.8 });
 
-    expect(results.map((result) => result.id)).toEqual(['nearby-mosque', 'auto']);
+    expect(results.map((result) => result.id)).toEqual(['nearby-mosque']);
     expect(request).toHaveBeenCalledTimes(2);
     expect(new URL(request.mock.calls[1]?.[0] as string).pathname).toBe('/v2/places');
+  });
+  it('prefers local amenity results before a global fallback', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [], query: { categories: [] } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [{
+        place_id: 'local-spa', name: 'Spa Ceylon', lat: 6.91, lon: 79.85, distance: 1200,
+      }] }), { status: 200 }));
+
+    const results = await new GeocodingService('test-key', request).searchPlaces({ q: 'spa', lat: 6.9, lng: 79.8 });
+
+    expect(results.map((result) => result.id)).toEqual(['local-spa']);
+    expect(request).toHaveBeenCalledTimes(2);
+    const localAmenityUrl = new URL(request.mock.calls[1]?.[0] as string);
+    expect(localAmenityUrl.searchParams.get('type')).toBe('amenity');
+    expect(localAmenityUrl.searchParams.get('filter')).toBe('circle:79.8,6.9,25000');
+  });
+  it('uses global amenity fallback when the local amenity pass is empty', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [], query: { categories: [] } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [{
+        place_id: 'global-spa', name: 'Spa Abroad', lat: 40, lon: 10, distance: 4000000,
+      }] }), { status: 200 }));
+
+    const results = await new GeocodingService('test-key', request).searchPlaces({ q: 'spa', lat: 6.9, lng: 79.8 });
+
+    expect(results.map((result) => result.id)).toEqual(['global-spa']);
+    expect(request).toHaveBeenCalledTimes(3);
+    expect(new URL(request.mock.calls[2]?.[0] as string).searchParams.get('filter')).toBeNull();
+  });
+  it('rejects nearby category features whose names are unrelated to the query', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({
+        results: [], query: { categories: [{ keys: ['leisure.spa'], label: 'Spas' }] },
+      }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ features: [{
+        properties: { place_id: 'public-well', name: 'Public Well', distance: 100 },
+        geometry: { coordinates: [79.8, 6.9] },
+      }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [{
+        place_id: 'spa-ceylon', name: 'Spa Ceylon', lat: 6.91, lon: 79.85, distance: 1200,
+      }] }), { status: 200 }));
+
+    const results = await new GeocodingService('test-key', request).searchPlaces({ q: 'spa', lat: 6.9, lng: 79.8 });
+
+    expect(results.map((result) => result.id)).toEqual(['spa-ceylon']);
+    expect(results.map((result) => result.name)).not.toContain('Public Well');
+    expect(request).toHaveBeenCalledTimes(3);
+  });
+  it('keeps worldwide named autocomplete available after empty local amenity passes', async () => {
+    const request = vi.fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [{
+        place_id: 'london', name: 'London', lat: 51.5, lon: -0.1, distance: 8000000,
+      }], query: { categories: [] } }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ results: [] }), { status: 200 }));
+
+    const results = await new GeocodingService('test-key', request).searchPlaces({ q: 'London', lat: 6.9, lng: 79.8 });
+
+    expect(results).toMatchObject([{ id: 'london', name: 'London', distanceMeters: 8000000 }]);
+    expect(request).toHaveBeenCalledTimes(3);
   });
   it('uses Places with real coordinates for recognized nearby intent', async () => {
     const request = vi.fn().mockResolvedValue(new Response(JSON.stringify({ features: [{ properties: { place_id: 'poi-1', name: 'Police Hospital', formatted: 'Colombo, Sri Lanka', distance: 850 }, geometry: { coordinates: [79.8613, 6.9272] } }] }), { status: 200 }));
