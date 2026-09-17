@@ -177,6 +177,11 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
     mapRef.current?.animateToRegion({ latitude, longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 300);
   };
 
+  const retryMapData = () => {
+    const bounds = lastViewportRef.current;
+    if (bounds) void loadIncidents(bounds, filter);
+  };
+
   if (isLocationLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -282,17 +287,12 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
         onDismiss={supportPlaceSearch.dismissSupportPlaces}
       />
 
-      {isMapDataUnavailable ? (
-        <View accessible accessibilityRole="summary" style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>Safety information is unavailable</Text>
-          <Text style={styles.emptyText}>Check your connection and try moving the map again. Safety information may be limited while the service is unavailable.</Text>
-        </View>
-      ) : null}
-
       <ReportContextSheet
         incidents={filteredIncidents}
         onSelectIncident={handleFocusIncident}
         onExpandedChange={setIsReportSheetExpanded}
+        safetyInformationUnavailable={isMapDataUnavailable}
+        onRetrySafetyInformation={retryMapData}
       />
 
       <AreaSummarySheet
@@ -360,16 +360,4 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#5F6C68',
   },
-  emptyCard: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 128,
-    gap: 4,
-    padding: 14,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-  },
-  emptyTitle: { color: '#18201E', fontSize: 15, fontWeight: '800' },
-  emptyText: { color: '#5F6C68', fontSize: 13, lineHeight: 18 },
 });
