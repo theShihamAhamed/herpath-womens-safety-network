@@ -39,12 +39,12 @@ export function useSupportPlaceSearch({
   const [searchOrigin, setSearchOrigin] = useState<UserLocation | null>(null);
   const [status, setStatus] = useState<SupportPlaceSearchStatus>('idle');
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
-  const inFlight = useRef(false);
   const lastSearchLocation = useRef<UserLocation | null>(null);
+  const latestRequestId = useRef(0);
 
   const runSearch = useCallback(async (searchLocation: UserLocation | null, canUseLocation: boolean) => {
-    if (inFlight.current) return;
     if (!canUseLocation || !searchLocation) {
+      latestRequestId.current += 1;
       setSupportPlaces([]);
       setSearchOrigin(null);
       setErrorMessage(null);
@@ -52,25 +52,31 @@ export function useSupportPlaceSearch({
       return;
     }
 
-    inFlight.current = true;
-    lastSearchLocation.current = searchLocation;
-    setSearchOrigin(searchLocation);
+    const requestId = latestRequestId.current + 1;
+    latestRequestId.current = requestId;
+    const origin = { latitude: searchLocation.latitude, longitude: searchLocation.longitude };
+    lastSearchLocation.current = origin;
+    setSearchOrigin(origin);
     setStatus('loading');
     setErrorMessage(null);
 
     try {
       const places = await mapApi.getSupportPlaces(
-        searchLocation.latitude,
-        searchLocation.longitude,
+        origin.latitude,
+        origin.longitude,
       );
+      if (requestId !== latestRequestId.current) return;
       setSupportPlaces(places);
       setStatus(places.length === 0 ? 'empty' : 'success');
-    } catch {
+    } catch (error) {
+      if (requestId !== latestRequestId.current) return;
+      if (isAbortError(error)) {
+        setStatus('idle');
+        return;
+      }
       setSupportPlaces([]);
       setErrorMessage('Nearby support places are temporarily unavailable.');
       setStatus('unavailable');
-    } finally {
-      inFlight.current = false;
     }
   }, []);
 
@@ -85,6 +91,8 @@ export function useSupportPlaceSearch({
   }, [hasUsableLocation, location, runSearch]);
 
   const dismissSupportPlaces = useCallback(() => {
+    latestRequestId.current += 1;
+    lastSearchLocation.current = null;
     setSupportPlaces([]);
     setSearchOrigin(null);
     setErrorMessage(null);
@@ -100,4 +108,8 @@ export function useSupportPlaceSearch({
     retrySupportPlaces,
     dismissSupportPlaces,
   };
+}
+
+function isAbortError(error: unknown) {
+  return error instanceof Error && error.name === 'AbortError';
 }

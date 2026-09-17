@@ -163,7 +163,16 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
 
   const handleNearbySupport = async () => {
     const currentLocation = await requestLocation();
-    await supportPlaceSearch.searchSupportPlaces(currentLocation);
+    if (!currentLocation) {
+      await supportPlaceSearch.searchSupportPlaces(null);
+      return;
+    }
+    const searchOrigin = {
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+    };
+    mapRef.current?.animateToRegion({ ...searchOrigin, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 300);
+    await supportPlaceSearch.searchSupportPlaces(searchOrigin);
   };
 
   const handleCurrentAreaSummary = () => {
@@ -283,7 +292,7 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
         status={supportPlaceSearch.status}
         resultCount={supportPlaceSearch.supportPlaces.length}
         errorMessage={supportPlaceSearch.errorMessage}
-        onRetry={() => void supportPlaceSearch.retrySupportPlaces()}
+        onRetry={() => void handleNearbySupport()}
         onDismiss={supportPlaceSearch.dismissSupportPlaces}
       />
 
