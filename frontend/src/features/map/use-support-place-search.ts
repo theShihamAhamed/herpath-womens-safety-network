@@ -3,6 +3,9 @@ import { useCallback, useRef, useState } from 'react';
 import { mapApi } from './map-api';
 import type { SupportPlace } from './map.types';
 import type { UserLocation } from './use-user-location';
+import { ApiError } from '@/src/services/api/errors';
+
+const MAX_TRANSIENT_ATTEMPTS = 3;
 
 export type SupportPlaceSearchStatus =
   | 'idle'
@@ -61,10 +64,7 @@ export function useSupportPlaceSearch({
     setErrorMessage(null);
 
     try {
-      const places = await mapApi.getSupportPlaces(
-        origin.latitude,
-        origin.longitude,
-      );
+      const places = await getSupportPlacesWithRetry(origin.latitude, origin.longitude);
       if (requestId !== latestRequestId.current) return;
       setSupportPlaces(places);
       setStatus(places.length === 0 ? 'empty' : 'success');
@@ -112,4 +112,22 @@ export function useSupportPlaceSearch({
 
 function isAbortError(error: unknown) {
   return error instanceof Error && error.name === 'AbortError';
+}
+
+async function getSupportPlacesWithRetry(latitude: number, longitude: number): Promise<SupportPlace[]> {
+  let lastError: unknown;
+  for (let attempt = 0; attempt < MAX_TRANSIENT_ATTEMPTS; attempt += 1) {
+    try {
+      return await mapApi.getSupportPlaces(latitude, longitude);
+    } catch (error) {
+      lastError = error;
+      if (!isTransientSupportPlaceError(error) || attempt === MAX_TRANSIENT_ATTEMPTS - 1) throw error;
+      await new Promise((resolve) => setTimeout(resolve, 300 * (attempt + 1)));
+    }
+  }
+  throw lastError;
+}
+
+function isTransientSupportPlaceError(error: unknown) {
+  return error instanceof ApiError && (error.status === 0 || error.status === 429 || error.status >= 500);
 }

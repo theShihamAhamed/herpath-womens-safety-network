@@ -1,8 +1,8 @@
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
+import MapView from 'react-native-maps';
 import * as Location from 'expo-location';
 
 import { AreaSummarySheet } from './area-summary-sheet';
@@ -10,11 +10,12 @@ import { FilterBar } from './filter-bar';
 import { IncidentArea } from './incident-area';
 import { IncidentMarker } from './incident-marker';
 import { mapApi } from './map-api';
-import type { AreaSummary, MapFilter, PublicIncidentMarker, ViewportBounds } from './map.types';
+import type { AreaSummary, MapFilter, PublicIncidentMarker, SupportPlace, ViewportBounds } from './map.types';
 import { ReportContextSheet } from './report-context-sheet';
 import { SupportPlaceSearchFeedback } from './support-place-search-feedback';
 import { getSupportPlaceDistanceMetres } from './support-place-distance';
 import { SupportPlaceMarker } from './support-place-marker';
+import { supportPlacePresentation } from './support-place-presentation';
 import {
   DestinationMarker,
   DestinationResultsSheet,
@@ -43,8 +44,10 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
   const [isAreaSummaryUnavailable, setIsAreaSummaryUnavailable] = useState(false);
   const [isSummaryVisible, setIsSummaryVisible] = useState(false);
   const [isReportSheetExpanded, setIsReportSheetExpanded] = useState(false);
+  const [isSupportPlaceSheetExpanded, setIsSupportPlaceSheetExpanded] = useState(false);
   const [isSearchResultsSheetExpanded, setIsSearchResultsSheetExpanded] = useState(false);
   const [selectedSupportPlaceId, setSelectedSupportPlaceId] = useState<string | null>(null);
+  const [expandedSupportPlaceId, setExpandedSupportPlaceId] = useState<string | null>(null);
   const lastViewportRef = useRef<ViewportBounds | null>(null);
   const mapRef = useRef<MapView>(null);
   const supportPlaceSearch = useSupportPlaceSearch({
@@ -59,6 +62,7 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
   const selectedSearchResult = routeContext.selectedSearchResult;
   const isSearchResultsActive = searchMapResults.length > 0;
   const isRouteActive = selectedDestination !== null || routeContext.isPlanning;
+  const isSupportPlaceMode = supportPlaceSearch.status === 'success' || supportPlaceSearch.status === 'empty';
 
   React.useEffect(() => {
     if (selectedDestination && mapRef.current) {
@@ -98,6 +102,12 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
       current && !supportPlaceSearch.supportPlaces.some((place) => place.id === current)
         ? null
         : current,
+    );
+  }, [supportPlaceSearch.supportPlaces]);
+
+  React.useEffect(() => {
+    setExpandedSupportPlaceId((current) =>
+      current && !supportPlaceSearch.supportPlaces.some((place) => place.id === current) ? null : current,
     );
   }, [supportPlaceSearch.supportPlaces]);
 
@@ -211,6 +221,30 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
     mapRef.current?.animateToRegion({ latitude, longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 300);
   };
 
+  const handleToggleSupportPlace = (place: SupportPlace) => {
+    setExpandedSupportPlaceId((current) => current === place.id ? null : place.id);
+    setSelectedSupportPlaceId(place.id);
+  };
+
+  const handleGetDirections = (place: SupportPlace) => {
+    routeContext.clearSearchMapResults();
+    if (supportPlaceSearch.searchOrigin) {
+      routeContext.setOrigin({
+        name: 'Current Location',
+        latitude: supportPlaceSearch.searchOrigin.latitude,
+        longitude: supportPlaceSearch.searchOrigin.longitude,
+      });
+    }
+    routeContext.setSelectedDestination({
+      id: place.id,
+      name: place.name,
+      address: supportPlacePresentation[place.category].label,
+      latitude: place.location.latitude,
+      longitude: place.location.longitude,
+    });
+    routeContext.setIsPlanning(true);
+  };
+
   const handleSelectSearchResult = (result: DestinationSuggestion) => {
     routeContext.setSelectedSearchResult(result);
     setIsSearchResultsSheetExpanded(true);
@@ -254,7 +288,6 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
 
       <MapView
         ref={mapRef}
-        provider={PROVIDER_GOOGLE}
         style={styles.map}
         initialRegion={initialRegion}
         showsUserLocation={permissionStatus === Location.PermissionStatus.GRANTED}
@@ -297,7 +330,7 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
         pointerEvents="box-none"
         style={[
           styles.actionControls,
-          { bottom: (isSearchResultsActive ? isSearchResultsSheetExpanded : isReportSheetExpanded) ? Math.round(windowHeight * 0.58) + 16 : 128 },
+          { bottom: (isSearchResultsActive ? isSearchResultsSheetExpanded : isSupportPlaceMode ? isSupportPlaceSheetExpanded : isReportSheetExpanded) ? Math.round(windowHeight * 0.58) + 16 : 128 },
         ]}>
         <Pressable accessibilityRole="button" accessibilityLabel="Use my current location" onPress={() => void handleUseCurrentLocation()} style={styles.mapAction}>
           <MaterialIcons name="my-location" size={22} color="#176B5B" />
@@ -363,11 +396,17 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
         />
       ) : (
         <ReportContextSheet
+          key={isSupportPlaceMode ? 'support-places' : 'reports'}
           incidents={filteredIncidents}
           onSelectIncident={handleFocusIncident}
-          onExpandedChange={setIsReportSheetExpanded}
+          onExpandedChange={isSupportPlaceMode ? setIsSupportPlaceSheetExpanded : setIsReportSheetExpanded}
           safetyInformationUnavailable={isMapDataUnavailable}
           onRetrySafetyInformation={retryMapData}
+          supportPlaces={isSupportPlaceMode ? supportPlaceSearch.supportPlaces : undefined}
+          supportSearchOrigin={supportPlaceSearch.searchOrigin}
+          expandedSupportPlaceId={expandedSupportPlaceId}
+          onToggleSupportPlace={handleToggleSupportPlace}
+          onGetDirections={handleGetDirections}
         />
       )}
 

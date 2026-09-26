@@ -5,9 +5,11 @@ import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } fr
 
 import { palette, radius, spacing } from '@/src/theme';
 
-import { CATEGORY_CONFIG, SEVERITY_CONFIG, type PublicIncidentMarker } from './map.types';
+import { CATEGORY_CONFIG, SEVERITY_CONFIG, type PublicIncidentMarker, type SupportPlace } from './map.types';
 import { clampReportSheetOffset, resolveReportSheetSnapOffset } from './report-sheet-motion';
 import { summarizeVisibleIncidents } from './report-context-summary';
+import { formatSupportPlaceDistance, getSupportPlaceDistanceMetres } from './support-place-distance';
+import { supportPlacePresentation } from './support-place-presentation';
 
 const COLLAPSED_SHEET_HEIGHT = 64;
 const LARGE_TEXT_COLLAPSED_SHEET_HEIGHT = 88;
@@ -20,6 +22,11 @@ interface ReportContextSheetProps {
   onExpandedChange?: (expanded: boolean) => void;
   safetyInformationUnavailable?: boolean;
   onRetrySafetyInformation?: () => void;
+  supportPlaces?: SupportPlace[];
+  supportSearchOrigin?: { latitude: number; longitude: number } | null;
+  expandedSupportPlaceId?: string | null;
+  onToggleSupportPlace?: (place: SupportPlace) => void;
+  onGetDirections?: (place: SupportPlace) => void;
 }
 
 /** A compact, map-owned summary of the public reports currently in view. */
@@ -29,11 +36,19 @@ export function ReportContextSheet({
   onExpandedChange,
   safetyInformationUnavailable = false,
   onRetrySafetyInformation,
+  supportPlaces,
+  supportSearchOrigin,
+  expandedSupportPlaceId,
+  onToggleSupportPlace,
+  onGetDirections,
 }: ReportContextSheetProps) {
   const { height: windowHeight, fontScale } = useWindowDimensions();
-  const count = incidents.length;
+  const isSupportPlaceMode = supportPlaces !== undefined;
+  const count = isSupportPlaceMode ? supportPlaces.length : incidents.length;
   const visibleSummary = summarizeVisibleIncidents(incidents);
-  const summary = count === 1 ? '1 public report in this area' : `${count} public reports in this area`;
+  const summary = isSupportPlaceMode
+    ? count === 0 ? 'No nearby support places were found.' : `${count} nearby support ${count === 1 ? 'place' : 'places'} found.`
+    : count === 1 ? '1 public report in this area' : `${count} public reports in this area`;
   const collapsedSheetHeight = fontScale >= 1.35 ? LARGE_TEXT_COLLAPSED_SHEET_HEIGHT : COLLAPSED_SHEET_HEIGHT;
   const sheetHeight = Math.round(windowHeight * SHEET_HEIGHT_RATIO);
   const collapsedOffset = Math.max(sheetHeight - collapsedSheetHeight, 0);
@@ -83,25 +98,25 @@ export function ReportContextSheet({
         <View collapsable={false}>
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} reports in this area`}
-            accessibilityHint={expanded ? 'Collapses the report list to show more of the map' : 'Expands the visible report list'}
+            accessibilityLabel={`${expanded ? 'Collapse' : 'Expand'} ${isSupportPlaceMode ? 'nearby support places' : 'reports in this area'}`}
+            accessibilityHint={expanded ? 'Collapses the list to show more of the map' : 'Expands the visible list'}
             accessibilityState={{ expanded }}
             accessibilityActions={[
-              { name: expanded ? 'collapse' : 'expand', label: expanded ? 'Collapse report list' : 'Expand report list' },
+              { name: expanded ? 'collapse' : 'expand', label: expanded ? 'Collapse list' : 'Expand list' },
             ]}
             onAccessibilityAction={(event) => settleSheet(event.nativeEvent.actionName === 'expand')}
             onPress={toggleExpanded}
             style={[styles.header, { minHeight: collapsedSheetHeight - 6 }]}>
             <View style={styles.handle} />
             <View style={styles.summaryRow}>
-              <Text maxFontSizeMultiplier={1.6} style={styles.title}>Reports in this area</Text>
+              <Text maxFontSizeMultiplier={1.6} style={styles.title}>{isSupportPlaceMode ? 'Nearby Support Places' : 'Reports in this area'}</Text>
               <Text maxFontSizeMultiplier={1.3} style={styles.count}>{count}</Text>
             </View>
           </Pressable>
         </View>
       </GestureDetector>
       <ScrollView style={styles.reportListContainer} contentContainerStyle={styles.reportList} showsVerticalScrollIndicator={false}>
-        {safetyInformationUnavailable ? (
+        {!isSupportPlaceMode && safetyInformationUnavailable ? (
           <View accessible accessibilityRole="alert" style={styles.safetyUnavailable}>
             <Text style={styles.sectionTitle}>Safety information</Text>
             <Text style={styles.safetyUnavailableTitle}>Safety information is unavailable</Text>
@@ -120,14 +135,42 @@ export function ReportContextSheet({
           </View>
         ) : null}
         <View style={styles.expandedSummary}>
-          <Text style={styles.summary}>{count === 0 ? 'No visible public reports' : summary}</Text>
-          {visibleSummary.highSeverityCount > 0 ? (
+          <Text style={styles.summary}>{isSupportPlaceMode ? summary : count === 0 ? 'No visible public reports' : summary}</Text>
+          {!isSupportPlaceMode && visibleSummary.highSeverityCount > 0 ? (
             <Text style={styles.prioritySummary}>
               {visibleSummary.highSeverityCount} high-severity {visibleSummary.highSeverityCount === 1 ? 'report' : 'reports'}
             </Text>
           ) : null}
         </View>
-        {count > 0 ? (
+        {isSupportPlaceMode && count > 0 ? supportPlaces?.map((place) => {
+          const presentation = supportPlacePresentation[place.category];
+          const distance = supportSearchOrigin ? formatSupportPlaceDistance(getSupportPlaceDistanceMetres(supportSearchOrigin, place.location)) : null;
+          const expandedSupportPlace = expandedSupportPlaceId === place.id;
+          return (
+            <Pressable
+                key={place.id}
+                accessibilityRole="button"
+                accessibilityLabel={`${place.name}, ${presentation.label}${distance ? `, ${distance}` : ''}`}
+                accessibilityHint={expandedSupportPlace ? 'Collapses this support place' : 'Expands this support place'}
+                accessibilityState={{ expanded: expandedSupportPlace }}
+                onPress={() => onToggleSupportPlace?.(place)}
+                style={styles.reportRow}>
+                <Text style={styles.reportTitle}>{place.name}</Text>
+                <Text style={styles.reportSeverity}>{presentation.label}</Text>
+                {distance ? <Text style={styles.reportDetail}>{distance}</Text> : null}
+                {expandedSupportPlace ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={`Get directions to ${place.name}`}
+                    onPress={() => onGetDirections?.(place)}
+                    style={styles.directionsButton}>
+                    <Text style={styles.directionsText}>Get Directions</Text>
+                  </Pressable>
+                ) : null}
+              </Pressable>
+            );
+          }) : null}
+        {!isSupportPlaceMode && count > 0 ? (
           <>
           <Text style={styles.contextNote}>
             Community-reported locations are shown as approximate areas, not exact locations.
@@ -162,14 +205,15 @@ export function ReportContextSheet({
             );
           })}
           </>
-        ) : (
+        ) : null}
+        {!isSupportPlaceMode && count === 0 ? (
           <View accessible accessibilityRole="summary" accessibilityLabel="No public reports are visible in this area" style={styles.emptyState}>
             <Text style={styles.emptyTitle}>No reports are visible in this area</Text>
             <Text style={styles.emptyCopy}>
               This does not mean the area is safe. Adjust your filters or move the map to explore available community data.
             </Text>
           </View>
-        )}
+        ) : null}
       </ScrollView>
     </Animated.View>
   );
@@ -235,6 +279,8 @@ const styles = StyleSheet.create({
   reportTitle: { color: palette.text, fontSize: 15, fontWeight: '800' },
   reportSeverity: { fontSize: 13, fontWeight: '700' },
   reportDetail: { color: palette.textMuted, fontSize: 12, lineHeight: 17 },
+  directionsButton: { alignSelf: 'flex-start', minHeight: 40, justifyContent: 'center', marginTop: spacing.xs, paddingHorizontal: 12, borderRadius: radius.sm, backgroundColor: palette.primary },
+  directionsText: { color: palette.white, fontSize: 13, fontWeight: '800' },
   emptyState: { gap: spacing.sm, paddingVertical: spacing.md },
   emptyTitle: { color: palette.text, fontSize: 15, fontWeight: '800' },
   emptyCopy: { color: palette.textMuted, fontSize: 13, lineHeight: 19 },
