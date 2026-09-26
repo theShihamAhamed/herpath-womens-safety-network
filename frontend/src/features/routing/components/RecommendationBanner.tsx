@@ -1,7 +1,4 @@
-// frontend/src/features/routing/components/RecommendationBanner.tsx
-// HS-137: Add route recommendation UI
-// HS-86: Display safety explanation
-
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { RouteRecommendation } from '../types/routing.types';
@@ -28,9 +25,12 @@ export function RecommendationBanner({ recommendation }: RecommendationBannerPro
 
       <Text style={styles.explanationText}>{recommendation.explanation}</Text>
 
-      <Text style={styles.disclaimerText}>
-        Based on community-reported context — not a guarantee of safety.
-      </Text>
+      <View style={styles.disclaimerContainer}>
+        <MaterialIcons name="info-outline" size={15} color="#4A5D58" style={styles.disclaimerIcon} />
+        <Text style={styles.disclaimerText}>
+          Reported risk is based on available community safety data and may change as new incidents are reported. Lower reported risk does not guarantee safety—use this to help make your own travel decision.
+        </Text>
+      </View>
     </View>
   );
 }
@@ -70,11 +70,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 20,
     color: '#1F2A28',
-    marginBottom: 8,
+    marginBottom: 10,
+  },
+  disclaimerContainer: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 6,
+    backgroundColor: 'rgba(255, 255, 255, 0.65)',
+    borderRadius: 8,
+    padding: 8,
+  },
+  disclaimerIcon: {
+    marginTop: 1,
   },
   disclaimerText: {
+    flex: 1,
     fontSize: 12,
-    color: '#5B6B67',
-    fontStyle: 'italic',
+    lineHeight: 16,
+    color: '#4A5D58',
   },
 });

@@ -10,7 +10,9 @@ import { useRouteContext } from './RouteContext';
 import { SelectedDestinationCard } from './selected-destination-card';
 import { RecommendationBanner } from './components/RecommendationBanner';
 import { RouteCard } from './components/RouteCard';
+import { RouteComparisonIntroModal } from './components/RouteComparisonIntroModal';
 import { useRouteRecommendation } from './hooks/useRouteRecommendation';
+import { useRouteComparisonIntro } from './hooks/useRouteComparisonIntro';
 
 interface RoutePlanningEntryProps {
   userLocation?: { latitude: number; longitude: number } | null;
@@ -128,6 +130,7 @@ export function RoutePlanningEntry({
 export function RouteResultsPlaceholder() {
   const { selectedDestination, origin } = useRouteContext();
   const { recommendation, loading, error, requestRecommendation } = useRouteRecommendation();
+  const { introVisible, completeIntro, skipIntro, showIntro } = useRouteComparisonIntro();
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const router = useRouter();
 
@@ -139,6 +142,12 @@ export function RouteResultsPlaceholder() {
       );
     }
   }, [origin, requestRecommendation, selectedDestination]);
+
+  useEffect(() => {
+    if (recommendation?.recommendedRouteId && !selectedRouteId) {
+      setSelectedRouteId(recommendation.recommendedRouteId);
+    }
+  }, [recommendation, selectedRouteId]);
 
   const handleStartJourney = () => {
     const route = recommendation?.routes.find((r) => r.routeId === selectedRouteId);
@@ -177,8 +186,19 @@ export function RouteResultsPlaceholder() {
       accessibilityLabel="Route planning options"
       style={styles.resultsCard}>
       <View style={styles.resultsHeader}>
-        <View style={styles.statusIndicator} />
-        <Text style={styles.sectionTitle}>Route Safety Analysis</Text>
+        <View style={styles.resultsHeaderLeft}>
+          <View style={styles.statusIndicator} />
+          <Text style={styles.sectionTitle}>Route Safety Analysis</Text>
+        </View>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Learn about route comparison"
+          hitSlop={8}
+          onPress={showIntro}
+          style={({ pressed }) => [styles.guideButton, pressed && styles.pressed]}>
+          <MaterialIcons name="help-outline" size={18} color={palette.primary} />
+          <Text style={styles.guideButtonText}>Guide</Text>
+        </Pressable>
       </View>
 
       <Text style={styles.bodyText}>
@@ -249,9 +269,9 @@ export function RouteResultsPlaceholder() {
           )}
 
           <View style={styles.evidenceRow}>
-            <MaterialIcons name="info-outline" size={16} color={palette.primary} />
+            <MaterialIcons name="info-outline" size={15} color={palette.primary} style={styles.evidenceIcon} />
             <Text style={styles.evidenceNote}>
-              Based on community-reported context, not a guarantee of safety.
+              Reported risk is based on available community safety data and may change. Lower reported risk does not guarantee safety—use this to help make your own travel decision.
             </Text>
           </View>
         </ScrollView>
@@ -260,6 +280,12 @@ export function RouteResultsPlaceholder() {
           <Text style={styles.evidenceNote}>Allow location access to compare routes.</Text>
         </View>
       )}
+
+      <RouteComparisonIntroModal
+        visible={introVisible}
+        onComplete={completeIntro}
+        onSkip={skipIntro}
+      />
     </View>
   );
 }
@@ -328,7 +354,28 @@ const styles = StyleSheet.create({
   resultsHeader: {
     flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'space-between',
     gap: spacing.xs,
+  },
+  resultsHeaderLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    flex: 1,
+  },
+  guideButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E8F3F1',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+  },
+  guideButtonText: {
+    color: palette.primary,
+    fontSize: 12,
+    fontWeight: '700',
   },
   statusIndicator: {
     width: 8,
@@ -364,9 +411,22 @@ const styles = StyleSheet.create({
   },
   evidenceRow: {
     flexDirection: 'row',
-    alignItems: 'center',
+    alignItems: 'flex-start',
     gap: 6,
-    marginTop: 2,
+    marginTop: spacing.xs,
+    padding: spacing.xs,
+    backgroundColor: '#E8F3F1',
+    borderRadius: radius.sm,
+  },
+  evidenceIcon: {
+    marginTop: 1,
+  },
+  evidenceNote: {
+    flex: 1,
+    color: palette.primary,
+    fontSize: 11,
+    lineHeight: 15,
+    fontWeight: '600',
   },
   stateRow: {
     flexDirection: 'row',
@@ -399,7 +459,6 @@ const styles = StyleSheet.create({
   resultsList: {
     maxHeight: 340,
   },
-  evidenceNote: { color: palette.primary, fontSize: 12, lineHeight: 16, fontWeight: '700' },
   startJourneyButton: {
     flexDirection: 'row',
     alignItems: 'center',
