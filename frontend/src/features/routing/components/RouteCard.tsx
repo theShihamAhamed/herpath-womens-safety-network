@@ -1,8 +1,8 @@
-// frontend/src/features/routing/components/RouteCard.tsx
-
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { RouteWithRiskContext } from '../types/routing.types';
+import { palette, radius, spacing } from '@/src/theme';
 
 interface RouteCardProps {
   route: RouteWithRiskContext;
@@ -11,10 +11,46 @@ interface RouteCardProps {
   onPress: () => void;
 }
 
-function getIndicatorLevel(count: number): { label: string; color: string } {
-  if (count === 0) return { label: 'No recent reports', color: '#2F8F6E' };
-  if (count <= 3) return { label: 'Few recent reports', color: '#C98A2C' };
-  return { label: 'Multiple recent reports', color: '#C1512E' };
+interface RiskLevelInfo {
+  label: string;
+  badgeBg: string;
+  textColor: string;
+  iconName: React.ComponentProps<typeof MaterialIcons>['name'];
+  explanation: string;
+}
+
+function getRiskLevelInfo(count: number, isRecommended: boolean): RiskLevelInfo {
+  if (count === 0) {
+    return {
+      label: 'Lower reported risk',
+      badgeBg: '#EAF4F0',
+      textColor: '#165B4C',
+      iconName: 'shield',
+      explanation: isRecommended
+        ? 'No recent community reports nearby — lowest risk profile.'
+        : 'No recent safety reports recorded along this corridor.',
+    };
+  }
+
+  if (count <= 3) {
+    return {
+      label: `${count} recent ${count === 1 ? 'report' : 'reports'}`,
+      badgeBg: '#FFF6E6',
+      textColor: '#8C570D',
+      iconName: 'info-outline',
+      explanation: isRecommended
+        ? 'Fewer recent reports than alternatives.'
+        : 'A few recent reports recorded nearby.',
+    };
+  }
+
+  return {
+    label: `${count} recent reports`,
+    badgeBg: '#FDF0ED',
+    textColor: '#B23A22',
+    iconName: 'warning-amber',
+    explanation: 'Multiple safety reports recorded along this corridor.',
+  };
 }
 
 export function RouteCard({
@@ -23,31 +59,76 @@ export function RouteCard({
   selected,
   onPress,
 }: RouteCardProps) {
-  const indicator = getIndicatorLevel(route.nearbyIncidentCount);
+  const riskInfo = getRiskLevelInfo(route.nearbyIncidentCount, isRecommended);
 
   return (
-    <Pressable onPress={onPress} style={[styles.card, selected && styles.cardSelected]}>
+    <Pressable
+      accessible
+      accessibilityRole="button"
+      accessibilityLabel={`Route ${route.summaryLabel}, ${route.durationText}, ${route.distanceText}, ${riskInfo.label}${selected ? ', selected' : ''}`}
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.card,
+        selected && styles.cardSelected,
+        pressed && styles.cardPressed,
+      ]}>
+      {/* Header: Route Name & Selection/Recommended Badges */}
       <View style={styles.headerRow}>
-        <Text style={styles.summaryLabel} numberOfLines={1}>
-          {route.summaryLabel}
-        </Text>
-        {isRecommended && (
-          <View style={styles.recommendedBadge}>
-            <Text style={styles.recommendedBadgeText}>Recommended</Text>
+        <View style={styles.titleContainer}>
+          <MaterialIcons
+            name="alt-route"
+            size={18}
+            color={selected ? palette.primary : palette.text}
+            style={styles.routeIcon}
+          />
+          <Text style={[styles.summaryLabel, selected && styles.summaryLabelSelected]} numberOfLines={2}>
+            {route.summaryLabel}
+          </Text>
+        </View>
+
+        <View style={styles.headerBadges}>
+          {isRecommended && (
+            <View style={styles.recommendedBadge}>
+              <MaterialIcons name="verified" size={12} color="#1F4B4A" />
+              <Text style={styles.recommendedBadgeText}>Recommended</Text>
+            </View>
+          )}
+
+          <View style={[styles.selectionIndicator, selected && styles.selectionIndicatorActive]}>
+            {selected ? (
+              <MaterialIcons name="check" size={14} color={palette.white} />
+            ) : null}
           </View>
-        )}
+        </View>
       </View>
 
-      <View style={styles.metaRow}>
-        <Text style={styles.metaText}>{route.durationText}</Text>
-        <Text style={styles.metaDivider}>·</Text>
-        <Text style={styles.metaText}>{route.distanceText}</Text>
+      {/* Metrics Row: Travel Time & Distance */}
+      <View style={styles.metricsRow}>
+        <View style={styles.metricItem}>
+          <MaterialIcons name="schedule" size={16} color={palette.primary} />
+          <Text style={styles.durationValue}>{route.durationText}</Text>
+        </View>
+
+        <View style={styles.metricDivider} />
+
+        <View style={styles.metricItem}>
+          <MaterialIcons name="straighten" size={16} color={palette.textMuted} />
+          <Text style={styles.distanceValue}>{route.distanceText}</Text>
+        </View>
+
+        {/* Risk Badge */}
+        <View style={[styles.riskBadge, { backgroundColor: riskInfo.badgeBg }]}>
+          <MaterialIcons name={riskInfo.iconName} size={13} color={riskInfo.textColor} />
+          <Text style={[styles.riskBadgeText, { color: riskInfo.textColor }]}>
+            {riskInfo.label}
+          </Text>
+        </View>
       </View>
 
-      <View style={styles.indicatorRow}>
-        <View style={[styles.dot, { backgroundColor: indicator.color }]} />
-        <Text style={[styles.indicatorText, { color: indicator.color }]}>
-          {indicator.label}
+      {/* Risk Context Explanation */}
+      <View style={styles.explanationRow}>
+        <Text style={styles.explanationText}>
+          {riskInfo.explanation}
         </Text>
       </View>
     </Pressable>
@@ -56,66 +137,138 @@ export function RouteCard({
 
 const styles = StyleSheet.create({
   card: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 14,
-    padding: 16,
-    marginBottom: 12,
+    backgroundColor: palette.surface,
+    borderRadius: radius.md,
+    padding: spacing.md,
+    marginBottom: spacing.sm,
     borderWidth: 1,
-    borderColor: '#E4E7EB',
+    borderColor: palette.border,
+    shadowColor: palette.text,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   cardSelected: {
-    borderColor: '#1F4B4A',
+    borderColor: palette.primary,
     borderWidth: 2,
+    backgroundColor: '#FAFDFB',
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
+  },
+  cardPressed: {
+    opacity: 0.88,
   },
   headerRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
+  },
+  titleContainer: {
+    flex: 1,
+    flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    gap: 6,
+    paddingRight: spacing.xs,
+  },
+  routeIcon: {
+    marginTop: 1,
   },
   summaryLabel: {
     fontSize: 15,
-    fontWeight: '600',
-    color: '#111827',
+    fontWeight: '700',
+    color: palette.text,
     flexShrink: 1,
   },
+  summaryLabelSelected: {
+    color: palette.primary,
+  },
+  headerBadges: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+  },
   recommendedBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
     backgroundColor: '#E4F1EC',
     borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 3,
-    marginLeft: 8,
   },
   recommendedBadgeText: {
     fontSize: 11,
     fontWeight: '700',
     color: '#1F4B4A',
   },
-  metaRow: {
+  selectionIndicator: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 1.5,
+    borderColor: palette.border,
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: palette.surface,
+  },
+  selectionIndicatorActive: {
+    backgroundColor: palette.primary,
+    borderColor: palette.primary,
+  },
+  metricsRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginTop: 4,
+    marginBottom: 6,
   },
-  metaText: {
+  metricItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  durationValue: {
     fontSize: 14,
-    color: '#4B5563',
+    fontWeight: '800',
+    color: palette.text,
   },
-  metaDivider: {
-    marginHorizontal: 6,
-    color: '#9CA3AF',
+  metricDivider: {
+    width: 1,
+    height: 12,
+    backgroundColor: palette.border,
   },
-  indicatorRow: {
+  distanceValue: {
+    fontSize: 13,
+    color: palette.textMuted,
+    fontWeight: '600',
+  },
+  riskBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 4,
+    borderRadius: radius.sm,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    marginLeft: 'auto',
   },
-  dot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    marginRight: 6,
+  riskBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
   },
-  indicatorText: {
-    fontSize: 13,
-    fontWeight: '500',
+  explanationRow: {
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: '#E6ECE9',
+    paddingTop: 6,
+    marginTop: 2,
+  },
+  explanationText: {
+    fontSize: 12,
+    lineHeight: 16,
+    color: palette.textMuted,
   },
 });

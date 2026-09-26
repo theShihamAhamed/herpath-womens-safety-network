@@ -1,14 +1,18 @@
+import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
   FlatList,
+  Pressable,
   StyleSheet,
   Text,
   View,
 } from 'react-native';
 import { useRouteRecommendation } from '../hooks/useRouteRecommendation';
+import { useRouteComparisonIntro } from '../hooks/useRouteComparisonIntro';
 import { RouteCard } from '../components/RouteCard';
 import { RecommendationBanner } from '../components/RecommendationBanner';
+import { RouteComparisonIntroModal } from '../components/RouteComparisonIntroModal';
 import { LatLng } from '../types/routing.types';
 
 interface RouteComparisonScreenProps {
@@ -23,8 +27,16 @@ export function RouteComparisonScreen({
 }: RouteComparisonScreenProps) {
   const { recommendation, loading, error, requestRecommendation } =
     useRouteRecommendation();
+  const { introVisible, completeIntro, skipIntro, showIntro } =
+    useRouteComparisonIntro();
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [hasRequested, setHasRequested] = useState(false);
+
+  React.useEffect(() => {
+    if (recommendation?.recommendedRouteId && !selectedRouteId) {
+      setSelectedRouteId(recommendation.recommendedRouteId);
+    }
+  }, [recommendation, selectedRouteId]);
 
   const handleCompareRoutes = async () => {
     setHasRequested(true);
@@ -33,10 +45,19 @@ export function RouteComparisonScreen({
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Compare routes</Text>
+      <View style={styles.headerRow}>
+        <Text style={styles.title}>Compare routes</Text>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Learn about route comparison"
+          hitSlop={8}
+          onPress={showIntro}
+          style={styles.infoButton}>
+          <MaterialIcons name="help-outline" size={20} color="#1F4B4A" />
+        </Pressable>
+      </View>
       <Text style={styles.subtitle}>
-        See travel time, distance, and recent report activity for each option
-        before you go.
+        Compare travel time, distance, and community-reported risk across available options to make your own travel decision.
       </Text>
 
       {!hasRequested && (
@@ -77,6 +98,14 @@ export function RouteComparisonScreen({
           ListHeaderComponent={
             <RecommendationBanner recommendation={recommendation} />
           }
+          ListFooterComponent={
+            <View style={styles.footerNoteBox}>
+              <MaterialIcons name="shield" size={16} color="#1F4B4A" style={styles.footerNoteIcon} />
+              <Text style={styles.footerNoteText}>
+                Risk estimates reflect reported incidents and available community data. Reports may change over time, and lower reported risk does not guarantee complete safety.
+              </Text>
+            </View>
+          }
           renderItem={({ item }) => (
             <RouteCard
               route={item}
@@ -87,6 +116,12 @@ export function RouteComparisonScreen({
           )}
         />
       )}
+
+      <RouteComparisonIntroModal
+        visible={introVisible}
+        onComplete={completeIntro}
+        onSkip={skipIntro}
+      />
     </View>
   );
 }
@@ -98,11 +133,24 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 24,
   },
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
   title: {
     fontSize: 22,
     fontWeight: '700',
     color: '#111827',
-    marginBottom: 4,
+  },
+  infoButton: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#E8F3F1',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   subtitle: {
     fontSize: 14,
@@ -143,5 +191,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#1F4B4A',
+  },
+  footerNoteBox: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#EEF6F4',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: '#D2E6DF',
+  },
+  footerNoteIcon: {
+    marginTop: 2,
+  },
+  footerNoteText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 17,
+    color: '#2F4F48',
   },
 });
