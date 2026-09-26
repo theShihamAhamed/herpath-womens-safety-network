@@ -145,7 +145,7 @@ export function RouteResultsPlaceholder() {
     if (!route || !origin || !selectedDestination) return;
 
     router.push({
-      pathname: '/journey/tracking',
+      pathname: '/journey/intro',
       params: {
         routeId: route.routeId,
         origin: JSON.stringify({
