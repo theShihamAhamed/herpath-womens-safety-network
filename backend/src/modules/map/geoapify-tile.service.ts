@@ -1,6 +1,6 @@
 import { AppError } from '../../common/errors/app-error.js';
 
-const GEOAPIFY_TILE_STYLE = 'osm-bright';
+const GEOAPIFY_TILE_STYLE = 'osm-liberty';
 const GEOAPIFY_TILE_BASE_URL = 'https://maps.geoapify.com/v1/tile';
 
 export interface TileCoordinates {
