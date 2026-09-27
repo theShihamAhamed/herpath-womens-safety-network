@@ -38,3 +38,10 @@ Feature/foundation PRs target `develop`. A tested milestone moves through a revi
 Each PR should include Jira issue, summary, tests, screenshots/API proof where relevant, privacy/security impact, and documentation changes.
 
 Cross-component contract changes must update `docs/` in the same PR.
+
+## Android map testing on Expo SDK 57
+The frontend currently uses Expo 57.0.25, React Native 0.86.3, and `react-native-maps` 1.27.2. iOS map rendering has been tested successfully with the default iOS provider.
+
+On Android Expo Go, the UI, API features, and support-place data can work while the native map surface remains black and tiles do not render. Repository inspection found valid MapView dimensions, the default Android provider, and no custom style or tile layer; this is an observed SDK 57 Expo Go testing limitation, not proof that HerPath map logic is broken.
+
+Do not add Google Maps keys, Google Cloud billing/configuration, or MapView workarounds without team approval. If native Android verification is required, use an approved development-build workflow, configure any required Android credentials only after approval, and test the same map there before changing application map logic.
