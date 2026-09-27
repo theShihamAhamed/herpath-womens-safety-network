@@ -14,6 +14,7 @@ import { useAuth } from '../../auth/auth-provider';
 import { requestNotificationPermission, sendDeviationNotification, sendArrivalNotification } from '../utils/notifications';
 import FeedbackOverlay from '../components/FeedbackOverlay';
 import { palette } from '@/src/theme';
+import { ApiError, messageFromError } from '@/src/services/api/errors';
 
 export default function JourneyTrackingScreen({ params }: { params: IncomingRouteParams }) {
   const router = useRouter();
@@ -92,9 +93,44 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
       const journey = await journeyApi.start(accessToken, params);
       setJourneyId(journey._id);
       setJourneyStatus('ACTIVE');
-      await startTracking();
-    } catch {
-      Alert.alert('Error', 'Could not start the journey. Please try again.');
+      const trackingStarted = await startTracking();
+      if (!trackingStarted) {
+        await journeyApi.cancel(accessToken, journey._id);
+        setJourneyId(null);
+        setJourneyStatus('IDLE');
+        throw new Error('Location tracking could not be started.');
+      }
+    } catch (error) {
+      if (error instanceof ApiError && error.code === 'ACTIVE_JOURNEY_EXISTS') {
+        try {
+          const activeJourney = (await journeyApi.history(accessToken)).find(
+            (journey) => journey.status === 'ACTIVE',
+          );
+          if (activeJourney) {
+            Alert.alert(
+              'Active journey found',
+              'A previous journey is still marked as active. Would you like to cancel it?',
+              [
+                { text: 'Keep it', style: 'cancel' },
+                {
+                  text: 'Cancel journey',
+                  style: 'destructive',
+                  onPress: () => {
+                    void journeyApi.cancel(accessToken, activeJourney._id)
+                      .then(() => Alert.alert('Journey cancelled', 'You can now start a new journey.'))
+                      .catch((cancelError) => Alert.alert('Error', messageFromError(cancelError)));
+                  },
+                },
+              ],
+            );
+            return;
+          }
+        } catch (historyError) {
+          Alert.alert('Error', messageFromError(historyError));
+          return;
+        }
+      }
+      Alert.alert('Error', messageFromError(error));
     } finally {
       setLoading(false);
     }

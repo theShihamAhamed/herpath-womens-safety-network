@@ -19,6 +19,16 @@ export const startJourney = wrap(async (req, res) => {
   res.status(201).json({ success: true, data: journey });
 });
 
+export const cancelJourney = wrap(async (req, res) => {
+  const { journeyId } = req.body;
+  const journey = await journeyService.cancelJourney(journeyId, req.auth!.userId);
+  if (!journey) {
+    res.status(404).json({ success: false, message: 'Journey not found' });
+    return;
+  }
+  res.json({ success: true, data: journey });
+});
+
 export const updateLocation = wrap(async (req, res) => {
   const { journeyId, latitude, longitude } = req.body;
   const journey = await journeyService.updateLocation(journeyId, req.auth!.userId, { latitude, longitude });

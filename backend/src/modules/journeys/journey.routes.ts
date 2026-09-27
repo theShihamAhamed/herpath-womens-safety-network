@@ -8,6 +8,7 @@ export function createJourneyRouter(auth: AuthService): Router {
   const requireAuthentication = authenticate((token) => auth.authenticateAccessToken(token));
 
   router.post('/journeys/start', requireAuthentication, journeyController.startJourney);
+  router.put('/journeys/cancel', requireAuthentication, journeyController.cancelJourney);
   router.put('/journeys/location', requireAuthentication, journeyController.updateLocation);
   router.put('/journeys/checkin', requireAuthentication, journeyController.checkIn);
   router.put('/journeys/deviation', requireAuthentication, journeyController.reportDeviation);

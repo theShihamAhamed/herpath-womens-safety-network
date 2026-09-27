@@ -15,6 +15,7 @@ export const apiEndpoints = {
 
   journeys: {
     start: '/journeys/start',
+    cancel: '/journeys/cancel',
     location: '/journeys/location',
     checkin: '/journeys/checkin',
     deviation: '/journeys/deviation',
