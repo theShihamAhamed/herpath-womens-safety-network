@@ -21,6 +21,13 @@ export const journeyApi = {
       body: params,
     }),
 
+  cancel: (accessToken: string, journeyId: string) =>
+    apiRequest<Journey>(apiEndpoints.journeys.cancel, {
+      method: 'PUT',
+      accessToken,
+      body: { journeyId },
+    }),
+
   updateLocation: (accessToken: string, journeyId: string, point: Coordinate) =>
     apiRequest<Journey>(apiEndpoints.journeys.location, {
       method: 'PUT',

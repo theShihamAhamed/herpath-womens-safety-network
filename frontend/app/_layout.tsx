@@ -41,6 +41,7 @@ function SessionAwareNavigator() {
     <Stack screenOptions={{ headerBackTitle: 'Back' }}>
       <Stack.Screen name="index" options={{ headerShown: false }} />
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="journey" options={{ headerShown: false }} />
       <Stack.Screen
         name="alerts"
         options={{
