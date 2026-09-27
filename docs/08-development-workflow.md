@@ -42,6 +42,10 @@ Cross-component contract changes must update `docs/` in the same PR.
 ## Android map testing on Expo SDK 57
 The frontend currently uses Expo 57.0.25, React Native 0.86.3, and `react-native-maps` 1.27.2. iOS map rendering has been tested successfully with the default iOS provider.
 
-On Android Expo Go, the UI, API features, and support-place data can work while the native map surface remains black and tiles do not render. Repository inspection found valid MapView dimensions, the default Android provider, and no custom style or tile layer; this is an observed SDK 57 Expo Go testing limitation, not proof that HerPath map logic is broken.
+### Original problem
+On Android Expo Go after the SDK 57 upgrade, the Google/native base map could remain black while the UI, API features, and support-place data continued to work. Source inspection found valid MapView dimensions and no custom style or tile layer causing it.
 
-Do not add Google Maps keys, Google Cloud billing/configuration, or MapView workarounds without team approval. If native Android verification is required, use an approved development-build workflow, configure any required Android credentials only after approval, and test the same map there before changing application map logic.
+### Final implemented solution
+Android retains `react-native-maps`, sets `mapType="none"`, and uses `UrlTile` to display Geoapify/OpenStreetMap raster tiles. The mobile client requests `/api/v1/map/tiles/:z/:x/:y`; the backend proxies Geoapify and keeps `GEOAPIFY_API_KEY` server-side. No Geoapify key, Google Cloud configuration, or Google Maps API key is present in the mobile client.
+
+iOS remains unchanged on Apple Maps. Physical Android testing passed with the fallback, and markers, current location, filters, reports, nearby support places, routing, and Get Directions remain available.
