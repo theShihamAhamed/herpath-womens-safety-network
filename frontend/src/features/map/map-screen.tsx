@@ -1,8 +1,8 @@
 import { useFocusEffect } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import MapView from 'react-native-maps';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import MapView, { UrlTile } from 'react-native-maps';
 import * as Location from 'expo-location';
 
 import { AreaSummarySheet } from './area-summary-sheet';
@@ -25,6 +25,7 @@ import {
 } from '@/src/features/routing';
 import { FALLBACK_LOCATION, type UseUserLocationResult } from './use-user-location';
 import { useSupportPlaceSearch } from './use-support-place-search';
+import { environment } from '@/src/config/environment';
 
 interface MapScreenProps {
   controlsTopOffset?: number;
@@ -117,6 +118,7 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   };
+  const androidTileUrlTemplate = `${environment.apiBaseUrl}/map/tiles/{z}/{x}/{y}`;
 
   const loadIncidents = useCallback(async (bounds: ViewportBounds, activeFilter: MapFilter) => {
     setIsRefreshing(true);
@@ -289,11 +291,15 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
       <MapView
         ref={mapRef}
         style={styles.map}
+        mapType={Platform.OS === 'android' ? 'none' : undefined}
         initialRegion={initialRegion}
         showsUserLocation={permissionStatus === Location.PermissionStatus.GRANTED}
         onRegionChangeComplete={handleRegionChangeComplete}
         onLongPress={handleLongPress}
       >
+        {Platform.OS === 'android' ? (
+          <UrlTile urlTemplate={androidTileUrlTemplate} tileSize={256} maximumZ={20} />
+        ) : null}
         {filteredIncidents.map((incident) => (
           <IncidentArea key={`area-${incident.id}`} incident={incident} />
         ))}
@@ -325,6 +331,12 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
           <DestinationMarker destination={selectedDestination} />
         ) : null}
       </MapView>
+
+      {Platform.OS === 'android' ? (
+        <View pointerEvents="none" style={[styles.tileAttribution, { top: controlsTopOffset + 112 }]}>
+          <Text style={styles.tileAttributionText}>© OpenStreetMap contributors · Geoapify</Text>
+        </View>
+      ) : null}
 
       <View
         pointerEvents="box-none"
@@ -428,6 +440,18 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  tileAttribution: {
+    position: 'absolute',
+    right: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+  },
+  tileAttributionText: {
+    color: '#3E4C48',
+    fontSize: 10,
   },
   actionControls: {
     position: 'absolute',

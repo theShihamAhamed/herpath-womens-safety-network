@@ -38,3 +38,14 @@ Feature/foundation PRs target `develop`. A tested milestone moves through a revi
 Each PR should include Jira issue, summary, tests, screenshots/API proof where relevant, privacy/security impact, and documentation changes.
 
 Cross-component contract changes must update `docs/` in the same PR.
+
+## Android map testing on Expo SDK 57
+The frontend currently uses Expo 57.0.25, React Native 0.86.3, and `react-native-maps` 1.27.2. iOS map rendering has been tested successfully with the default iOS provider.
+
+### Original problem
+On Android Expo Go after the SDK 57 upgrade, the Google/native base map could remain black while the UI, API features, and support-place data continued to work. Source inspection found valid MapView dimensions and no custom style or tile layer causing it.
+
+### Final implemented solution
+Android retains `react-native-maps`, sets `mapType="none"`, and uses `UrlTile` to display Geoapify/OpenStreetMap raster tiles. The mobile client requests `/api/v1/map/tiles/:z/:x/:y`; the backend proxies Geoapify and keeps `GEOAPIFY_API_KEY` server-side. No Geoapify key, Google Cloud configuration, or Google Maps API key is present in the mobile client.
+
+iOS remains unchanged on Apple Maps. Physical Android testing passed with the fallback, and markers, current location, filters, reports, nearby support places, routing, and Get Directions remain available.

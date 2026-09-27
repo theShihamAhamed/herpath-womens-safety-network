@@ -57,7 +57,7 @@ export default function JourneyOutcomeScreen({ journeyId }: { journeyId: string 
           message={feedback.message}
           onHide={() => {
             setFeedback(null);
-            router.replace('/journey/history');
+            router.replace('/(tabs)/map');
           }}
         />
       )}

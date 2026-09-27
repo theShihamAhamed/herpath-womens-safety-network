@@ -141,8 +141,11 @@ export function createApp(dependencies: AppDependencies): Express {
     `${API_PREFIX}/map`,
     createMapRouter(
       dependencies.config.overpassApiUrl === undefined
-        ? {}
-        : { overpassApiUrl: dependencies.config.overpassApiUrl },
+        ? { geoapifyApiKey: dependencies.config.geoapifyApiKey }
+        : {
+            overpassApiUrl: dependencies.config.overpassApiUrl,
+            geoapifyApiKey: dependencies.config.geoapifyApiKey,
+          },
     ),
   );
 
