@@ -25,7 +25,7 @@ describe('Geoapify raster tile proxy', () => {
 
     expect(response.body.toString('utf8')).not.toContain('server-only-key');
     const upstreamUrl = new URL(tileRequest.mock.calls[0]?.[0] as string);
-    expect(upstreamUrl.pathname).toBe('/v1/tile/osm-bright/1/1/0.png');
+    expect(upstreamUrl.pathname).toBe('/v1/tile/osm-liberty/1/1/0.png');
     expect(upstreamUrl.searchParams.get('apiKey')).toBe('server-only-key');
   });
 
