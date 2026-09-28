@@ -38,6 +38,8 @@ export interface AppRuntimeConfig {
   rateLimitWindowMs: number;
   rateLimitMax: number;
   authRateLimitMax: number;
+  mapTileRateLimitWindowMs?: number;
+  mapTileRateLimitMax?: number;
   reportRateLimitWindowMs: number;
   reportRateLimitMax: number;
   feedbackRateLimitWindowMs?: number;
@@ -62,6 +64,7 @@ export interface AppDependencies {
 }
 
 const JSON_BODY_LIMIT = '100kb';
+const MAP_TILE_PATH = `${API_PREFIX}/map/tiles`;
 
 export function createApp(dependencies: AppDependencies): Express {
   const app = express();
@@ -116,6 +119,8 @@ export function createApp(dependencies: AppDependencies): Express {
     createGeneralRateLimiter({
       windowMs: dependencies.config.rateLimitWindowMs,
       max: dependencies.config.rateLimitMax,
+      skip: (request) =>
+        request.path === MAP_TILE_PATH || request.path.startsWith(`${MAP_TILE_PATH}/`),
     }),
   );
 
@@ -139,14 +144,16 @@ export function createApp(dependencies: AppDependencies): Express {
 
   app.use(
     `${API_PREFIX}/map`,
-    createMapRouter(
-      dependencies.config.overpassApiUrl === undefined
-        ? { geoapifyApiKey: dependencies.config.geoapifyApiKey }
-        : {
-            overpassApiUrl: dependencies.config.overpassApiUrl,
-            geoapifyApiKey: dependencies.config.geoapifyApiKey,
-          },
-    ),
+    createMapRouter({
+      ...(dependencies.config.overpassApiUrl === undefined
+        ? {}
+        : { overpassApiUrl: dependencies.config.overpassApiUrl }),
+      geoapifyApiKey: dependencies.config.geoapifyApiKey,
+      tileRateLimit: {
+        windowMs: dependencies.config.mapTileRateLimitWindowMs ?? 900_000,
+        max: dependencies.config.mapTileRateLimitMax ?? 2_000,
+      },
+    }),
   );
 
   const incidentService = createIncidentService({

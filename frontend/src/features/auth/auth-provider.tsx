@@ -58,10 +58,19 @@ export function AuthProvider({
   const [operation, setOperation] = useState<AuthOperation>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const started = useRef(false);
+  const restorePromise = useRef<Promise<void> | null>(null);
 
-  async function activate(bundle: AuthTokenBundle): Promise<void> {
+  async function activate(
+    bundle: AuthTokenBundle,
+    options: { persistBeforeVerification?: boolean } = {},
+  ): Promise<void> {
+    if (options.persistBeforeVerification) {
+      await dependencies.storage.set(bundle.refreshToken);
+    }
     const verifiedActor = await dependencies.api.me(bundle.accessToken);
-    await dependencies.storage.set(bundle.refreshToken);
+    if (!options.persistBeforeVerification) {
+      await dependencies.storage.set(bundle.refreshToken);
+    }
     setAccessToken(bundle.accessToken);
     setActor(verifiedActor);
     setErrorMessage(null);
@@ -72,7 +81,7 @@ export function AuthProvider({
     await activate(await dependencies.api.createAnonymous());
   }
 
-  async function restoreSession(): Promise<void> {
+  async function performSessionRestore(): Promise<void> {
     setStatus('loading');
     setErrorMessage(null);
 
@@ -83,13 +92,19 @@ export function AuthProvider({
         return;
       }
 
+      let bundle: AuthTokenBundle;
       try {
-        await activate(await dependencies.api.refresh(refreshToken));
+        bundle = await dependencies.api.refresh(refreshToken);
       } catch (error) {
-        if (!isInvalidRefresh(error)) throw error;
+        if (!isInvalidRefresh(error)) {
+          throw error;
+        }
         await dependencies.storage.clear();
         await createAnonymousSession();
+        return;
       }
+
+      await activate(bundle, { persistBeforeVerification: true });
     } catch (error) {
       setAccessToken(null);
       setActor(null);
@@ -99,6 +114,23 @@ export function AuthProvider({
           : 'HerPath could not restore your session. Please try again.',
       );
       setStatus('error');
+    }
+  }
+
+  async function restoreSession(): Promise<void> {
+    if (restorePromise.current) {
+      return restorePromise.current;
+    }
+
+    const promise = performSessionRestore();
+    restorePromise.current = promise;
+
+    try {
+      await promise;
+    } finally {
+      if (restorePromise.current === promise) {
+        restorePromise.current = null;
+      }
     }
   }
 

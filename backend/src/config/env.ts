@@ -29,6 +29,8 @@ const rawEnvironmentSchema = z.object({
   RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
   RATE_LIMIT_MAX: z.coerce.number().int().positive().default(200),
   AUTH_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(10),
+  MAP_TILE_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
+  MAP_TILE_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(2_000),
   REPORT_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
   REPORT_RATE_LIMIT_MAX: z.coerce.number().int().positive().default(5),
   FEEDBACK_RATE_LIMIT_WINDOW_MS: z.coerce.number().int().positive().default(900_000),
@@ -82,6 +84,8 @@ export interface Environment {
   rateLimitWindowMs: number;
   rateLimitMax: number;
   authRateLimitMax: number;
+  mapTileRateLimitWindowMs: number;
+  mapTileRateLimitMax: number;
   reportRateLimitWindowMs: number;
   reportRateLimitMax: number;
   feedbackRateLimitWindowMs: number;
@@ -134,6 +138,8 @@ export function loadEnvironment(source: NodeJS.ProcessEnv = process.env): Enviro
     rateLimitWindowMs: result.data.RATE_LIMIT_WINDOW_MS,
     rateLimitMax: result.data.RATE_LIMIT_MAX,
     authRateLimitMax: result.data.AUTH_RATE_LIMIT_MAX,
+    mapTileRateLimitWindowMs: result.data.MAP_TILE_RATE_LIMIT_WINDOW_MS,
+    mapTileRateLimitMax: result.data.MAP_TILE_RATE_LIMIT_MAX,
     reportRateLimitWindowMs: result.data.REPORT_RATE_LIMIT_WINDOW_MS,
     reportRateLimitMax: result.data.REPORT_RATE_LIMIT_MAX,
     feedbackRateLimitWindowMs: result.data.FEEDBACK_RATE_LIMIT_WINDOW_MS,

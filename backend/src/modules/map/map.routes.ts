@@ -1,5 +1,6 @@
 import { Router } from 'express';
 
+import { createMapTileRateLimiter } from '../../common/middleware/rate-limiters.js';
 import { validate } from '../../common/middleware/validate.js';
 import { MapController } from './map.controller.js';
 import { MapService } from './map.service.js';
@@ -14,6 +15,10 @@ export function createMapRouter(options: {
   supportPlaceProvider?: SupportPlaceProvider;
   geoapifyApiKey?: string | undefined;
   tileRequest?: typeof fetch;
+  tileRateLimit?: {
+    windowMs: number;
+    max: number;
+  };
 } = {}): Router {
   const router = Router();
   const service = new MapService();
@@ -22,6 +27,11 @@ export function createMapRouter(options: {
   );
   const tileService = new GeoapifyTileService(options.geoapifyApiKey, options.tileRequest);
   const controller = new MapController(service, supportPlaceService, tileService);
+
+  router.use(
+    '/tiles',
+    createMapTileRateLimiter(options.tileRateLimit ?? { windowMs: 900_000, max: 2_000 }),
+  );
 
   router.get(
     '/incidents',
@@ -41,7 +51,11 @@ export function createMapRouter(options: {
     controller.getSupportPlaces,
   );
 
-  router.get('/tiles/:z/:x/:y', validate({ params: tileParamsSchema }), controller.getTile);
+  router.get(
+    '/tiles/:z/:x/:y',
+    validate({ params: tileParamsSchema }),
+    controller.getTile,
+  );
 
   return router;
 }
