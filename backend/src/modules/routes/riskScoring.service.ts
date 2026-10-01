@@ -4,7 +4,12 @@ import {
   IncidentPublicReader,
   type PublicIncidentReader,
 } from '../incidents/incident.public-reader.js';
-import type { LatLng, RouteWithRiskContext } from './routes.types.js';
+import type {
+  LatLng,
+  RiskFactors,
+  RouteRiskScore,
+  RouteWithRiskContext,
+} from './routes.types.js';
 
 export interface IncidentSample {
   id: string;
@@ -12,17 +17,8 @@ export interface IncidentSample {
   occurredAt: string; // ISO date string
 }
 
-export interface RiskFactors {
-  incidentCount: number;
-  severityWeightedScore: number;
-  recencyWeightedScore: number;
-}
-
-export interface RouteRiskScore extends RouteWithRiskContext {
-  riskScore: number; // lower = safer. Normalized per km so longer routes
-                      // aren't unfairly penalized just for covering more ground.
-  riskFactors: RiskFactors;
-}
+// Re-export shared route risk types for consumers of this module.
+export type { RiskFactors, RouteRiskScore };
 
 
 const SEVERITY_MAP: Record<string, number> = {

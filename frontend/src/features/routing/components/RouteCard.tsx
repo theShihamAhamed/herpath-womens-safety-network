@@ -19,7 +19,9 @@ interface RiskLevelInfo {
   explanation: string;
 }
 
-function getRiskLevelInfo(count: number, isRecommended: boolean): RiskLevelInfo {
+function getRiskLevelInfo(rawCount: number | undefined, isRecommended: boolean): RiskLevelInfo {
+  const count = typeof rawCount === 'number' && Number.isFinite(rawCount) && rawCount >= 0 ? rawCount : 0;
+
   if (count === 0) {
     return {
       label: 'Lower reported risk',
@@ -27,8 +29,8 @@ function getRiskLevelInfo(count: number, isRecommended: boolean): RiskLevelInfo 
       textColor: '#165B4C',
       iconName: 'shield',
       explanation: isRecommended
-        ? 'No recent community reports nearby — lowest risk profile.'
-        : 'No recent safety reports recorded along this corridor.',
+        ? 'No recent safety reports recorded nearby based on available community data.'
+        : 'No recent safety reports recorded along this corridor based on available community data.',
     };
   }
 
@@ -39,8 +41,8 @@ function getRiskLevelInfo(count: number, isRecommended: boolean): RiskLevelInfo 
       textColor: '#8C570D',
       iconName: 'info-outline',
       explanation: isRecommended
-        ? 'Fewer recent reports than alternatives.'
-        : 'A few recent reports recorded nearby.',
+        ? 'Fewer recent reports than alternatives based on available community data.'
+        : 'A few recent reports recorded nearby based on available community data.',
     };
   }
 
@@ -49,7 +51,7 @@ function getRiskLevelInfo(count: number, isRecommended: boolean): RiskLevelInfo 
     badgeBg: '#FDF0ED',
     textColor: '#B23A22',
     iconName: 'warning-amber',
-    explanation: 'Multiple safety reports recorded along this corridor.',
+    explanation: 'Multiple safety reports recorded along this corridor based on available community data.',
   };
 }
 
@@ -59,13 +61,17 @@ export function RouteCard({
   selected,
   onPress,
 }: RouteCardProps) {
-  const riskInfo = getRiskLevelInfo(route.nearbyIncidentCount, isRecommended);
+  const safeLabel = route?.summaryLabel?.trim() || 'Route Option';
+  const safeDuration = route?.durationText?.trim() || (route?.durationSeconds ? `${Math.round(route.durationSeconds / 60)} min` : '-- min');
+  const safeDistance = route?.distanceText?.trim() || (route?.distanceMeters ? `${(route.distanceMeters / 1000).toFixed(1)} km` : '-- km');
+  const riskInfo = getRiskLevelInfo(route?.nearbyIncidentCount, isRecommended);
+
 
   return (
     <Pressable
       accessible
       accessibilityRole="button"
-      accessibilityLabel={`Route ${route.summaryLabel}, ${route.durationText}, ${route.distanceText}, ${riskInfo.label}${selected ? ', selected' : ''}`}
+      accessibilityLabel={`Route ${safeLabel}, ${safeDuration}, ${safeDistance}, ${riskInfo.label}${selected ? ', selected' : ''}`}
       onPress={onPress}
       style={({ pressed }) => [
         styles.card,
@@ -82,7 +88,7 @@ export function RouteCard({
             style={styles.routeIcon}
           />
           <Text style={[styles.summaryLabel, selected && styles.summaryLabelSelected]} numberOfLines={2}>
-            {route.summaryLabel}
+            {safeLabel}
           </Text>
         </View>
 
@@ -106,14 +112,14 @@ export function RouteCard({
       <View style={styles.metricsRow}>
         <View style={styles.metricItem}>
           <MaterialIcons name="schedule" size={16} color={palette.primary} />
-          <Text style={styles.durationValue}>{route.durationText}</Text>
+          <Text style={styles.durationValue}>{safeDuration}</Text>
         </View>
 
         <View style={styles.metricDivider} />
 
         <View style={styles.metricItem}>
           <MaterialIcons name="straighten" size={16} color={palette.textMuted} />
-          <Text style={styles.distanceValue}>{route.distanceText}</Text>
+          <Text style={styles.distanceValue}>{safeDistance}</Text>
         </View>
 
         {/* Risk Badge */}

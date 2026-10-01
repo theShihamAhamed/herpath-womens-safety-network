@@ -14,6 +14,8 @@ import { RouteComparisonIntroModal } from './components/RouteComparisonIntroModa
 import { useRouteRecommendation } from './hooks/useRouteRecommendation';
 import { useRouteComparisonIntro } from './hooks/useRouteComparisonIntro';
 
+import { validateRouteForJourney } from './utils/route-validation';
+
 interface RoutePlanningEntryProps {
   userLocation?: { latitude: number; longitude: number } | null;
   onDestinationSelected?: (destination: { latitude: number; longitude: number }) => void;
@@ -132,7 +134,10 @@ export function RouteResultsPlaceholder() {
   const { recommendation, loading, error, requestRecommendation } = useRouteRecommendation();
   const { introVisible, completeIntro, skipIntro, showIntro } = useRouteComparisonIntro();
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
+  const [validationError, setValidationError] = useState<string | null>(null);
   const router = useRouter();
+
+  const activeRouteId = selectedRouteId ?? recommendation?.recommendedRouteId ?? null;
 
   useEffect(() => {
     if (selectedDestination && origin) {
@@ -143,35 +148,28 @@ export function RouteResultsPlaceholder() {
     }
   }, [origin, requestRecommendation, selectedDestination]);
 
-  useEffect(() => {
-    if (recommendation?.recommendedRouteId && !selectedRouteId) {
-      setSelectedRouteId(recommendation.recommendedRouteId);
-    }
-  }, [recommendation, selectedRouteId]);
-
   const handleStartJourney = () => {
-    const route = recommendation?.routes.find((r) => r.routeId === selectedRouteId);
-    if (!route || !origin || !selectedDestination) return;
+    setValidationError(null);
+
+    const route = recommendation?.routes.find((r) => r.routeId === activeRouteId);
+    const validation = validateRouteForJourney({
+      route,
+      origin,
+      destination: selectedDestination,
+    });
+
+    if (!validation.isValid || !validation.handoffParams) {
+      setValidationError(
+        validation.errors.length > 0
+          ? validation.errors.join('. ')
+          : 'Selected route has incomplete or invalid route information.'
+      );
+      return;
+    }
 
     router.push({
       pathname: '/journey/intro',
-      params: {
-        routeId: route.routeId,
-        origin: JSON.stringify({
-          latitude: origin.latitude,
-          longitude: origin.longitude,
-          address: origin.name,
-        }),
-        destination: JSON.stringify({
-          latitude: selectedDestination.latitude,
-          longitude: selectedDestination.longitude,
-          address: selectedDestination.name,
-        }),
-        polyline: route.polyline,
-        distance: String(route.distanceMeters),
-        duration: String(route.durationSeconds),
-        riskScore: 'riskScore' in route ? String((route as { riskScore: number }).riskScore) : undefined,
-      },
+      params: validation.handoffParams,
     });
   };
 
@@ -221,6 +219,13 @@ export function RouteResultsPlaceholder() {
         </View>
       </View>
 
+      {validationError && (
+        <View style={styles.validationErrorBox}>
+          <MaterialIcons name="error-outline" size={16} color={palette.accent} />
+          <Text style={styles.validationErrorText}>{validationError}</Text>
+        </View>
+      )}
+
       {loading ? (
         <View style={styles.stateRow}>
           <ActivityIndicator size="small" color={palette.primary} />
@@ -252,12 +257,15 @@ export function RouteResultsPlaceholder() {
               key={route.routeId}
               route={route}
               isRecommended={route.routeId === recommendation.recommendedRouteId}
-              selected={route.routeId === selectedRouteId}
-              onPress={() => setSelectedRouteId(route.routeId)}
+              selected={route.routeId === activeRouteId}
+              onPress={() => {
+                setSelectedRouteId(route.routeId);
+                setValidationError(null);
+              }}
             />
           ))}
 
-          {selectedRouteId && (
+          {activeRouteId && (
             <Pressable
               accessibilityRole="button"
               accessibilityLabel="Start journey on selected route"
@@ -271,7 +279,7 @@ export function RouteResultsPlaceholder() {
           <View style={styles.evidenceRow}>
             <MaterialIcons name="info-outline" size={15} color={palette.primary} style={styles.evidenceIcon} />
             <Text style={styles.evidenceNote}>
-              Reported risk is based on available community safety data and may change. Lower reported risk does not guarantee safety—use this to help make your own travel decision.
+              Reported risk is based on available community safety data and may change. Lower reported risk or absence of reports does not guarantee safety—use this to help make your own travel decision.
             </Text>
           </View>
         </ScrollView>
@@ -473,5 +481,23 @@ const styles = StyleSheet.create({
     color: palette.white,
     fontSize: 15,
     fontWeight: '700',
+  },
+  validationErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    padding: spacing.sm,
+    backgroundColor: '#FDF0ED',
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    borderColor: '#F5C2B8',
+    marginTop: spacing.xs,
+  },
+  validationErrorText: {
+    flex: 1,
+    color: palette.accent,
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
   },
 });

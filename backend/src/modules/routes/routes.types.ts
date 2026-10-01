@@ -63,3 +63,14 @@ export interface RouteWithRiskContext extends RouteSummary {
   nearbyIncidentCount: number; // preview count only — not a final risk score
   riskEvaluationStatus: 'ready_for_evaluation';
 }
+
+export interface RiskFactors {
+  incidentCount: number;
+  severityWeightedScore: number;
+  recencyWeightedScore: number;
+}
+
+export interface RouteRiskScore extends RouteWithRiskContext {
+  riskScore: number;
+  riskFactors: RiskFactors;
+}

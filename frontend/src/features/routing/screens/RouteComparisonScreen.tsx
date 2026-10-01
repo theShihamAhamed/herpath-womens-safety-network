@@ -15,6 +15,8 @@ import { RecommendationBanner } from '../components/RecommendationBanner';
 import { RouteComparisonIntroModal } from '../components/RouteComparisonIntroModal';
 import { LatLng } from '../types/routing.types';
 
+import { validateLatLng } from '../utils/route-validation';
+
 interface RouteComparisonScreenProps {
   // Normally comes from the map feature (selected pins) or device location
   origin: LatLng;
@@ -32,13 +34,14 @@ export function RouteComparisonScreen({
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [hasRequested, setHasRequested] = useState(false);
 
-  React.useEffect(() => {
-    if (recommendation?.recommendedRouteId && !selectedRouteId) {
-      setSelectedRouteId(recommendation.recommendedRouteId);
-    }
-  }, [recommendation, selectedRouteId]);
+  const activeRouteId = selectedRouteId ?? recommendation?.recommendedRouteId ?? null;
+
+  const originValidation = validateLatLng(origin);
+  const destValidation = validateLatLng(destination);
+  const areCoordinatesValid = originValidation.isValid && destValidation.isValid;
 
   const handleCompareRoutes = async () => {
+    if (!areCoordinatesValid) return;
     setHasRequested(true);
     await requestRecommendation(origin, destination);
   };
@@ -60,61 +63,71 @@ export function RouteComparisonScreen({
         Compare travel time, distance, and community-reported risk across available options to make your own travel decision.
       </Text>
 
-      {!hasRequested && (
-        <View style={styles.ctaWrapper}>
-          <Text style={styles.ctaText} onPress={handleCompareRoutes}>
-            Find routes
+      {!areCoordinatesValid ? (
+        <View style={styles.centeredState}>
+          <Text style={styles.errorText}>
+            Invalid starting point or destination coordinates. Please select valid locations to compare routes.
           </Text>
         </View>
-      )}
-
-      {loading && (
-        <View style={styles.centeredState}>
-          <ActivityIndicator size="small" color="#1F4B4A" />
-          <Text style={styles.stateText}>Comparing route safety context…</Text>
-        </View>
-      )}
-
-      {!loading && error && (
-        <View style={styles.centeredState}>
-          <Text style={styles.errorText}>{error}</Text>
-          <Text style={styles.retryText} onPress={handleCompareRoutes}>
-            Try again
-          </Text>
-        </View>
-      )}
-
-      {!loading && !error && hasRequested && recommendation?.routes.length === 0 && (
-        <View style={styles.centeredState}>
-          <Text style={styles.stateText}>No routes found for this trip.</Text>
-        </View>
-      )}
-
-      {!loading && recommendation && recommendation.routes.length > 0 && (
-        <FlatList
-          data={recommendation.routes}
-          keyExtractor={(item) => item.routeId}
-          contentContainerStyle={styles.listContent}
-          ListHeaderComponent={
-            <RecommendationBanner recommendation={recommendation} />
-          }
-          ListFooterComponent={
-            <View style={styles.footerNoteBox}>
-              <MaterialIcons name="shield" size={16} color="#1F4B4A" style={styles.footerNoteIcon} />
-              <Text style={styles.footerNoteText}>
-                Risk estimates reflect reported incidents and available community data. Reports may change over time, and lower reported risk does not guarantee complete safety.
+      ) : (
+        <>
+          {!hasRequested && (
+            <View style={styles.ctaWrapper}>
+              <Text style={styles.ctaText} onPress={handleCompareRoutes}>
+                Find routes
               </Text>
             </View>
-          }
-          renderItem={({ item }) => (
-            <RouteCard
-              route={item}
-              isRecommended={item.routeId === recommendation.recommendedRouteId}
-              selected={item.routeId === selectedRouteId}
-              onPress={() => setSelectedRouteId(item.routeId)}
+          )}
+
+          {loading && (
+            <View style={styles.centeredState}>
+              <ActivityIndicator size="small" color="#1F4B4A" />
+              <Text style={styles.stateText}>Comparing route safety context…</Text>
+            </View>
+          )}
+
+          {!loading && error && (
+            <View style={styles.centeredState}>
+              <Text style={styles.errorText}>{error}</Text>
+              <Text style={styles.retryText} onPress={handleCompareRoutes}>
+                Try again
+              </Text>
+            </View>
+          )}
+
+          {!loading && !error && hasRequested && recommendation?.routes.length === 0 && (
+            <View style={styles.centeredState}>
+              <Text style={styles.stateText}>No routes found for this trip.</Text>
+            </View>
+          )}
+
+          {!loading && recommendation && recommendation.routes.length > 0 && (
+            <FlatList
+              data={recommendation.routes}
+              keyExtractor={(item) => item.routeId}
+              contentContainerStyle={styles.listContent}
+              ListHeaderComponent={
+                <RecommendationBanner recommendation={recommendation} />
+              }
+              ListFooterComponent={
+                <View style={styles.footerNoteBox}>
+                  <MaterialIcons name="shield" size={16} color="#1F4B4A" style={styles.footerNoteIcon} />
+                  <Text style={styles.footerNoteText}>
+                    Risk estimates reflect reported incidents and available community data. Having no recent reports or lower reported risk does not guarantee complete safety.
+                  </Text>
+                </View>
+              }
+              renderItem={({ item }) => (
+                <RouteCard
+                  route={item}
+                  isRecommended={item.routeId === recommendation.recommendedRouteId}
+                  selected={item.routeId === activeRouteId}
+                  onPress={() => setSelectedRouteId(item.routeId)}
+                />
+              )}
             />
           )}
-        />
+        </>
       )}
 
       <RouteComparisonIntroModal

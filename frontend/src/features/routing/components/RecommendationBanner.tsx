@@ -28,7 +28,7 @@ export function RecommendationBanner({ recommendation }: RecommendationBannerPro
       <View style={styles.disclaimerContainer}>
         <MaterialIcons name="info-outline" size={15} color="#4A5D58" style={styles.disclaimerIcon} />
         <Text style={styles.disclaimerText}>
-          Reported risk is based on available community safety data and may change as new incidents are reported. Lower reported risk does not guarantee safety—use this to help make your own travel decision.
+          Reported risk is based on available community safety data and may change as new incidents are reported. Lower reported risk or absence of reports does not guarantee safety—use this to help make your own travel decision.
         </Text>
       </View>
     </View>

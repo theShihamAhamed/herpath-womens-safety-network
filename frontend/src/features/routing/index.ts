@@ -11,4 +11,19 @@ export { searchDestinations } from './routing.api';
 export { SelectedDestinationCard } from './selected-destination-card';
 export type { Destination, DestinationSuggestion, RouteOrigin } from './types';
 export { useDestinationSearch } from './useDestinationSearch';
+export {
+  isValidCoordinate,
+  sanitizeRouteData,
+  validateLatLng,
+  validateRouteData,
+  validateRouteDestination,
+  validateRouteForJourney,
+  validateRouteOrigin,
+} from './utils/route-validation';
+export type {
+  JourneyHandoffParams,
+  JourneyHandoffValidationResult,
+  RouteValidationResult,
+} from './utils/route-validation';
+
 

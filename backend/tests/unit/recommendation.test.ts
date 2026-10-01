@@ -267,4 +267,33 @@ describe('HS-86 safety explanation', () => {
     expect(result.explanation).toMatch(/not a guarantee of safety/i);
     expect(result.explanation).toMatch(/please stay alert/i);
   });
+
+  it('clearly explains limited recent data when multiple route options all have 0 reports', async () => {
+    mockPublicIncidentRead([]);
+    const routeA = makeRoute({ routeId: 'route-a', distanceMeters: 1000 });
+    const routeB = makeRoute({ routeId: 'route-b', distanceMeters: 1200 });
+    const result = await getRouteRecommendation([routeA, routeB]);
+
+    expect(result.explanation).toMatch(/no recent safety reports nearby based on available community data/i);
+    expect(result.explanation).toMatch(/limited recent data and is not a guarantee of safety/i);
+    expect(result.explanation).toMatch(/please stay alert/i);
+    // Must NOT claim one route has fewer reports when both have 0
+    expect(result.explanation).not.toMatch(/fewer recent reports/i);
+  });
+
+  it('accurately compares routes when sufficient incident data is present', async () => {
+    const inc1 = makePublicIncident({ id: 'inc-1', severity: 'HIGH', daysAgo: 2 });
+    const inc2 = makePublicIncident({ id: 'inc-2', severity: 'CRITICAL', daysAgo: 1 });
+    mockPublicIncidentReadSequence([inc1], [], [inc1, inc2], []);
+
+    const routeLowRisk = makeRoute({ routeId: 'low-risk' });
+    const routeHighRisk = makeRoute({ routeId: 'high-risk' });
+    const result = await getRouteRecommendation([routeLowRisk, routeHighRisk]);
+
+    expect(result.recommendedRouteId).toBe('low-risk');
+    expect(result.explanation).toMatch(/fewer recent reports nearby/i);
+    expect(result.explanation).toMatch(/available community data/i);
+    expect(result.explanation).toMatch(/not a guarantee of safety/i);
+  });
 });
+
