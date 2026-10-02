@@ -12,11 +12,17 @@ const outcomeMeta: Record<string, { color: string; label: string; icon: keyof ty
 
 export default function JourneyHistoryCard({ item, onPress }: { item: JourneyHistoryItem; onPress: () => void }) {
   const meta = outcomeMeta[item.outcome ?? 'UNKNOWN'];
+  const address = item.destination.address ?? 'Destination';
+
   return (
-    <Pressable style={({ pressed }) => [styles.card, pressed && styles.pressed]} onPress={onPress}>
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`Journey to ${address}, outcome ${meta.label}, ${Math.round(item.distanceTravelled)} meters, ${Math.round(item.duration / 60)} minutes`}
+      style={({ pressed }) => [styles.card, pressed && styles.pressed]}
+      onPress={onPress}>
       <View style={styles.rowTop}>
         <MaterialIcons name="place" size={18} color={palette.primary} />
-        <Text style={styles.destination}>{item.destination.address ?? 'Destination'}</Text>
+        <Text style={styles.destination}>{address}</Text>
       </View>
       <Text style={styles.meta}>{new Date(item.createdAt).toLocaleDateString()}</Text>
       <View style={styles.rowBottom}>

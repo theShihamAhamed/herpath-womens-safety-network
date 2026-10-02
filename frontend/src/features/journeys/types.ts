@@ -45,11 +45,14 @@ export interface JourneyHistoryItem {
 }
 
 export interface AnalyticsSummary {
-  totalJourneys: number;
+  activeJourneys: number;
+  completedJourneys: number;
   safeJourneys: number;
   incidentJourneys: number;
   unknownJourneys: number;
+  // Percentages are of completed journeys only — active journeys never dilute these.
   safePercentage: number;
   incidentPercentage: number;
   unknownPercentage: number;
+  observedIncidentRate: number;
 }
