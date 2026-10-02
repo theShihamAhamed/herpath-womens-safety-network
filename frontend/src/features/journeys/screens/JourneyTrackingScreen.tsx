@@ -1,15 +1,16 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { View, StyleSheet, Alert, ActivityIndicator } from 'react-native';
 import { useRouter } from 'expo-router';
+import * as Location from 'expo-location';
 import JourneyMap from '../components/JourneyMap';
 import JourneyControls from '../components/JourneyControls';
+import ArrivalPrompt from '../components/ArrivalPrompt';
 import { useLocationTracking } from '../hooks/useLocationTracking';
 import { journeyApi } from '../api/journeyApi';
 import { decodePolyline } from '../utils/polyline';
 import { distanceBetween, distanceToPath } from '../utils/geo';
 import { IncomingRouteParams, Coordinate } from '../types';
 import { DEVIATION_THRESHOLD_M, ARRIVAL_THRESHOLD_M } from '../../../config/journeyConstants';
-// TODO(verify): confirm this import path for useAuth matches the real auth-provider location.
 import { useAuth } from '../../auth/auth-provider';
 import { requestNotificationPermission, sendDeviationNotification, sendArrivalNotification } from '../utils/notifications';
 import FeedbackOverlay from '../components/FeedbackOverlay';
@@ -26,22 +27,65 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
   const [deviated, setDeviated] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showCheckInFeedback, setShowCheckInFeedback] = useState(false);
+  const [endError, setEndError] = useState<string | null>(null);
+  const [showArrivalPrompt, setShowArrivalPrompt] = useState(false);
+  const arrivalPromptShownRef = useRef(false);
   const stopTrackingRef = useRef<() => void>(() => undefined);
-
 
   const routePath = useMemo(() => decodePolyline(params.polyline), [params.polyline]);
 
   const handleEnd = useCallback(async () => {
     if (!journeyId || !accessToken) return;
-    stopTrackingRef.current();
-    setJourneyStatus('COMPLETED');
+    setLoading(true);
+    setEndError(null);
     try {
       await journeyApi.finish(accessToken, journeyId);
-    } catch (e) {
-      console.warn('Failed to finish journey', e);
+      stopTrackingRef.current();
+      setJourneyStatus('COMPLETED');
+      router.push({ pathname: '/journey/outcome', params: { journeyId } });
+    } catch {
+      setEndError('Could not finish the journey. Check your connection and try again.');
+    } finally {
+      setLoading(false);
     }
-    router.push({ pathname: '/journey/outcome', params: { journeyId } });
   }, [accessToken, journeyId, router]);
+
+  const handleCancel = useCallback(() => {
+    if (!journeyId || !accessToken) return;
+    Alert.alert('Cancel journey?', 'This will end tracking and mark the journey as unresolved.', [
+      { text: 'Keep tracking', style: 'cancel' },
+      {
+        text: 'Cancel journey',
+        style: 'destructive',
+        onPress: async () => {
+          setLoading(true);
+          try {
+            await journeyApi.cancel(accessToken, journeyId);
+            stopTrackingRef.current();
+            setJourneyStatus('COMPLETED');
+            Alert.alert('Journey cancelled', 'Your journey was cancelled and marked unresolved.');
+            router.replace('/journey/history');
+          } catch {
+            Alert.alert('Error', 'Could not cancel the journey. Try again.');
+          } finally {
+            setLoading(false);
+          }
+        },
+      },
+    ]);
+  }, [accessToken, journeyId, router]);
+
+  // Arrival is only a proposal — the user must explicitly confirm it.
+  const handleConfirmArrival = useCallback(async () => {
+    setShowArrivalPrompt(false);
+    await sendArrivalNotification();
+    await handleEnd();
+  }, [handleEnd]);
+
+  const handleContinueJourney = useCallback(() => {
+    setShowArrivalPrompt(false);
+    arrivalPromptShownRef.current = false; // allow re-prompting if they re-approach later
+  }, []);
 
   const handleLocation = useCallback(
     async (point: Coordinate) => {
@@ -69,12 +113,12 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
       }
 
       const distToDestination = distanceBetween(point, params.destination);
-      if (distToDestination <= ARRIVAL_THRESHOLD_M) {
-        await sendArrivalNotification();
-        await handleEnd();
+      if (distToDestination <= ARRIVAL_THRESHOLD_M && !arrivalPromptShownRef.current) {
+        arrivalPromptShownRef.current = true;
+        setShowArrivalPrompt(true);
       }
     },
-    [journeyId, routePath, deviated, accessToken, handleEnd, params.destination]
+    [journeyId, routePath, deviated, accessToken, params.destination]
   );
 
   const { start: startTracking, stop: stopTracking } = useLocationTracking(handleLocation);
@@ -87,19 +131,31 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
       Alert.alert('Not signed in', 'Please wait for your session to be ready.');
       return;
     }
-    await requestNotificationPermission();
+
     setLoading(true);
     try {
+      // Consent already given on the Intro screen; here we confirm the OS
+      // permission is actually granted BEFORE creating the journey, so a
+      // denial never leaves an orphaned ACTIVE journey behind.
+      const { status: locationStatus } = await Location.requestForegroundPermissionsAsync();
+      if (locationStatus !== 'granted') {
+        Alert.alert('Location permission needed', 'HerPath needs location access to track your journey.');
+        return;
+      }
+
+      await requestNotificationPermission();
+
       const journey = await journeyApi.start(accessToken, params);
       setJourneyId(journey._id);
-      setJourneyStatus('ACTIVE');
+
       const trackingStarted = await startTracking();
       if (!trackingStarted) {
         await journeyApi.cancel(accessToken, journey._id);
         setJourneyId(null);
-        setJourneyStatus('IDLE');
         throw new Error('Location tracking could not be started.');
       }
+
+      setJourneyStatus('ACTIVE');
     } catch (error) {
       if (error instanceof ApiError && error.code === 'ACTIVE_JOURNEY_EXISTS') {
         try {
@@ -136,18 +192,18 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
     }
   };
 
- const handleCheckIn = async () => {
-  if (!journeyId || !currentLocation || !accessToken) return;
-  setLoading(true);
-  try {
-    await journeyApi.checkIn(accessToken, journeyId, currentLocation);
-    setShowCheckInFeedback(true);
-  } catch {
-    Alert.alert('Error', 'Could not record check-in.');
-  } finally {
-    setLoading(false);
-  }
-};
+  const handleCheckIn = async () => {
+    if (!journeyId || !currentLocation || !accessToken) return;
+    setLoading(true);
+    try {
+      await journeyApi.checkIn(accessToken, journeyId, currentLocation);
+      setShowCheckInFeedback(true);
+    } catch {
+      Alert.alert('Error', 'Could not record check-in.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => stopTracking, [stopTracking]);
 
@@ -169,16 +225,21 @@ export default function JourneyTrackingScreen({ params }: { params: IncomingRout
         onStart={handleStart}
         onCheckIn={handleCheckIn}
         onEnd={handleEnd}
+        onCancel={handleCancel}
         loading={loading}
+        error={endError}
       />
       <FeedbackOverlay
-  visible={showCheckInFeedback}
-  icon="check-circle"
-  iconColor={palette.primary}
-  title="Checked in"
-  message="Your check-in was recorded."
-  onHide={() => setShowCheckInFeedback(false)}
-/>
+        visible={showCheckInFeedback}
+        icon="check-circle"
+        iconColor={palette.primary}
+        title="Checked in"
+        message="Your check-in was recorded."
+        onHide={() => setShowCheckInFeedback(false)}
+      />
+      {showArrivalPrompt && (
+        <ArrivalPrompt onConfirm={handleConfirmArrival} onContinue={handleContinueJourney} />
+      )}
     </View>
   );
 }
