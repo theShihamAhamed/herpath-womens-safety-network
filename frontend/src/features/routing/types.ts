@@ -1,20 +1,35 @@
-export interface Destination {
-  id: string;
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
+export type JourneyOutcome = 'SAFE_CONFIRMED' | 'INCIDENT_REPORTED' | 'UNKNOWN';
+export type JourneyStatus = 'ACTIVE' | 'COMPLETED';
+
+export interface Coordinate { latitude: number; longitude: number; }
+export interface LocationPoint extends Coordinate { address?: string; }
+export interface PathPoint extends Coordinate { timestamp: string; }
+
+export interface IncomingRouteParams {
+  routeId: string;
+  origin: LocationPoint;
+  destination: LocationPoint;
+  polyline: string;
+  distance?: number;
+  duration?: number;
+  riskScore?: number;
 }
 
-export interface DestinationSuggestion {
-  id: string;
-  name: string;
-  address: string;
-  latitude: number;
-  longitude: number;
-  distanceMeters?: number;
-  /** Optional broad provider category, if the search API supplies one. */
-  category?: string;
+export interface Journey {
+  _id: string;
+  origin: LocationPoint;
+  destination: LocationPoint;
+  selectedRoute: { polyline: string; distance?: number; duration?: number; riskScore?: number };
+  startTime?: string;
+  endTime?: string;
+  distanceTravelled: number;
+  duration: number;
+  currentPath: PathPoint[];
+  checkIns: PathPoint[];
+  deviationDetected: boolean;
+  deviationLocation: Coordinate | null;
+  outcome: JourneyOutcome | null;
+  status: JourneyStatus;
 }
 
 export interface RouteOrigin {
@@ -23,4 +38,27 @@ export interface RouteOrigin {
   latitude: number;
   longitude: number;
   isManual?: boolean;
+export interface JourneyHistoryItem {
+  _id: string;
+  destination: LocationPoint;
+  startTime?: string;
+  endTime?: string;
+  duration: number;
+  distanceTravelled: number;
+  outcome: JourneyOutcome | null;
+  status: JourneyStatus;
+  createdAt: string;
+}
+
+export interface AnalyticsSummary {
+  activeJourneys: number;
+  completedJourneys: number;
+  safeJourneys: number;
+  incidentJourneys: number;
+  unknownJourneys: number;
+  // Percentages are of completed journeys only — active journeys never dilute these.
+  safePercentage: number;
+  incidentPercentage: number;
+  unknownPercentage: number;
+  observedIncidentRate: number;
 }
