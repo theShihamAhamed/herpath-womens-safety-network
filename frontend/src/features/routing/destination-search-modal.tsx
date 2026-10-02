@@ -14,25 +14,49 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { palette, radius, spacing } from '@/src/theme';
 
-import { Destination, DestinationSuggestion } from './types';
+import { Destination, DestinationSuggestion, RouteOrigin } from './types';
 import { useDestinationSearch } from './useDestinationSearch';
 
 interface DestinationSearchModalProps {
   visible: boolean;
   onClose: () => void;
-  onSelectDestination: (destination: Destination) => void;
-  onSubmitResults: (query: string, results: DestinationSuggestion[]) => void;
+  onSelectDestination?: (destination: Destination) => void;
+  onSelectOrigin?: (origin: RouteOrigin) => void;
+  onSubmitResults?: (query: string, results: DestinationSuggestion[]) => void;
   userLocation?: { latitude: number; longitude: number } | null;
+  mode?: 'destination' | 'origin';
+  title?: string;
+  placeholder?: string;
 }
 
 export function DestinationSearchModal({
   visible,
   onClose,
   onSelectDestination,
+  onSelectOrigin,
   onSubmitResults,
   userLocation,
+  mode = 'destination',
+  title,
+  placeholder,
 }: DestinationSearchModalProps) {
-  const { query, setQuery, results, loading, errorMessage, locationRequired, shortQuery, clearSearch, retrySearch } = useDestinationSearch({
+  const isOriginMode = mode === 'origin';
+  const defaultPlaceholder = isOriginMode
+    ? 'Search starting location or address...'
+    : 'Search destination or address...';
+  const resolvedPlaceholder = placeholder || defaultPlaceholder;
+
+  const {
+    query,
+    setQuery,
+    results,
+    loading,
+    errorMessage,
+    locationRequired,
+    shortQuery,
+    clearSearch,
+    retrySearch,
+  } = useDestinationSearch({
     userLocation,
   });
   const [selectionError, setSelectionError] = React.useState<string | null>(null);
@@ -42,7 +66,32 @@ export function DestinationSearchModal({
     setPendingSubmitQuery(null);
     setSelectionError(null);
     clearSearch();
-    onSelectDestination(item);
+
+    if (isOriginMode && onSelectOrigin) {
+      onSelectOrigin({
+        name: item.name,
+        address: item.address,
+        latitude: item.latitude,
+        longitude: item.longitude,
+        isManual: true,
+      });
+    } else if (onSelectDestination) {
+      onSelectDestination(item);
+    }
+    onClose();
+  };
+
+  const handleSelectCurrentLocation = () => {
+    if (!userLocation || !onSelectOrigin) return;
+    setPendingSubmitQuery(null);
+    setSelectionError(null);
+    clearSearch();
+    onSelectOrigin({
+      name: 'Current Location',
+      latitude: userLocation.latitude,
+      longitude: userLocation.longitude,
+      isManual: false,
+    });
     onClose();
   };
 
@@ -57,12 +106,15 @@ export function DestinationSearchModal({
     retrySearch();
   };
 
-  const submitVisibleResults = React.useCallback((submittedQuery: string, visibleResults: DestinationSuggestion[]) => {
-    if (visibleResults.length === 0) return;
-    setPendingSubmitQuery(null);
-    onSubmitResults(submittedQuery, visibleResults.slice(0, 8));
-    onClose();
-  }, [onClose, onSubmitResults]);
+  const submitVisibleResults = React.useCallback(
+    (submittedQuery: string, visibleResults: DestinationSuggestion[]) => {
+      if (visibleResults.length === 0 || !onSubmitResults) return;
+      setPendingSubmitQuery(null);
+      onSubmitResults(submittedQuery, visibleResults.slice(0, 8));
+      onClose();
+    },
+    [onClose, onSubmitResults],
+  );
 
   const handleSubmit = () => {
     const submittedQuery = query.trim();
@@ -94,7 +146,7 @@ export function DestinationSearchModal({
           <View style={styles.header}>
             <Pressable
               accessibilityRole="button"
-              accessibilityLabel="Close destination search"
+              accessibilityLabel={isOriginMode ? 'Close starting location search' : 'Close destination search'}
               hitSlop={12}
               onPress={handleClose}
               style={styles.backButton}>
@@ -105,10 +157,10 @@ export function DestinationSearchModal({
               <MaterialIcons name="search" size={22} color={palette.primary} style={styles.searchIcon} />
               <TextInput
                 accessible
-                accessibilityLabel="Destination search text input"
+                accessibilityLabel={isOriginMode ? 'Starting location search text input' : 'Destination search text input'}
                 accessibilityHint="Type to show matching places"
                 style={styles.searchInput}
-                placeholder="Search destination or address..."
+                placeholder={resolvedPlaceholder}
                 placeholderTextColor={palette.textMuted}
                 value={query}
                 onChangeText={(text) => {
@@ -135,11 +187,38 @@ export function DestinationSearchModal({
             </View>
           </View>
 
+          {/* Optional Current Location row when in origin mode and query is empty */}
+          {isOriginMode && userLocation && query.trim().length === 0 && !loading && (
+            <Pressable
+              accessible
+              accessibilityRole="button"
+              accessibilityLabel="Use current device location as starting point"
+              style={({ pressed }) => [styles.currentLocationRow, pressed && styles.resultItemPressed]}
+              onPress={handleSelectCurrentLocation}>
+              <View style={styles.currentLocationIconContainer}>
+                <MaterialIcons name="my-location" size={20} color={palette.primary} />
+              </View>
+              <View style={styles.resultCopy}>
+                <Text style={styles.resultName}>Use Current Location</Text>
+                <Text style={styles.resultAddress}>
+                  GPS: {userLocation.latitude.toFixed(4)}, {userLocation.longitude.toFixed(4)}
+                </Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={20} color={palette.textMuted} />
+            </Pressable>
+          )}
+
           {/* Loading Indicator */}
           {loading ? (
-            <View accessible accessibilityRole="progressbar" accessibilityLabel="Searching destinations" style={styles.statusBox}>
+            <View
+              accessible
+              accessibilityRole="progressbar"
+              accessibilityLabel={isOriginMode ? 'Searching starting locations' : 'Searching destinations'}
+              style={styles.statusBox}>
               <ActivityIndicator size="small" color={palette.primary} />
-              <Text style={styles.statusText}>Searching destinations...</Text>
+              <Text style={styles.statusText}>
+                {isOriginMode ? 'Searching starting locations...' : 'Searching destinations...'}
+              </Text>
             </View>
           ) : null}
 
@@ -149,24 +228,30 @@ export function DestinationSearchModal({
               <MaterialIcons name="error-outline" size={20} color={palette.error} />
               <View style={styles.errorCopy}>
                 <Text style={styles.errorText}>{selectionError ?? errorMessage}</Text>
-                {!locationRequired ? <Pressable
-                  accessibilityRole="button"
-                  accessibilityLabel="Retry destination search"
-                  onPress={handleRetry}
-                  style={styles.retryButton}>
-                  <Text style={styles.retryText}>Retry</Text>
-                </Pressable> : null}
+                {!locationRequired ? (
+                  <Pressable
+                    accessibilityRole="button"
+                    accessibilityLabel={isOriginMode ? 'Retry starting location search' : 'Retry destination search'}
+                    onPress={handleRetry}
+                    style={styles.retryButton}>
+                    <Text style={styles.retryText}>Retry</Text>
+                  </Pressable>
+                ) : null}
               </View>
             </View>
           ) : null}
 
           {/* Empty Prompt / Prompt to type */}
-          {!loading && query.trim().length < 1 && !errorMessage ? (
+          {!loading && query.trim().length < 1 && !errorMessage && (!isOriginMode || !userLocation) ? (
             <View style={styles.emptyPrompt}>
-              <MaterialIcons name="place" size={48} color={palette.border} />
-              <Text style={styles.promptTitle}>Where would you like to go?</Text>
+              <MaterialIcons name={isOriginMode ? 'trip-origin' : 'place'} size={48} color={palette.border} />
+              <Text style={styles.promptTitle}>
+                {title || (isOriginMode ? 'Where are you starting from?' : 'Where would you like to go?')}
+              </Text>
               <Text style={styles.promptSubtitle}>
-                Type a place, address, or business to see suggestions.
+                {isOriginMode
+                  ? 'Type a place, address, or landmark to set your starting location.'
+                  : 'Type a place, address, or business to see suggestions.'}
               </Text>
             </View>
           ) : null}
@@ -199,19 +284,19 @@ export function DestinationSearchModal({
             renderItem={({ item }) => (
               <Pressable
                 accessibilityRole="button"
-                accessibilityLabel={`Select destination ${item.name}, ${item.address}`}
+                accessibilityLabel={`Select ${isOriginMode ? 'starting location' : 'destination'} ${item.name}, ${item.address}`}
                 style={({ pressed }) => [styles.resultItem, pressed && styles.resultItemPressed]}
                 onPress={() => handleSelect(item)}>
-                <View style={styles.pinIconContainer}>
-                  <MaterialIcons name="location-on" size={22} color={palette.primary} />
+                <View style={[styles.pinIconContainer, isOriginMode && styles.originPinContainer]}>
+                  <MaterialIcons
+                    name={isOriginMode ? 'trip-origin' : 'location-on'}
+                    size={22}
+                    color={palette.primary}
+                  />
                 </View>
                 <View style={styles.resultCopy}>
-                  <Text style={styles.resultName}>
-                    {item.name}
-                  </Text>
-                  <Text style={styles.resultAddress}>
-                    {item.address}
-                  </Text>
+                  <Text style={styles.resultName}>{item.name}</Text>
+                  <Text style={styles.resultAddress}>{item.address}</Text>
                 </View>
                 <MaterialIcons name="north-west" size={18} color={palette.textMuted} />
               </Pressable>
@@ -269,6 +354,25 @@ const styles = StyleSheet.create({
   },
   clearButton: {
     padding: spacing.xs,
+  },
+  currentLocationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    gap: spacing.md,
+    borderBottomWidth: 1,
+    borderBottomColor: palette.border,
+    backgroundColor: '#F0F7F5',
+    minHeight: 56,
+  },
+  currentLocationIconContainer: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#D6EAE5',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statusBox: {
     flexDirection: 'row',
@@ -358,6 +462,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 1,
+  },
+  originPinContainer: {
+    backgroundColor: '#E0F0EC',
   },
   resultCopy: {
     flex: 1,

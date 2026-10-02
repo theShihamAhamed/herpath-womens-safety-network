@@ -22,4 +22,5 @@ export interface RouteOrigin {
   address?: string;
   latitude: number;
   longitude: number;
+  isManual?: boolean;
 }

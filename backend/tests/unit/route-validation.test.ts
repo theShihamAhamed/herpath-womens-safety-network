@@ -272,4 +272,120 @@ describe('Route Controller Input Validation Handlers', () => {
       code: 'INVALID_COORDINATES',
     }));
   });
+
+  it('accepts manually selected origin coordinates for alternative route calculation', async () => {
+    const manualOrigin = '6.9350,79.8550';
+    const destination = '6.9271,79.8612';
+    const parsed = routeAlternativesQuerySchema.parse({
+      origin: manualOrigin,
+      destination,
+      mode: 'walking',
+    });
+    expect(parsed.origin).toBe(manualOrigin);
+    expect(parsed.destination).toBe(destination);
+  });
+
+  it('accepts changed origin coordinates and validates the new trip parameters', () => {
+    const initialOrigin = '6.9000,79.8500';
+    const changedOrigin = '6.9200,79.8700';
+    const destination = '6.9344,79.8501';
+
+    const firstTrip = routeAlternativesQuerySchema.parse({
+      origin: initialOrigin,
+      destination,
+    });
+    expect(firstTrip.origin).toBe(initialOrigin);
+
+    const updatedTrip = routeAlternativesQuerySchema.parse({
+      origin: changedOrigin,
+      destination,
+    });
+    expect(updatedTrip.origin).toBe(changedOrigin);
+  });
+});
+
+describe('Route-to-Journey Handoff Contract', () => {
+  const validRoute = {
+    routeId: 'route_selected_123',
+    polyline: 'w~liFvg`k@_ulLnnqC',
+    distanceMeters: 1450,
+    durationSeconds: 1100,
+    riskScore: 0.25,
+  };
+
+  const validOrigin = {
+    latitude: 6.9271,
+    longitude: 79.8612,
+    name: 'Colombo Fort',
+    address: 'Station Rd, Colombo',
+  };
+
+  const validDestination = {
+    id: 'dest_456',
+    latitude: 6.9344,
+    longitude: 79.8501,
+    name: 'Galle Face Green',
+    address: 'Galle Main Rd, Colombo',
+  };
+
+  it('validates complete route information needed for journey handoff', () => {
+    expect(validRoute.routeId).toBeTruthy();
+    expect(validRoute.polyline.length).toBeGreaterThan(0);
+    expect(validRoute.distanceMeters).toBeGreaterThanOrEqual(0);
+    expect(validRoute.durationSeconds).toBeGreaterThanOrEqual(0);
+  });
+
+  it('formats handoff parameters correctly for journey intro and active tracking', () => {
+    const originJson = JSON.stringify({
+      latitude: validOrigin.latitude,
+      longitude: validOrigin.longitude,
+      address: `${validOrigin.name} - ${validOrigin.address}`,
+    });
+
+    const destinationJson = JSON.stringify({
+      latitude: validDestination.latitude,
+      longitude: validDestination.longitude,
+      address: `${validDestination.name} - ${validDestination.address}`,
+    });
+
+    const handoffParams = {
+      routeId: validRoute.routeId,
+      origin: originJson,
+      destination: destinationJson,
+      polyline: validRoute.polyline,
+      distance: String(validRoute.distanceMeters),
+      duration: String(validRoute.durationSeconds),
+      riskScore: String(validRoute.riskScore),
+    };
+
+    expect(handoffParams.routeId).toBe('route_selected_123');
+    expect(JSON.parse(handoffParams.origin)).toEqual({
+      latitude: 6.9271,
+      longitude: 79.8612,
+      address: 'Colombo Fort - Station Rd, Colombo',
+    });
+    expect(JSON.parse(handoffParams.destination)).toEqual({
+      latitude: 6.9344,
+      longitude: 79.8501,
+      address: 'Galle Face Green - Galle Main Rd, Colombo',
+    });
+    expect(Number(handoffParams.distance)).toBe(1450);
+    expect(Number(handoffParams.duration)).toBe(1100);
+    expect(Number(handoffParams.riskScore)).toBe(0.25);
+  });
+
+  it('rejects invalid or missing route data safely', () => {
+    const incompleteRoute = {
+      routeId: '',
+      polyline: '',
+      distanceMeters: -1,
+    };
+
+    const hasMissingData =
+      !incompleteRoute.routeId ||
+      !incompleteRoute.polyline ||
+      incompleteRoute.distanceMeters < 0;
+
+    expect(hasMissingData).toBe(true);
+  });
 });

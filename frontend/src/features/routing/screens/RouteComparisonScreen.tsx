@@ -1,4 +1,5 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
+import { useRouter } from 'expo-router';
 import React, { useState } from 'react';
 import {
   ActivityIndicator,
@@ -15,7 +16,7 @@ import { RecommendationBanner } from '../components/RecommendationBanner';
 import { RouteComparisonIntroModal } from '../components/RouteComparisonIntroModal';
 import { LatLng } from '../types/routing.types';
 
-import { validateLatLng } from '../utils/route-validation';
+import { validateLatLng, validateRouteForJourney } from '../utils/route-validation';
 
 interface RouteComparisonScreenProps {
   // Normally comes from the map feature (selected pins) or device location
@@ -27,12 +28,14 @@ export function RouteComparisonScreen({
   origin,
   destination,
 }: RouteComparisonScreenProps) {
+  const router = useRouter();
   const { recommendation, loading, error, requestRecommendation } =
     useRouteRecommendation();
   const { introVisible, completeIntro, skipIntro, showIntro } =
     useRouteComparisonIntro();
   const [selectedRouteId, setSelectedRouteId] = useState<string | null>(null);
   const [hasRequested, setHasRequested] = useState(false);
+  const [validationError, setValidationError] = useState<string | null>(null);
 
   const activeRouteId = selectedRouteId ?? recommendation?.recommendedRouteId ?? null;
 
@@ -42,8 +45,42 @@ export function RouteComparisonScreen({
 
   const handleCompareRoutes = async () => {
     if (!areCoordinatesValid) return;
+    setValidationError(null);
     setHasRequested(true);
     await requestRecommendation(origin, destination);
+  };
+
+  const handleStartJourney = () => {
+    setValidationError(null);
+
+    const route = recommendation?.routes.find((r) => r.routeId === activeRouteId);
+    const validation = validateRouteForJourney({
+      route,
+      origin: {
+        latitude: origin.lat,
+        longitude: origin.lng,
+        name: 'Starting Point',
+      },
+      destination: {
+        latitude: destination.lat,
+        longitude: destination.lng,
+        name: 'Destination',
+      },
+    });
+
+    if (!validation.isValid || !validation.handoffParams) {
+      setValidationError(
+        validation.errors.length > 0
+          ? validation.errors.join('. ')
+          : 'Selected route has incomplete or invalid route information.',
+      );
+      return;
+    }
+
+    router.push({
+      pathname: '/journey/intro',
+      params: validation.handoffParams,
+    });
   };
 
   return (
@@ -101,6 +138,13 @@ export function RouteComparisonScreen({
             </View>
           )}
 
+          {validationError && (
+            <View style={styles.validationErrorBox}>
+              <MaterialIcons name="error-outline" size={16} color="#C1512E" />
+              <Text style={styles.validationErrorText}>{validationError}</Text>
+            </View>
+          )}
+
           {!loading && recommendation && recommendation.routes.length > 0 && (
             <FlatList
               data={recommendation.routes}
@@ -110,11 +154,23 @@ export function RouteComparisonScreen({
                 <RecommendationBanner recommendation={recommendation} />
               }
               ListFooterComponent={
-                <View style={styles.footerNoteBox}>
-                  <MaterialIcons name="shield" size={16} color="#1F4B4A" style={styles.footerNoteIcon} />
-                  <Text style={styles.footerNoteText}>
-                    Risk estimates reflect reported incidents and available community data. Having no recent reports or lower reported risk does not guarantee complete safety.
-                  </Text>
+                <View style={styles.footerContainer}>
+                  {activeRouteId && (
+                    <Pressable
+                      accessibilityRole="button"
+                      accessibilityLabel="Start journey on selected route"
+                      onPress={handleStartJourney}
+                      style={({ pressed }) => [styles.startJourneyButton, pressed && styles.pressed]}>
+                      <MaterialIcons name="navigation" size={18} color="#FFFFFF" />
+                      <Text style={styles.startJourneyText}>Start Journey</Text>
+                    </Pressable>
+                  )}
+                  <View style={styles.footerNoteBox}>
+                    <MaterialIcons name="shield" size={16} color="#1F4B4A" style={styles.footerNoteIcon} />
+                    <Text style={styles.footerNoteText}>
+                      Risk estimates reflect reported incidents and available community data. Having no recent reports or lower reported risk does not guarantee complete safety.
+                    </Text>
+                  </View>
                 </View>
               }
               renderItem={({ item }) => (
@@ -122,7 +178,10 @@ export function RouteComparisonScreen({
                   route={item}
                   isRecommended={item.routeId === recommendation.recommendedRouteId}
                   selected={item.routeId === activeRouteId}
-                  onPress={() => setSelectedRouteId(item.routeId)}
+                  onPress={() => {
+                    setSelectedRouteId(item.routeId);
+                    setValidationError(null);
+                  }}
                 />
               )}
             />
@@ -205,6 +264,46 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F4B4A',
   },
+  footerContainer: {
+    marginTop: 8,
+    gap: 8,
+  },
+  startJourneyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#1F4B4A',
+    borderRadius: 12,
+    paddingVertical: 14,
+    marginBottom: 8,
+  },
+  startJourneyText: {
+    color: '#FFFFFF',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  pressed: {
+    opacity: 0.72,
+  },
+  validationErrorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    padding: 12,
+    backgroundColor: '#FDF0ED',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#F5C2B8',
+    marginBottom: 12,
+  },
+  validationErrorText: {
+    flex: 1,
+    color: '#C1512E',
+    fontSize: 12,
+    lineHeight: 16,
+    fontWeight: '600',
+  },
   footerNoteBox: {
     flexDirection: 'row',
     alignItems: 'flex-start',
@@ -212,7 +311,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#EEF6F4',
     borderRadius: 12,
     padding: 12,
-    marginTop: 8,
     borderWidth: 1,
     borderColor: '#D2E6DF',
   },
