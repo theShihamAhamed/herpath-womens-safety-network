@@ -1,4 +1,5 @@
 export { DestinationMarker } from './destination-marker';
+export { OriginMarker } from './origin-marker';
 export { DestinationResultsSheet } from './destination-results-sheet';
 export { DestinationSearchModal } from './destination-search-modal';
 export { DestinationSearchResultMarker } from './destination-search-result-marker';

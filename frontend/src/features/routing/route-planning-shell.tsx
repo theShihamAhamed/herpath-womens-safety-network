@@ -13,21 +13,25 @@ import { RouteCard } from './components/RouteCard';
 import { RouteComparisonIntroModal } from './components/RouteComparisonIntroModal';
 import { useRouteRecommendation } from './hooks/useRouteRecommendation';
 import { useRouteComparisonIntro } from './hooks/useRouteComparisonIntro';
+import { RouteOrigin } from './types';
 
 import { validateRouteForJourney } from './utils/route-validation';
 
 interface RoutePlanningEntryProps {
   userLocation?: { latitude: number; longitude: number } | null;
   onDestinationSelected?: (destination: { latitude: number; longitude: number }) => void;
+  onOriginSelected?: (origin: { latitude: number; longitude: number }) => void;
 }
 
 export function RoutePlanningEntry({
   userLocation,
   onDestinationSelected,
+  onOriginSelected,
 }: RoutePlanningEntryProps) {
   const {
     selectedDestination,
     setSelectedDestination,
+    origin,
     setOrigin,
     isSearching,
     setIsSearching,
@@ -40,40 +44,56 @@ export function RoutePlanningEntry({
     clearRoutePlanning,
   } = useRouteContext();
 
-  const [modalVisible, setModalVisible] = useState(false);
+  const [destinationModalVisible, setDestinationModalVisible] = useState(false);
+  const [originModalVisible, setOriginModalVisible] = useState(false);
 
   useEffect(() => {
-    if (userLocation) {
+    if (userLocation && !origin?.isManual) {
       setOrigin({
         name: 'Current Location',
         latitude: userLocation.latitude,
         longitude: userLocation.longitude,
+        isManual: false,
       });
     }
-  }, [setOrigin, userLocation]);
+  }, [setOrigin, userLocation, origin?.isManual]);
 
-  const handleOpenSearch = () => {
+  const handleOpenDestinationSearch = () => {
     setIsSearching(true);
-    setModalVisible(true);
+    setDestinationModalVisible(true);
   };
 
-  const handleCloseSearch = () => {
+  const handleCloseDestinationSearch = () => {
     setIsSearching(false);
-    setModalVisible(false);
+    setDestinationModalVisible(false);
+  };
+
+  const handleOpenOriginSearch = () => {
+    setOriginModalVisible(true);
+  };
+
+  const handleCloseOriginSearch = () => {
+    setOriginModalVisible(false);
   };
 
   const handleSelectDestination = (dest: any) => {
     clearSearchMapResults();
     setSelectedDestination(dest);
     setIsSearching(false);
-    setModalVisible(false);
+    setDestinationModalVisible(false);
     onDestinationSelected?.({ latitude: dest.latitude, longitude: dest.longitude });
+  };
+
+  const handleSelectOrigin = (selectedOrigin: RouteOrigin) => {
+    setOrigin(selectedOrigin);
+    setOriginModalVisible(false);
+    onOriginSelected?.({ latitude: selectedOrigin.latitude, longitude: selectedOrigin.longitude });
   };
 
   const handleSubmitResults = (query: string, results: Parameters<typeof submitSearchMapResults>[1]) => {
     submitSearchMapResults(query, results);
     setIsSearching(false);
-    setModalVisible(false);
+    setDestinationModalVisible(false);
   };
 
   return (
@@ -81,7 +101,9 @@ export function RoutePlanningEntry({
       {selectedDestination ? (
         <SelectedDestinationCard
           destination={selectedDestination}
-          onChangeDestination={handleOpenSearch}
+          origin={origin}
+          onChangeDestination={handleOpenDestinationSearch}
+          onChangeOrigin={handleOpenOriginSearch}
           onClearDestination={clearRoutePlanning}
           onPlanRoute={() => setIsPlanning(true)}
         />
@@ -90,10 +112,12 @@ export function RoutePlanningEntry({
           accessible
           accessibilityRole="button"
           accessibilityLabel="Edit destination search"
-          onPress={handleOpenSearch}
+          onPress={handleOpenDestinationSearch}
           style={({ pressed }) => [styles.activeSearchChip, pressed && styles.pressed]}>
           <MaterialIcons name="search" size={18} color={palette.primary} />
-          <Text numberOfLines={1} style={styles.activeSearchText}>{submittedSearchQuery}</Text>
+          <Text numberOfLines={1} style={styles.activeSearchText}>
+            {submittedSearchQuery}
+          </Text>
           <MaterialIcons name="edit" size={18} color={palette.textMuted} />
         </Pressable>
       ) : (
@@ -101,7 +125,7 @@ export function RoutePlanningEntry({
           accessible
           accessibilityRole="button"
           accessibilityLabel="Where are you going? Tap to search destination or address."
-          onPress={handleOpenSearch}
+          onPress={handleOpenDestinationSearch}
           style={({ pressed }) => [styles.searchSurface, pressed && styles.pressed]}>
           <View style={styles.searchIconCircle}>
             <MaterialIcons name="search" size={20} color={palette.primary} />
@@ -115,21 +139,39 @@ export function RoutePlanningEntry({
       )}
 
       {selectedDestination && isPlanning ? (
-        <RouteResultsPlaceholder />
+        <RouteResultsPlaceholder onOpenOriginSearch={handleOpenOriginSearch} />
       ) : null}
 
+      {/* Destination Search Modal */}
       <DestinationSearchModal
-        visible={modalVisible || isSearching}
-        onClose={handleCloseSearch}
+        visible={destinationModalVisible || isSearching}
+        mode="destination"
+        onClose={handleCloseDestinationSearch}
         onSelectDestination={handleSelectDestination}
         onSubmitResults={handleSubmitResults}
+        userLocation={userLocation}
+      />
+
+      {/* Origin Selection Modal */}
+      <DestinationSearchModal
+        visible={originModalVisible}
+        mode="origin"
+        title="Select Starting Location"
+        placeholder="Search starting location or address..."
+        onClose={handleCloseOriginSearch}
+        onSelectOrigin={handleSelectOrigin}
+        onSubmitResults={() => {}}
         userLocation={userLocation}
       />
     </View>
   );
 }
 
-export function RouteResultsPlaceholder() {
+interface RouteResultsPlaceholderProps {
+  onOpenOriginSearch?: () => void;
+}
+
+export function RouteResultsPlaceholder({ onOpenOriginSearch }: RouteResultsPlaceholderProps) {
   const { selectedDestination, origin } = useRouteContext();
   const { recommendation, loading, error, requestRecommendation } = useRouteRecommendation();
   const { introVisible, completeIntro, skipIntro, showIntro } = useRouteComparisonIntro();
@@ -162,7 +204,7 @@ export function RouteResultsPlaceholder() {
       setValidationError(
         validation.errors.length > 0
           ? validation.errors.join('. ')
-          : 'Selected route has incomplete or invalid route information.'
+          : 'Selected route has incomplete or invalid route information.',
       );
       return;
     }
@@ -176,6 +218,8 @@ export function RouteResultsPlaceholder() {
   if (!selectedDestination) {
     return null;
   }
+
+  const isManualOrigin = Boolean(origin?.isManual);
 
   return (
     <View
@@ -204,18 +248,48 @@ export function RouteResultsPlaceholder() {
         <Text style={styles.destinationHighlight}>{selectedDestination.name}</Text>.
       </Text>
 
+      {/* Origin and Destination Handoff Box with Change Origin action */}
       <View style={styles.routeHandoffBox}>
         <View style={styles.routePointRow}>
-          <MaterialIcons name="my-location" size={16} color={palette.primary} />
-          <Text style={styles.routePointText}>Origin: Current Location</Text>
+          <MaterialIcons name="trip-origin" size={16} color={palette.primary} />
+          <View style={styles.routePointDetails}>
+            <Text style={styles.routePointText} numberOfLines={1}>
+              Origin: {origin ? origin.name : 'Not set'}
+              {isManualOrigin ? ' (Manual)' : ''}
+            </Text>
+            {origin?.address && origin.name !== origin.address ? (
+              <Text style={styles.routePointSubtext} numberOfLines={1}>
+                {origin.address}
+              </Text>
+            ) : origin ? (
+              <Text style={styles.routePointSubtext}>
+                {origin.latitude.toFixed(4)}, {origin.longitude.toFixed(4)}
+              </Text>
+            ) : null}
+          </View>
+          {onOpenOriginSearch ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Change starting location"
+              hitSlop={8}
+              onPress={onOpenOriginSearch}
+              style={({ pressed }) => [styles.changeOriginSmallButton, pressed && styles.pressed]}>
+              <Text style={styles.changeOriginSmallButtonText}>Change</Text>
+            </Pressable>
+          ) : null}
         </View>
         <View style={styles.routeConnector} />
         <View style={styles.routePointRow}>
           <MaterialIcons name="place" size={16} color={palette.accent} />
-          <Text style={styles.routePointText}>
-            Destination: {selectedDestination.name} ({selectedDestination.latitude.toFixed(4)},{' '}
-            {selectedDestination.longitude.toFixed(4)})
-          </Text>
+          <View style={styles.routePointDetails}>
+            <Text style={styles.routePointText} numberOfLines={1}>
+              Destination: {selectedDestination.name}
+            </Text>
+            <Text style={styles.routePointSubtext} numberOfLines={1}>
+              {selectedDestination.address} ({selectedDestination.latitude.toFixed(4)},{' '}
+              {selectedDestination.longitude.toFixed(4)})
+            </Text>
+          </View>
         </View>
       </View>
 
@@ -249,6 +323,24 @@ export function RouteResultsPlaceholder() {
             <Text style={styles.retryText}>Try again</Text>
           </Pressable>
         </View>
+      ) : !origin ? (
+        <View style={styles.missingOriginContainer}>
+          <MaterialIcons name="location-off" size={28} color={palette.accent} />
+          <Text style={styles.missingOriginTitle}>Starting location required</Text>
+          <Text style={styles.missingOriginNote}>
+            Allow device location access or select a starting location manually to compare routes.
+          </Text>
+          {onOpenOriginSearch ? (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Select starting location manually"
+              onPress={onOpenOriginSearch}
+              style={({ pressed }) => [styles.selectOriginActionButton, pressed && styles.pressed]}>
+              <MaterialIcons name="add-location" size={16} color={palette.white} />
+              <Text style={styles.selectOriginActionText}>Select Starting Location</Text>
+            </Pressable>
+          ) : null}
+        </View>
       ) : recommendation ? (
         <ScrollView showsVerticalScrollIndicator={false} style={styles.resultsList}>
           <RecommendationBanner recommendation={recommendation} />
@@ -277,17 +369,18 @@ export function RouteResultsPlaceholder() {
           )}
 
           <View style={styles.evidenceRow}>
-            <MaterialIcons name="info-outline" size={15} color={palette.primary} style={styles.evidenceIcon} />
+            <MaterialIcons
+              name="info-outline"
+              size={15}
+              color={palette.primary}
+              style={styles.evidenceIcon}
+            />
             <Text style={styles.evidenceNote}>
               Reported risk is based on available community safety data and may change. Lower reported risk or absence of reports does not guarantee safety—use this to help make your own travel decision.
             </Text>
           </View>
         </ScrollView>
-      ) : (
-        <View style={styles.stateBlock}>
-          <Text style={styles.evidenceNote}>Allow location access to compare routes.</Text>
-        </View>
-      )}
+      ) : null}
 
       <RouteComparisonIntroModal
         visible={introVisible}
@@ -406,10 +499,29 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: spacing.xs,
   },
+  routePointDetails: {
+    flex: 1,
+    gap: 1,
+  },
   routePointText: {
     color: palette.text,
     fontSize: 13,
     fontWeight: '600',
+  },
+  routePointSubtext: {
+    color: palette.textMuted,
+    fontSize: 11,
+  },
+  changeOriginSmallButton: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    backgroundColor: '#E8F3F1',
+    borderRadius: radius.sm,
+  },
+  changeOriginSmallButtonText: {
+    color: palette.primary,
+    fontSize: 11,
+    fontWeight: '700',
   },
   routeConnector: {
     width: 2,
@@ -460,6 +572,38 @@ const styles = StyleSheet.create({
     backgroundColor: palette.primary,
   },
   retryText: {
+    color: palette.white,
+    fontSize: 13,
+    fontWeight: '700',
+  },
+  missingOriginContainer: {
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+    gap: 6,
+  },
+  missingOriginTitle: {
+    color: palette.text,
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  missingOriginNote: {
+    color: palette.textMuted,
+    fontSize: 12,
+    lineHeight: 16,
+    textAlign: 'center',
+    paddingHorizontal: spacing.md,
+  },
+  selectOriginActionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    backgroundColor: palette.primary,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 8,
+    borderRadius: radius.sm,
+    marginTop: spacing.xs,
+  },
+  selectOriginActionText: {
     color: palette.white,
     fontSize: 13,
     fontWeight: '700',

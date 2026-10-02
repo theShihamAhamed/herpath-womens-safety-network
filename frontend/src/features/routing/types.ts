@@ -32,6 +32,12 @@ export interface Journey {
   status: JourneyStatus;
 }
 
+export interface RouteOrigin {
+  name: string;
+  address?: string;
+  latitude: number;
+  longitude: number;
+  isManual?: boolean;
 export interface JourneyHistoryItem {
   _id: string;
   destination: LocationPoint;

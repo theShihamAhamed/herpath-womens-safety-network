@@ -47,8 +47,11 @@ export function validateLatLng(point: unknown): RouteValidationResult {
     return { isValid: false, errors: ['Coordinate point is required'] };
   }
 
-  const p = point as Partial<LatLng>;
-  if (!isValidCoordinate(p.lat, p.lng)) {
+  const p = point as { lat?: unknown; lng?: unknown; latitude?: unknown; longitude?: unknown };
+  const lat = p.lat !== undefined ? p.lat : p.latitude;
+  const lng = p.lng !== undefined ? p.lng : p.longitude;
+
+  if (!isValidCoordinate(lat, lng)) {
     errors.push('Latitude must be between -90 and 90, Longitude must be between -180 and 180');
   }
 
@@ -67,9 +70,24 @@ export function validateRouteOrigin(origin: unknown): RouteValidationResult {
     return { isValid: false, errors: ['Starting location is required'] };
   }
 
-  const o = origin as Partial<RouteOrigin>;
-  if (!isValidCoordinate(o.latitude, o.longitude)) {
+  const o = origin as {
+    latitude?: unknown;
+    longitude?: unknown;
+    lat?: unknown;
+    lng?: unknown;
+    name?: unknown;
+    address?: unknown;
+  };
+
+  const lat = o.latitude !== undefined ? o.latitude : o.lat;
+  const lng = o.longitude !== undefined ? o.longitude : o.lng;
+
+  if (!isValidCoordinate(lat, lng)) {
     errors.push('Origin coordinates are invalid');
+  }
+
+  if (o.name !== undefined && (typeof o.name !== 'string' || o.name.trim().length === 0)) {
+    errors.push('Origin name cannot be empty');
   }
 
   return {
@@ -87,13 +105,24 @@ export function validateRouteDestination(dest: unknown): RouteValidationResult {
     return { isValid: false, errors: ['Destination location is required'] };
   }
 
-  const d = dest as Partial<Destination>;
-  if (!isValidCoordinate(d.latitude, d.longitude)) {
+  const d = dest as {
+    latitude?: unknown;
+    longitude?: unknown;
+    lat?: unknown;
+    lng?: unknown;
+    name?: unknown;
+    address?: unknown;
+  };
+
+  const lat = d.latitude !== undefined ? d.latitude : d.lat;
+  const lng = d.longitude !== undefined ? d.longitude : d.lng;
+
+  if (!isValidCoordinate(lat, lng)) {
     errors.push('Destination coordinates are invalid');
   }
 
-  if (!d.name || typeof d.name !== 'string' || d.name.trim().length === 0) {
-    errors.push('Destination name is required');
+  if (d.name !== undefined && (typeof d.name !== 'string' || d.name.trim().length === 0)) {
+    errors.push('Destination name cannot be empty');
   }
 
   return {
@@ -179,21 +208,43 @@ export function validateRouteForJourney(params: {
     };
   }
 
-  const o = params.origin as RouteOrigin;
-  const d = params.destination as Destination;
+  const o = params.origin as {
+    latitude?: number;
+    longitude?: number;
+    lat?: number;
+    lng?: number;
+    name?: string;
+    address?: string;
+  };
+  const d = params.destination as {
+    latitude?: number;
+    longitude?: number;
+    lat?: number;
+    lng?: number;
+    name?: string;
+    address?: string;
+  };
   const r = params.route as RouteWithRiskContext & Partial<RouteRiskScore>;
+
+  const originLat = o.latitude ?? o.lat ?? 0;
+  const originLng = o.longitude ?? o.lng ?? 0;
+  const originAddress = o.address ? (o.name && o.name !== o.address ? `${o.name} - ${o.address}` : o.address) : (o.name || 'Starting Location');
+
+  const destLat = d.latitude ?? d.lat ?? 0;
+  const destLng = d.longitude ?? d.lng ?? 0;
+  const destAddress = d.address ? (d.name && d.name !== d.address ? `${d.name} - ${d.address}` : d.address) : (d.name || 'Destination');
 
   const handoffParams: JourneyHandoffParams = {
     routeId: r.routeId,
     origin: JSON.stringify({
-      latitude: o.latitude,
-      longitude: o.longitude,
-      address: o.name || o.address || 'Current Location',
+      latitude: originLat,
+      longitude: originLng,
+      address: originAddress,
     }),
     destination: JSON.stringify({
-      latitude: d.latitude,
-      longitude: d.longitude,
-      address: d.name || d.address || 'Destination',
+      latitude: destLat,
+      longitude: destLng,
+      address: destAddress,
     }),
     polyline: r.polyline,
     distance: String(r.distanceMeters),

@@ -21,6 +21,7 @@ import {
   DestinationResultsSheet,
   DestinationSearchResultMarker,
   type DestinationSuggestion,
+  OriginMarker,
   useRouteContext,
 } from '@/src/features/routing';
 import { FALLBACK_LOCATION, type UseUserLocationResult } from './use-user-location';
@@ -329,6 +330,9 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
         ))}
         {selectedDestination ? (
           <DestinationMarker destination={selectedDestination} />
+        ) : null}
+        {routeContext.origin?.isManual ? (
+          <OriginMarker origin={routeContext.origin} />
         ) : null}
       </MapView>
 

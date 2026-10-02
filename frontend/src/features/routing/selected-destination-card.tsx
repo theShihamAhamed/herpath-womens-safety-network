@@ -4,18 +4,22 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { palette, radius, spacing } from '@/src/theme';
 
-import { Destination } from './types';
+import { Destination, RouteOrigin } from './types';
 
 interface SelectedDestinationCardProps {
   destination: Destination | null;
+  origin?: RouteOrigin | null;
   onChangeDestination?: () => void;
+  onChangeOrigin?: () => void;
   onClearDestination?: () => void;
   onPlanRoute?: () => void;
 }
 
 export function SelectedDestinationCard({
   destination,
+  origin,
   onChangeDestination,
+  onChangeOrigin,
   onClearDestination,
   onPlanRoute,
 }: SelectedDestinationCardProps) {
@@ -23,22 +27,78 @@ export function SelectedDestinationCard({
     return null;
   }
 
+  const originDisplay = origin
+    ? origin.name || origin.address || 'Starting Location'
+    : 'No starting point selected';
+  const isManualOrigin = Boolean(origin?.isManual);
+
   return (
     <View
       accessible
       accessibilityRole="summary"
-      accessibilityLabel={`Selected destination: ${destination.name}`}
+      accessibilityLabel={`Selected trip: From ${originDisplay} to ${destination.name}`}
       style={styles.card}>
-      <View style={styles.topRow}>
-        <View style={styles.iconBadge}>
-          <MaterialIcons name="place" size={24} color={palette.accent} />
+      {/* Origin Row */}
+      <View style={styles.endpointRow}>
+        <View style={styles.originIconBadge}>
+          <MaterialIcons name="trip-origin" size={20} color={palette.primary} />
         </View>
         <View style={styles.info}>
-          <Text style={styles.headerLabel}>Destination Selected</Text>
+          <View style={styles.labelWithTag}>
+            <Text style={styles.headerLabel}>Starting Point</Text>
+            {origin ? (
+              <View style={[styles.originTag, isManualOrigin ? styles.manualTag : styles.gpsTag]}>
+                <Text style={[styles.originTagText, isManualOrigin ? styles.manualTagText : styles.gpsTagText]}>
+                  {isManualOrigin ? 'Custom' : 'GPS'}
+                </Text>
+              </View>
+            ) : null}
+          </View>
+          <Text style={styles.name} numberOfLines={1}>
+            {originDisplay}
+          </Text>
+          {origin?.address && origin.name !== origin.address ? (
+            <Text style={styles.address} numberOfLines={1}>
+              {origin.address}
+            </Text>
+          ) : origin ? (
+            <Text style={styles.subtext}>
+              {origin.latitude.toFixed(4)}, {origin.longitude.toFixed(4)}
+            </Text>
+          ) : (
+            <Text style={styles.warningSubtext}>Tap change to select a starting point</Text>
+          )}
+        </View>
+        {onChangeOrigin ? (
+          <Pressable
+            accessibilityRole="button"
+            accessibilityLabel="Change starting location"
+            hitSlop={8}
+            onPress={onChangeOrigin}
+            style={({ pressed }) => [styles.smallEditButton, pressed && styles.pressed]}>
+            <MaterialIcons name="edit" size={16} color={palette.primary} />
+            <Text style={styles.smallEditText}>Change</Text>
+          </Pressable>
+        ) : null}
+      </View>
+
+      <View style={styles.routeDivider}>
+        <View style={styles.routeDividerDot} />
+        <View style={styles.routeDividerLine} />
+        <View style={styles.routeDividerDot} />
+      </View>
+
+      {/* Destination Row */}
+      <View style={styles.endpointRow}>
+        <View style={styles.destIconBadge}>
+          <MaterialIcons name="place" size={22} color={palette.accent} />
+        </View>
+        <View style={styles.info}>
+          <Text style={styles.headerLabel}>Destination</Text>
           <Text style={styles.name} numberOfLines={1}>
             {destination.name}
           </Text>
-          <Text style={styles.address} numberOfLines={2}>
+          <Text style={styles.address} numberOfLines={1}>
             {destination.address}
           </Text>
         </View>
@@ -54,13 +114,7 @@ export function SelectedDestinationCard({
         ) : null}
       </View>
 
-      <View style={styles.coordinatesBadge}>
-        <MaterialIcons name="my-location" size={14} color={palette.primary} />
-        <Text style={styles.coordinatesText}>
-          {destination.latitude.toFixed(4)}, {destination.longitude.toFixed(4)}
-        </Text>
-      </View>
-
+      {/* Actions Row */}
       <View style={styles.actionsRow}>
         {onChangeDestination ? (
           <Pressable
@@ -68,15 +122,15 @@ export function SelectedDestinationCard({
             accessibilityLabel="Change destination"
             onPress={onChangeDestination}
             style={({ pressed }) => [styles.secondaryButton, pressed && styles.pressed]}>
-            <MaterialIcons name="edit" size={18} color={palette.text} />
-            <Text style={styles.secondaryButtonText}>Change</Text>
+            <MaterialIcons name="search" size={18} color={palette.text} />
+            <Text style={styles.secondaryButtonText}>Change Destination</Text>
           </Pressable>
         ) : null}
 
         {onPlanRoute ? (
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Find safe routes to this destination"
+            accessibilityLabel="Find safe routes for this trip"
             onPress={onPlanRoute}
             style={({ pressed }) => [styles.primaryButton, pressed && styles.primaryPressed]}>
             <MaterialIcons name="directions" size={18} color={palette.white} />
@@ -95,22 +149,31 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: palette.border,
     backgroundColor: palette.surface,
-    gap: spacing.sm,
+    gap: spacing.xs,
     shadowColor: palette.text,
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 6,
     elevation: 3,
   },
-  topRow: {
+  endpointRow: {
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: spacing.sm,
   },
-  iconBadge: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  originIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E8F3F1',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 2,
+  },
+  destIconBadge: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#FDEEE9',
     alignItems: 'center',
     justifyContent: 'center',
@@ -118,7 +181,12 @@ const styles = StyleSheet.create({
   },
   info: {
     flex: 1,
-    gap: 2,
+    gap: 1,
+  },
+  labelWithTag: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   headerLabel: {
     color: palette.textMuted,
@@ -127,39 +195,92 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  originTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: 4,
+  },
+  gpsTag: {
+    backgroundColor: '#E8F3F1',
+  },
+  manualTag: {
+    backgroundColor: '#EBF2FA',
+  },
+  originTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+  },
+  gpsTagText: {
+    color: palette.primary,
+  },
+  manualTagText: {
+    color: '#2A6496',
+  },
   name: {
     color: palette.text,
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '700',
   },
   address: {
     color: palette.textMuted,
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 12,
+    lineHeight: 16,
+  },
+  subtext: {
+    color: palette.primary,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  warningSubtext: {
+    color: palette.accent,
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  routeDivider: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    marginLeft: 17,
+    marginVertical: 1,
+    height: 12,
+    justifyContent: 'space-between',
+  },
+  routeDividerDot: {
+    width: 3,
+    height: 3,
+    borderRadius: 1.5,
+    backgroundColor: palette.border,
+  },
+  routeDividerLine: {
+    width: 1,
+    height: 4,
+    backgroundColor: palette.border,
+  },
+  smallEditButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    backgroundColor: '#E8F3F1',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.sm,
+    alignSelf: 'center',
+  },
+  smallEditText: {
+    color: palette.primary,
+    fontSize: 12,
+    fontWeight: '700',
   },
   clearButton: {
     padding: spacing.xs,
-  },
-  coordinatesBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    alignSelf: 'flex-start',
-    backgroundColor: palette.surfaceMuted,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    borderRadius: radius.sm,
-  },
-  coordinatesText: {
-    color: palette.primary,
-    fontSize: 12,
-    fontWeight: '600',
   },
   actionsRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
     marginTop: spacing.xs,
+    paddingTop: spacing.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: palette.border,
   },
   secondaryButton: {
     flexDirection: 'row',
@@ -167,7 +288,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: spacing.xs,
     paddingVertical: 10,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.sm,
     borderRadius: radius.sm,
     borderWidth: 1,
     borderColor: palette.border,
@@ -176,7 +297,7 @@ const styles = StyleSheet.create({
   },
   secondaryButtonText: {
     color: palette.text,
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
   },
   primaryButton: {
