@@ -14,7 +14,7 @@ const EXPLAINER_ITEMS: { icon: keyof typeof MaterialIcons.glyphMap; text: string
   { icon: 'my-location', text: 'Your location is tracked only while this journey is active.' },
   { icon: 'route', text: 'We compare your position to the planned route to detect deviations.' },
   { icon: 'check-circle', text: 'You can check in at any time to confirm you are safe.' },
-  { icon: 'flag', text: 'Tracking stops automatically when you arrive, or when you end it manually.' },
+  { icon: 'flag', text: 'When you arrive, HerPath asks you to confirm before tracking stops.' },
   { icon: 'fact-check', text: 'You always confirm the final outcome yourself \u2014 arrival alone is never assumed to mean safe.' },
 ];
 
