@@ -80,6 +80,7 @@ const startedJourney: Journey = {
   duration: 0,
   currentPath: [],
   checkIns: [],
+  checkInCount: 0,
   deviationDetected: false,
   deviationLocation: null,
   outcome: null,
