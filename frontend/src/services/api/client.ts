@@ -1,5 +1,7 @@
 import { environment } from '@/src/config/environment';
 
+import { isAuthRecoveryAvailable, recoverAccessToken } from './auth-recovery';
+import { apiEndpoints } from './endpoints';
 import { ApiError } from './errors';
 
 interface ApiSuccess<T> {
@@ -18,10 +20,13 @@ interface ApiFailure {
   requestId?: string;
 }
 
-interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
+export interface ApiRequestOptions extends Omit<RequestInit, 'body'> {
   body?: unknown;
   accessToken?: string;
+  skipAuthRecovery?: boolean;
 }
+
+const AUTH_RECOVERY_EXCLUDED_ENDPOINTS = new Set<string>(Object.values(apiEndpoints.auth));
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
@@ -45,17 +50,31 @@ export async function apiRequest<T>(
   endpoint: string,
   options: ApiRequestOptions = {},
 ): Promise<T> {
-  const headers = new Headers(options.headers);
+  return requestWithRecovery<T>(endpoint, options, false);
+}
+
+async function requestWithRecovery<T>(
+  endpoint: string,
+  options: ApiRequestOptions,
+  authRecoveryAttempted: boolean,
+): Promise<T> {
+  const {
+    accessToken,
+    body,
+    skipAuthRecovery = false,
+    ...requestInit
+  } = options;
+  const headers = new Headers(requestInit.headers);
   headers.set('Accept', 'application/json');
-  if (options.accessToken) headers.set('Authorization', `Bearer ${options.accessToken}`);
-  if (options.body !== undefined) headers.set('Content-Type', 'application/json');
+  if (accessToken) headers.set('Authorization', `Bearer ${accessToken}`);
+  if (body !== undefined) headers.set('Content-Type', 'application/json');
 
   let response: Response;
   try {
     response = await fetch(`${environment.apiBaseUrl}${endpoint}`, {
-      ...options,
+      ...requestInit,
       headers,
-      body: options.body === undefined ? undefined : JSON.stringify(options.body),
+      body: body === undefined ? undefined : JSON.stringify(body),
     });
   } catch (error) {
     throw new ApiError({
@@ -81,13 +100,31 @@ export async function apiRequest<T>(
   if (isApiSuccess<T>(payload) && response.ok) return payload.data;
 
   if (isApiFailure(payload)) {
-    throw new ApiError({
+    const error = new ApiError({
       status: response.status,
       code: payload.error.code,
       message: payload.error.message,
       details: Array.isArray(payload.error.details) ? payload.error.details : [],
       requestId: payload.requestId,
     });
+
+    if (
+      response.status === 401
+      && Boolean(accessToken)
+      && !authRecoveryAttempted
+      && !skipAuthRecovery
+      && !AUTH_RECOVERY_EXCLUDED_ENDPOINTS.has(endpoint)
+      && isAuthRecoveryAvailable()
+    ) {
+      const recoveredAccessToken = await recoverAccessToken();
+      return requestWithRecovery<T>(
+        endpoint,
+        { ...options, accessToken: recoveredAccessToken },
+        true,
+      );
+    }
+
+    throw error;
   }
 
   throw new ApiError({
