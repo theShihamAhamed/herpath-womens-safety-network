@@ -1,102 +1,84 @@
-import type { Request, Response, NextFunction } from 'express';
+import type { NextFunction, Request, Response } from 'express';
+
+import { sendSuccess } from '../../common/utils/api-response.js';
 import * as journeyService from './journey.service.js';
+import type {
+  JourneyCoordinateBody,
+  JourneyIdBody,
+  JourneyIdParams,
+  JourneyOutcomeBody,
+  StartJourneyBody,
+} from './journey.validation.js';
 
 const wrap =
-  (fn: (req: Request, res: Response) => Promise<void>) =>
-  (req: Request, res: Response, next: NextFunction) =>
-    fn(req, res).catch(next);
+  (handler: (request: Request, response: Response) => Promise<void>) =>
+  (request: Request, response: Response, next: NextFunction): void => {
+    handler(request, response).catch(next);
+  };
 
-export const startJourney = wrap(async (req, res) => {
-  const userId = req.auth!.userId;
-  const { routeId, origin, destination, polyline, distance, duration, riskScore } = req.body;
-  if (!routeId || !origin || !destination || !polyline) {
-    res.status(400).json({ success: false, message: 'routeId, origin, destination, polyline are required' });
-    return;
-  }
-  const journey = await journeyService.startJourney(userId, {
-    routeId, origin, destination, polyline, distance, duration, riskScore,
-  });
-  res.status(201).json({ success: true, data: journey });
-});
-
-export const cancelJourney = wrap(async (req, res) => {
-  const { journeyId } = req.body;
-  const journey = await journeyService.cancelJourney(journeyId, req.auth!.userId);
-  if (!journey) {
-    res.status(404).json({ success: false, message: 'Journey not found' });
-    return;
-  }
-  res.json({ success: true, data: journey });
-});
-
-export const updateLocation = wrap(async (req, res) => {
-  const { journeyId, latitude, longitude } = req.body;
-  const journey = await journeyService.updateLocation(journeyId, req.auth!.userId, { latitude, longitude });
-  if (!journey) { res.status(404).json({ success: false, message: 'Journey not found' }); return; }
-  res.json({ success: true, data: journey });
-});
-
-export const checkIn = wrap(async (req, res) => {
-  const { journeyId, latitude, longitude } = req.body;
-  const journey = await journeyService.addCheckIn(journeyId, req.auth!.userId, { latitude, longitude });
-  if (!journey) { res.status(404).json({ success: false, message: 'Journey not found' }); return; }
-  res.json({ success: true, data: journey });
-});
-
-export const reportDeviation = wrap(async (req, res) => {
-  const { journeyId, latitude, longitude } = req.body;
-  const journey = await journeyService.recordDeviation(journeyId, req.auth!.userId, { latitude, longitude });
-  if (!journey) { res.status(404).json({ success: false, message: 'Journey not found' }); return; }
-  res.json({ success: true, data: journey });
-});
-
-export const finishJourney = wrap(async (req, res) => {
-  const { journeyId } = req.body;
-  const journey = await journeyService.finishJourney(journeyId, req.auth!.userId);
-  if (!journey) { res.status(404).json({ success: false, message: 'Journey not found' }); return; }
-  res.json({ success: true, data: journey });
-});
-
-export const setOutcome = wrap(async (req, res) => {
-  const { journeyId, outcome } = req.body;
-  const journey = await journeyService.setOutcome(journeyId, req.auth!.userId, outcome);
-  if (!journey) { res.status(404).json({ success: false, message: 'Journey not found' }); return; }
-  res.json({ success: true, data: journey });
-});
-
-export const getHistory = wrap(async (req, res) => {
-  const journeys = await journeyService.getHistory(req.auth!.userId);
-  res.json({ success: true, data: journeys });
-});
-
-export const getJourneyById = wrap(async (req, res) => {
-  const { id } = req.params;
-
-  if (!id || Array.isArray(id)) {
-    res.status(400).json({
-      success: false,
-      message: 'Invalid journey ID',
-    });
-    return;
-  }
-
-  const journey = await journeyService.getJourneyById(
-    id,
-    req.auth!.userId
+export const startJourney = wrap(async (request, response) => {
+  const journey = await journeyService.startJourney(
+    request.auth!.userId,
+    request.body as StartJourneyBody,
   );
-
-  if (!journey) {
-    res.status(404).json({
-      success: false,
-      message: 'Journey not found',
-    });
-    return;
-  }
-
-  res.json({ success: true, data: journey });
+  sendSuccess(response, journey, {}, 201);
 });
 
-export const getAnalyticsSummary = wrap(async (req, res) => {
-  const summary = await journeyService.getAnalyticsSummary(req.auth!.userId);
-  res.json({ success: true, data: summary });
+export const cancelJourney = wrap(async (request, response) => {
+  const { journeyId } = request.body as JourneyIdBody;
+  sendSuccess(response, await journeyService.cancelJourney(journeyId, request.auth!.userId));
+});
+
+export const updateLocation = wrap(async (request, response) => {
+  const { journeyId, latitude, longitude } = request.body as JourneyCoordinateBody;
+  sendSuccess(
+    response,
+    await journeyService.updateLocation(journeyId, request.auth!.userId, { latitude, longitude }),
+  );
+});
+
+export const checkIn = wrap(async (request, response) => {
+  const { journeyId, latitude, longitude } = request.body as JourneyCoordinateBody;
+  sendSuccess(
+    response,
+    await journeyService.addCheckIn(journeyId, request.auth!.userId, { latitude, longitude }),
+  );
+});
+
+export const reportDeviation = wrap(async (request, response) => {
+  const { journeyId, latitude, longitude } = request.body as JourneyCoordinateBody;
+  sendSuccess(
+    response,
+    await journeyService.recordDeviation(
+      journeyId,
+      request.auth!.userId,
+      { latitude, longitude },
+    ),
+  );
+});
+
+export const finishJourney = wrap(async (request, response) => {
+  const { journeyId } = request.body as JourneyIdBody;
+  sendSuccess(response, await journeyService.finishJourney(journeyId, request.auth!.userId));
+});
+
+export const setOutcome = wrap(async (request, response) => {
+  const { journeyId, outcome } = request.body as JourneyOutcomeBody;
+  sendSuccess(
+    response,
+    await journeyService.setOutcome(journeyId, request.auth!.userId, outcome),
+  );
+});
+
+export const getHistory = wrap(async (request, response) => {
+  sendSuccess(response, await journeyService.getHistory(request.auth!.userId));
+});
+
+export const getJourneyById = wrap(async (request, response) => {
+  const { id } = request.params as JourneyIdParams;
+  sendSuccess(response, await journeyService.getJourneyById(id, request.auth!.userId));
+});
+
+export const getAnalyticsSummary = wrap(async (request, response) => {
+  sendSuccess(response, await journeyService.getAnalyticsSummary(request.auth!.userId));
 });
