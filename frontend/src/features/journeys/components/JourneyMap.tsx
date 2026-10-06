@@ -2,7 +2,7 @@ import React from 'react';
 import { Platform, StyleSheet, Text, View } from 'react-native';
 import MapView, { Marker, Polyline, UrlTile } from 'react-native-maps';
 
-import { environment } from '@/src/config/environment';
+import { getBackendTileUrlTemplate } from '../../map/backend-tile-url';
 
 import { Coordinate } from '../types';
 
@@ -15,7 +15,7 @@ interface Props {
 }
 
 export default function JourneyMap({ origin, destination, routePath, currentLocation, travelledPath }: Props) {
-  const androidTileUrlTemplate = `${environment.apiBaseUrl}/map/tiles/{z}/{x}/{y}`;
+  const androidTileUrlTemplate = getBackendTileUrlTemplate();
 
   return (
     <View style={styles.container}>
