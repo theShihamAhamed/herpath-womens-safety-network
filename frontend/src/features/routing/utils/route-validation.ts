@@ -1,8 +1,6 @@
 // frontend/src/features/routing/utils/route-validation.ts
 
-import type { Destination, RouteOrigin } from '../types';
 import type {
-  LatLng,
   RouteRiskScore,
   RouteWithRiskContext,
 } from '../types/routing.types';

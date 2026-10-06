@@ -16,6 +16,11 @@ interface Props {
 export default function FeedbackOverlay({ visible, icon, iconColor, title, message, onHide, durationMs = 1600 }: Props) {
   const opacity = useRef(new Animated.Value(0)).current;
   const scale = useRef(new Animated.Value(0.9)).current;
+  const onHideRef = useRef(onHide);
+
+  useEffect(() => {
+    onHideRef.current = onHide;
+  }, [onHide]);
 
   useEffect(() => {
     if (!visible) return;
@@ -25,11 +30,13 @@ export default function FeedbackOverlay({ visible, icon, iconColor, title, messa
     ]).start();
 
     const timer = setTimeout(() => {
-      Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(onHide);
+      Animated.timing(opacity, { toValue: 0, duration: 200, useNativeDriver: true }).start(() => {
+        onHideRef.current();
+      });
     }, durationMs);
 
     return () => clearTimeout(timer);
-  }, [visible]);
+  }, [durationMs, opacity, scale, visible]);
 
   if (!visible) return null;
 

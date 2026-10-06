@@ -1,12 +1,8 @@
 import Constants from 'expo-constants';
+import * as ExpoNotifications from 'expo-notifications';
 import { Platform } from 'react-native';
 
-type NotificationsModule = {
-  setNotificationHandler: (handler: Record<string, unknown>) => void;
-  getPermissionsAsync: () => Promise<{ status: string }>;
-  requestPermissionsAsync: () => Promise<{ status: string }>;
-  scheduleNotificationAsync: (notification: Record<string, unknown>) => Promise<string>;
-};
+type NotificationsModule = typeof ExpoNotifications;
 
 function getNotifications(): NotificationsModule | null {
   const isExpoGo = Constants.appOwnership === 'expo';
@@ -14,11 +10,7 @@ function getNotifications(): NotificationsModule | null {
     return null;
   }
 
-  try {
-    return require('expo-notifications') as NotificationsModule;
-  } catch {
-    return null;
-  }
+  return ExpoNotifications;
 }
 
 const Notifications = getNotifications();

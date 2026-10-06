@@ -1,3 +1,22 @@
+export interface Destination {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+}
+
+export interface DestinationSuggestion {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  distanceMeters?: number;
+  /** Optional broad provider category, if the search API supplies one. */
+  category?: string;
+}
+
 export type JourneyOutcome = 'SAFE_CONFIRMED' | 'INCIDENT_REPORTED' | 'UNKNOWN';
 export type JourneyStatus = 'ACTIVE' | 'COMPLETED';
 
@@ -38,6 +57,8 @@ export interface RouteOrigin {
   latitude: number;
   longitude: number;
   isManual?: boolean;
+}
+
 export interface JourneyHistoryItem {
   _id: string;
   destination: LocationPoint;
