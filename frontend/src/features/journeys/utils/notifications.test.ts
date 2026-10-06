@@ -1,4 +1,10 @@
-import * as ExpoNotifications from 'expo-notifications';
+import {
+  getPermissionsAsync,
+  requestPermissionsAsync,
+} from 'expo-notifications/build/NotificationPermissions';
+import { scheduleNotificationAsync } from 'expo-notifications/build/scheduleNotificationAsync';
+import { setNotificationChannelAsync } from 'expo-notifications/build/setNotificationChannelAsync';
+import { PermissionStatus } from 'expo-modules-core';
 import { Platform } from 'react-native';
 import {
   JOURNEY_NOTIFICATION_CHANNEL_ID,
@@ -7,30 +13,39 @@ import {
   sendDeviationNotification,
 } from './notifications';
 
-jest.mock('expo-constants', () => ({ default: { appOwnership: 'expo' } }));
-jest.mock('expo-notifications', () => ({
-  PermissionStatus: { GRANTED: 'granted', DENIED: 'denied' },
+jest.mock('expo-notifications', () => {
+  throw new Error('The push-capable expo-notifications entrypoint must not load');
+});
+jest.mock('expo-notifications/build/NotificationChannelManager.types', () => ({
   AndroidImportance: { HIGH: 6 },
   AndroidNotificationVisibility: { PUBLIC: 1 },
+}));
+jest.mock('expo-notifications/build/NotificationPermissions', () => ({
   getPermissionsAsync: jest.fn(),
   requestPermissionsAsync: jest.fn(),
-  scheduleNotificationAsync: jest.fn().mockResolvedValue('notification-id'),
-  setNotificationChannelAsync: jest.fn().mockResolvedValue(null),
+}));
+jest.mock('expo-notifications/build/NotificationsHandler', () => ({
   setNotificationHandler: jest.fn(),
 }));
+jest.mock('expo-notifications/build/scheduleNotificationAsync', () => ({
+  scheduleNotificationAsync: jest.fn().mockResolvedValue('notification-id'),
+}));
+jest.mock('expo-notifications/build/setNotificationChannelAsync', () => ({
+  setNotificationChannelAsync: jest.fn().mockResolvedValue(null),
+}));
 
-const mockGetPermissionsAsync = jest.mocked(ExpoNotifications.getPermissionsAsync);
-const mockRequestPermissionsAsync = jest.mocked(ExpoNotifications.requestPermissionsAsync);
-const mockScheduleNotificationAsync = jest.mocked(ExpoNotifications.scheduleNotificationAsync);
-const mockSetNotificationChannelAsync = jest.mocked(ExpoNotifications.setNotificationChannelAsync);
+const mockGetPermissionsAsync = jest.mocked(getPermissionsAsync);
+const mockRequestPermissionsAsync = jest.mocked(requestPermissionsAsync);
+const mockScheduleNotificationAsync = jest.mocked(scheduleNotificationAsync);
+const mockSetNotificationChannelAsync = jest.mocked(setNotificationChannelAsync);
 jest.spyOn(console, 'warn').mockImplementation(() => undefined);
 
-function permissionStatus(status: ExpoNotifications.PermissionStatus) {
+function permissionStatus(status: PermissionStatus) {
   return {
     status,
     expires: 'never' as const,
-    granted: status === ExpoNotifications.PermissionStatus.GRANTED,
-    canAskAgain: status !== ExpoNotifications.PermissionStatus.DENIED,
+    granted: status === PermissionStatus.GRANTED,
+    canAskAgain: status !== PermissionStatus.DENIED,
   };
 }
 
@@ -41,7 +56,7 @@ describe('journey local notifications', () => {
   });
 
   it('keeps local notifications available in Expo Go and configures an Android channel', async () => {
-    mockGetPermissionsAsync.mockResolvedValue(permissionStatus(ExpoNotifications.PermissionStatus.GRANTED));
+    mockGetPermissionsAsync.mockResolvedValue(permissionStatus(PermissionStatus.GRANTED));
 
     await expect(requestNotificationPermission()).resolves.toBe(true);
 
@@ -55,8 +70,8 @@ describe('journey local notifications', () => {
   });
 
   it('does not configure or schedule notifications when permission is denied', async () => {
-    mockGetPermissionsAsync.mockResolvedValue(permissionStatus(ExpoNotifications.PermissionStatus.DENIED));
-    mockRequestPermissionsAsync.mockResolvedValue(permissionStatus(ExpoNotifications.PermissionStatus.DENIED));
+    mockGetPermissionsAsync.mockResolvedValue(permissionStatus(PermissionStatus.DENIED));
+    mockRequestPermissionsAsync.mockResolvedValue(permissionStatus(PermissionStatus.DENIED));
 
     await expect(requestNotificationPermission()).resolves.toBe(false);
     expect(mockSetNotificationChannelAsync).not.toHaveBeenCalled();
