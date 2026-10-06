@@ -60,5 +60,7 @@ export const apiEndpoints = {
 
   routes: {
     search: '/routes/destinations/search',
+    alternatives: '/routes/alternatives',
+    recommendation: '/routes/recommendation',
   },
 } as const;
