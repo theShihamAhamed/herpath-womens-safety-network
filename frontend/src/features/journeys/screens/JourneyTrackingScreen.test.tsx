@@ -160,13 +160,14 @@ describe('JourneyTrackingScreen', () => {
       .mockResolvedValueOnce(startedJourney);
     const screen = await startRenderedJourney();
 
-    act(() => emitLocation(location(6.93, 79.87)));
+    await act(async () => emitLocation(location(6.93, 79.87)));
     await waitFor(() => {
       expect(screen.getByText(/location syncing is delayed/i)).toBeTruthy();
     });
 
-    act(() => emitLocation(location(6.94, 79.88)));
+    await act(async () => emitLocation(location(6.94, 79.88)));
     await waitFor(() => {
+      expect(updateLocation).toHaveBeenCalledTimes(2);
       expect(screen.queryByText(/location syncing is delayed/i)).toBeNull();
     });
     warn.mockRestore();
