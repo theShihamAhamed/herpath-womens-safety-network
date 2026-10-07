@@ -18,7 +18,7 @@
 - backend authorization for protected actions
 - rate limiting for auth/report abuse
 - stop location collection when journey ends/cancels/expires
-- TTL/retention for raw journey data
+- purge raw journey path, check-in, and deviation coordinates when a journey finishes, is cancelled, or expires; retain only the aggregate/history fields required by the product
 - demo/test data excluded from real statistics
 - audit moderator actions
 
@@ -51,6 +51,8 @@ Registered passwords currently have a four-character minimum for demo usability.
 
 Frontend `EXPO_PUBLIC_*` values are visible in the client bundle and must not contain secrets.
 
+The current CI install output reports unresolved npm audit findings (frontend 71, including 1 critical; backend 9, including 1 critical). These are security-cleanup work for production readiness, not a reason to weaken the passing test gates.
+
 ## Mobile session storage
 
 - Native Android/iOS stores only the opaque refresh token in Expo SecureStore.
@@ -59,6 +61,17 @@ Frontend `EXPO_PUBLIC_*` values are visible in the client bundle and must not co
 - Web refresh-token persistence is deferred beyond the first assessed milestone; there is no insecure storage fallback.
 - Client route guards prevent normal navigation only. Every privileged backend operation must still authenticate and authorize the request.
 - Device-specific API addresses belong in ignored local environment files, never source control.
+
+## Journey privacy lifecycle
+
+- At most one `ACTIVE` journey is allowed per user.
+- The client obtains foreground location permission before calling `/journeys/start`, stores the returned ID synchronously, and only then starts the watcher. Permission denial must not leave an active backend journey.
+- Terminal transitions are finish, cancel, or 24-hour expiry. `completeJourney` defaults an unresolved outcome to `UNKNOWN` and purges raw coordinates; the reconciliation command applies the same invariant to stale/duplicate records.
+- Local deviation and fallback-channel alerts do not imply remote push delivery. Safety Updates remote notification infrastructure is deferred.
+
+## Provider/native-build boundary
+
+Android Expo Go uses backend-proxied tiles. The mobile bundle contains no Geoapify credential. A custom Android binary using `react-native-maps` needs a separate Google Maps Android SDK key restricted to the Android package and signing SHA-1; this configuration is not present and is not claimed as production-ready.
 
 ## Community verification controls
 

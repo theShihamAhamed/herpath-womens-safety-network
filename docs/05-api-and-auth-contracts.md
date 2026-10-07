@@ -209,6 +209,31 @@ id, name, category, location { latitude, longitude }
 
 IDs retain OSM element type to avoid collisions (`node/123`, `way/123`, or `relation/123`). The endpoint exposes no raw provider tags, routing data, safety score, Incident data, or synthetic fallback places. An empty successful Overpass response returns `200 []`; an unavailable or rate-limited provider returns `503 SUPPORT_PLACE_PROVIDER_UNAVAILABLE`. The public client never contacts Overpass directly. User-visible support-place presentation must include `© OpenStreetMap contributors` attribution.
 
+## Map tile proxy and route contracts
+
+`GET /api/v1/map/tiles/:z/:x/:y` proxies the configured raster provider for the Android `UrlTile` path. Provider credentials are resolved only by the backend; clients receive tile bytes or a standard unavailable response and never receive `GEOAPIFY_API_KEY`.
+
+`GET /api/v1/routes/destinations/search` supplies normalized destination predictions. `GET /api/v1/routes/alternatives` returns provider route alternatives with HerPath risk context; route geometry/time/distance remains separate from the safety evidence used for comparison.
+
+## Journey endpoints and lifecycle
+
+Journey routes require a Bearer access token and use the authenticated actor as owner:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/v1/journeys/start` | Create one active journey from a selected route |
+| `PUT /api/v1/journeys/location` | Append an active location point |
+| `PUT /api/v1/journeys/checkin` | Add an active check-in |
+| `PUT /api/v1/journeys/deviation` | Record an active deviation and its time |
+| `PUT /api/v1/journeys/finish` | Complete and purge raw coordinates |
+| `PUT /api/v1/journeys/cancel` | Complete/cancel and purge raw coordinates |
+| `POST /api/v1/journeys/outcome` | Set `SAFE_CONFIRMED` or `INCIDENT_REPORTED` after completion |
+| `GET /api/v1/journeys/history` | Owner-scoped history projection |
+| `GET /api/v1/journeys/:id` | Owner-scoped journey detail |
+| `GET /api/v1/analytics/summary` | Owner-scoped aggregate summary |
+
+The client obtains foreground location permission before start, stores the returned journey ID before starting the watcher, and must not leave an active journey after permission denial. Finish, cancel, or 24-hour expiry transitions to `COMPLETED`; `completeJourney` defaults an unresolved outcome to `UNKNOWN` and purges `currentPath`, `checkIns`, and `deviationLocation`. The unique active-journey index and reconciliation command protect the one-active invariant.
+
 ## Community verification endpoints
 
 All Community Verification routes require a Bearer access token and operate only on incidents

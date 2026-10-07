@@ -7,19 +7,21 @@ HerPath provides safety context based on available community data. It does not g
 ## Repository structure
 
 ```text
-frontend/  Expo SDK 54 React Native application
+frontend/  Expo SDK 57 React Native application
 backend/   Express and TypeScript API
 docs/      Implementation documentation baseline
 ```
 
 The frontend and backend are independent npm projects.
 
+The current completion branch is validated against Expo SDK 57. The verified scope includes anonymous and registered authentication, incident reporting and moderation, the community safety map, backend-proxied map tiles and routing, journey tracking, local journey alerts, and the moderator workflow. Provider-backed and native-build items that still require production configuration are called out in the completion documentation.
+
 ## Frontend development
 
 ```bash
 cd frontend
 npm ci
-npx expo start
+npm run start
 ```
 
 ## Backend development

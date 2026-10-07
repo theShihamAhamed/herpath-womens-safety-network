@@ -45,4 +45,4 @@ Do not import another feature's internal implementation directly; use agreed con
 
 Map owning the combined presentation does not merge the technical features. Map consumes Routing through `frontend/src/features/routing/index.ts` (or an equivalent documented public boundary); Routing does not modify Map internals for each integration.
 
-Safety Updates/notifications are a shared supporting concern rather than one of the four major assessed components. Coordinate changes that affect an owned feature.
+Safety Updates/notifications are a shared supporting concern rather than one of the four major assessed components. Coordinate changes that affect an owned feature. Shiham led final completion stabilization and integration on the completion branch; that repository activity does not rewrite the original feature assignments above, and a merge/coordination commit is not evidence of ownership of another member's feature.

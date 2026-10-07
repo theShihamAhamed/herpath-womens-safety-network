@@ -11,7 +11,7 @@ HerPath                         bell
 Where are you going?
 Map / geographic content
 Area safety context
-Future route-results location
+Route results and risk comparison
 Map | Report | Profile
 ```
 
@@ -23,7 +23,7 @@ Implementation must eventually consider loading, location permission states, GPS
 
 The entry is **Where are you going?**. Route search uses familiar **From** and **To** labels and defaults From to current location only when permission and location are available. Manual origin selection remains usable otherwise.
 
-Route results should stay visually connected to Map through a lower panel or equivalent integration surface. Each alternative should eventually provide time, distance, a relative reported-risk label, evidence/data-coverage context, and **Start Journey**. Never claim that a route is guaranteed safe.
+Route results stay visually connected to Map through a lower panel or equivalent integration surface. Each alternative provides time, distance, a relative reported-risk label, evidence/data-coverage context, and **Start Journey**. Never claim that a route is guaranteed safe.
 
 Users should understand the evidence behind comparisons in plain language. Internal coefficients and weights do not belong in normal user-facing views.
 
@@ -41,7 +41,7 @@ Confirmation is a result state, not Step 4. My Reports is a secondary owner-hist
 
 ## Safety Updates
 
-Safety Updates opens from the Map bell and provides a native back path. The foundation state is **No new safety updates.** Future updates may deep-link to incident, area, route, journey, or account destinations, but delivery infrastructure is separate work.
+Safety Updates opens from the Map bell and provides a native back path. The foundation state is **No new safety updates.** Local journey alerts are handled by the journey feature. Remote updates may later deep-link to incident, area, route, journey, or account destinations, but delivery infrastructure is separate work.
 
 ## Profile
 
