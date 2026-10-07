@@ -30,9 +30,24 @@ describe('communityVerificationApi', () => {
   });
 
   it('uses the exact feedback submit, removal, and flag contracts', async () => {
-    request.mockResolvedValueOnce({}).mockResolvedValueOnce({}).mockResolvedValueOnce({ flag: { id: 'flag-1' } });
+    const feedback = {
+      response: 'SUPPORT' as const,
+      submittedAt: '2026-10-07T07:30:00.000Z',
+      contributesUntil: '2026-11-06T07:30:00.000Z',
+    };
+    const evidence = {
+      communityState: 'UNVERIFIED' as const,
+      supportCount: 1,
+      activeFeedbackCount: 1,
+      contributingFeedbackCount: 1,
+      evaluatedAt: '2026-10-07T07:30:00.000Z',
+    };
+    request
+      .mockResolvedValueOnce({ feedback, evidence })
+      .mockResolvedValueOnce({})
+      .mockResolvedValueOnce({ flag: { id: 'flag-1' } });
 
-    await communityVerificationApi.submitFeedback('token', incidentId, {
+    const submitted = await communityVerificationApi.submitFeedback('token', incidentId, {
       clientFeedbackId: '11111111-1111-4111-8111-111111111111',
       response: 'SUPPORT',
     });
@@ -51,6 +66,7 @@ describe('communityVerificationApi', () => {
         response: 'SUPPORT',
       },
     });
+    expect(submitted).toEqual({ myFeedback: feedback, evidence });
     expect(request).toHaveBeenNthCalledWith(2, `/incidents/${incidentId}/feedback`, {
       method: 'DELETE',
       accessToken: 'token',

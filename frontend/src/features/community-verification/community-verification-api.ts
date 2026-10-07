@@ -2,6 +2,8 @@ import { apiRequest } from '@/src/services/api/client';
 import { apiEndpoints } from '@/src/services/api/endpoints';
 
 import type {
+  CommunityEvidence,
+  CommunityFeedback,
   CommunityVerificationStatus,
   FeedbackEligibility,
   IncidentFlag,
@@ -32,16 +34,20 @@ export const communityVerificationApi = {
     });
   },
 
-  submitFeedback(
+  async submitFeedback(
     accessToken: string,
     incidentId: string,
     input: SubmitFeedbackInput,
   ): Promise<CommunityVerificationStatus> {
-    return apiRequest<CommunityVerificationStatus>(apiEndpoints.incidents.feedback(incidentId), {
+    const data = await apiRequest<{
+      feedback: CommunityFeedback | null;
+      evidence: CommunityEvidence;
+    }>(apiEndpoints.incidents.feedback(incidentId), {
       method: 'POST',
       accessToken,
       body: input,
     });
+    return { myFeedback: data.feedback, evidence: data.evidence };
   },
 
   removeFeedback(accessToken: string, incidentId: string): Promise<CommunityVerificationStatus> {
