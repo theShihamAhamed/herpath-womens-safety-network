@@ -56,3 +56,22 @@ export const areaSummaryQuerySchema = z.strictObject({
   occurredFrom: absoluteInstantSchema.optional(),
   occurredTo: absoluteInstantSchema.optional(),
 }).superRefine(validateRange);
+
+/** A bounded radius reduces load on the shared public Overpass service. */
+export const supportPlaceQuerySchema = z.strictObject({
+  latitude: z.coerce.number().min(-90).max(90),
+  longitude: z.coerce.number().min(-180).max(180),
+  radius: z.coerce.number().int().min(100).max(5_000).default(2_000),
+});
+
+const MAX_TILE_ZOOM = 20;
+
+export const tileParamsSchema = z.strictObject({
+  z: z.coerce.number().int().min(0).max(MAX_TILE_ZOOM),
+  x: z.coerce.number().int().min(0),
+  y: z.coerce.number().int().min(0),
+}).superRefine(({ z, x, y }, context) => {
+  const maximumCoordinate = 2 ** z - 1;
+  if (x > maximumCoordinate) context.addIssue({ code: 'custom', path: ['x'], message: 'x is outside the tile range for z' });
+  if (y > maximumCoordinate) context.addIssue({ code: 'custom', path: ['y'], message: 'y is outside the tile range for z' });
+});

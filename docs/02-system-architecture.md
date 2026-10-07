@@ -13,16 +13,18 @@ Frontend and backend are independent npm projects.
 
 ## Runtime architecture
 ```text
-Expo React Native App
+Expo SDK 57 React Native App
         |
         | HTTPS REST /api/v1
         v
 Node.js + Express modular backend
         |
         +-- MongoDB Atlas
-        +-- Google Places API
+        +-- map tile proxy: Geoapify tiles served through HerPath `/map/tiles/*`
+        +-- Geoapify Address Autocomplete and Places APIs (destination search)
+        +-- OpenStreetMap / Overpass (Map support places)
         +-- Google Routes API
-        +-- notification infrastructure
+        +-- local journey notification orchestration
 ```
 
 The frontend must never connect directly to MongoDB.
@@ -56,7 +58,9 @@ src/
 ```
 
 ## Database
-Use MongoDB GeoJSON with `[longitude, latitude]`, `2dsphere` indexes for geospatial queries, and TTL indexes for temporary journey points.
+Use MongoDB GeoJSON with `[longitude, latitude]` and `2dsphere` indexes for geospatial queries. Journey raw path, check-in, and deviation coordinates are purged when a journey reaches a terminal state; current privacy behavior is not a raw-coordinate TTL design.
+
+On Android, the client map path is `MapView mapType="none" → UrlTile → HerPath backend /api/v1/map/tiles/*`. Geoapify credentials are backend-only. Expo Go does not require a project Google Maps key; a custom Android binary using `react-native-maps` still requires a separate restricted Google Maps Android SDK key and signing identity, which is deferred in the current repository.
 
 ## Incident location boundary
 
@@ -72,7 +76,7 @@ foundation for later moderated changes.
 
 The persisted `status` field remains a derived compatibility projection for existing consumers.
 Owner and Map response shapes remain unchanged during Phase 1 and do not expose lifecycle fields.
-No moderation or community-verification API/module is introduced by this foundation.
+At the time of the foundation baseline, no moderation or community-verification API/module was introduced. The current implementation has these modules and their audited APIs; this sentence is historical context, not the current architecture.
 
 ## Community verification boundary
 

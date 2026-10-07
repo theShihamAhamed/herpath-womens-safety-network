@@ -6,6 +6,15 @@ export interface Destination {
   longitude: number;
 }
 
+export interface DestinationSuggestion {
+  id: string;
+  name: string;
+  address: string;
+  latitude: number;
+  longitude: number;
+  distanceMeters?: number;
+}
+
 export interface DestinationSearchQuery {
   q: string;
   lat?: number | undefined;
@@ -53,4 +62,15 @@ export interface RouteWithRiskContext extends RouteSummary {
   corridorRadiusMeters: number;
   nearbyIncidentCount: number; // preview count only — not a final risk score
   riskEvaluationStatus: 'ready_for_evaluation';
+}
+
+export interface RiskFactors {
+  incidentCount: number;
+  severityWeightedScore: number;
+  recencyWeightedScore: number;
+}
+
+export interface RouteRiskScore extends RouteWithRiskContext {
+  riskScore: number;
+  riskFactors: RiskFactors;
 }

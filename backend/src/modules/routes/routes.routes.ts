@@ -4,11 +4,14 @@ import { validate } from '../../common/middleware/validate.js';
 import { GeocodingService } from './geocoding.service.js';
 import { getRouteRecommendationHandler } from './recommendation.controller.js';
 import { getAlternativeRoutes, RoutesController } from './routes.controller.js';
-import { destinationSearchQuerySchema } from './routes.validation.js';
+import {
+  destinationSearchQuerySchema,
+  routeAlternativesQuerySchema,
+} from './routes.validation.js';
 
-export function createRoutesRouter(geocodingService?: GeocodingService): Router {
+export function createRoutesRouter(options: { geocodingService?: GeocodingService; geoapifyApiKey?: string | undefined } = {}): Router {
   const router = Router();
-  const service = geocodingService ?? new GeocodingService();
+  const service = options.geocodingService ?? new GeocodingService(options.geoapifyApiKey);
   const controller = new RoutesController(service);
 
   // HS-119–HS-122: Destination search
@@ -19,10 +22,19 @@ export function createRoutesRouter(geocodingService?: GeocodingService): Router 
   );
 
   // HS-119–HS-122: Fetch alternative routes with risk context
-  router.get('/alternatives', getAlternativeRoutes);
+  router.get(
+    '/alternatives',
+    validate({ query: routeAlternativesQuerySchema }),
+    getAlternativeRoutes,
+  );
 
   // HS-88 → HS-87 → HS-86: Full recommendation pipeline
-  router.get('/recommendation', getRouteRecommendationHandler);
+  router.get(
+    '/recommendation',
+    validate({ query: routeAlternativesQuerySchema }),
+    getRouteRecommendationHandler,
+  );
 
   return router;
 }
+

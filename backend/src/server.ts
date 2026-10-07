@@ -8,6 +8,7 @@ import { createApp } from './app.js';
 import { connectDatabase, disconnectDatabase } from './config/database.js';
 import { EnvironmentValidationError, loadEnvironment } from './config/env.js';
 import { createLogger } from './config/logger.js';
+import { ensureJourneyIndexes } from './modules/journeys/journey-index.service.js';
 
 const bootstrapLogger = pino({
   base: { service: 'herpath-backend' },
@@ -35,6 +36,7 @@ async function startServer(): Promise<void> {
     const logger = createLogger(environment.nodeEnv, environment.logLevel);
 
     await connectDatabase(environment.mongodbUri);
+    await ensureJourneyIndexes();
 
     const app = createApp({
       config: environment,

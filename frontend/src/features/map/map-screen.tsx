@@ -1,39 +1,71 @@
-import { useFocusEffect } from '@react-navigation/native';
+import { useFocusEffect } from 'expo-router';
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import React, { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
-import MapView, { PROVIDER_GOOGLE } from 'react-native-maps';
+import { ActivityIndicator, Platform, Pressable, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
+import MapView, { UrlTile } from 'react-native-maps';
+import * as Location from 'expo-location';
 
 import { AreaSummarySheet } from './area-summary-sheet';
 import { FilterBar } from './filter-bar';
 import { IncidentArea } from './incident-area';
 import { IncidentMarker } from './incident-marker';
 import { mapApi } from './map-api';
-import type { AreaSummary, MapFilter, PublicIncidentMarker, ViewportBounds } from './map.types';
+import type { AreaSummary, MapFilter, PublicIncidentMarker, SupportPlace, ViewportBounds } from './map.types';
 import { ReportContextSheet } from './report-context-sheet';
-import { DestinationMarker, useRouteContext } from '@/src/features/routing';
-import { FALLBACK_LOCATION, useUserLocation } from './use-user-location';
+import { SupportPlaceSearchFeedback } from './support-place-search-feedback';
+import { getSupportPlaceDistanceMetres } from './support-place-distance';
+import { SupportPlaceMarker } from './support-place-marker';
+import { supportPlacePresentation } from './support-place-presentation';
+import {
+  DestinationMarker,
+  DestinationResultsSheet,
+  DestinationSearchResultMarker,
+  type DestinationSuggestion,
+  OriginMarker,
+  useRouteContext,
+} from '@/src/features/routing';
+import { FALLBACK_LOCATION, type UseUserLocationResult } from './use-user-location';
+import { useSupportPlaceSearch } from './use-support-place-search';
+import { getBackendTileUrlTemplate } from './backend-tile-url';
+import type { CommunityIncidentChange } from '@/src/features/community-verification/community-verification.types';
 
-export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: number }) {
-  const { height: windowHeight } = useWindowDimensions();
-  const { location, isLoading: isLocationLoading } = useUserLocation();
+interface MapScreenProps {
+  controlsTopOffset?: number;
+  locationState: UseUserLocationResult;
+}
+
+export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenProps) {
+  const { height: windowHeight, fontScale } = useWindowDimensions();
+  const useCompactFloatingControls = fontScale >= 1.35;
+  const { location, permissionStatus, error: locationError, isLoading: isLocationLoading, requestLocation } = locationState;
   const [incidents, setIncidents] = useState<PublicIncidentMarker[]>([]);
   const [filter, setFilter] = useState<MapFilter>({ category: 'ALL', severity: 'ALL', dateRange: 'all', timeOfDay: 'all' });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isMapDataUnavailable, setIsMapDataUnavailable] = useState(false);
   const [selectedAreaSummary, setSelectedAreaSummary] = useState<AreaSummary | null>(null);
+  const [areaSummaryLocation, setAreaSummaryLocation] = useState<{ latitude: number; longitude: number } | null>(null);
+  const [isAreaSummaryUnavailable, setIsAreaSummaryUnavailable] = useState(false);
   const [isSummaryVisible, setIsSummaryVisible] = useState(false);
   const [isReportSheetExpanded, setIsReportSheetExpanded] = useState(false);
+  const [isSupportPlaceSheetExpanded, setIsSupportPlaceSheetExpanded] = useState(false);
+  const [isSearchResultsSheetExpanded, setIsSearchResultsSheetExpanded] = useState(false);
+  const [selectedSupportPlaceId, setSelectedSupportPlaceId] = useState<string | null>(null);
+  const [expandedSupportPlaceId, setExpandedSupportPlaceId] = useState<string | null>(null);
   const lastViewportRef = useRef<ViewportBounds | null>(null);
   const mapRef = useRef<MapView>(null);
+  const supportPlaceSearch = useSupportPlaceSearch({
+    location,
+    hasUsableLocation:
+      permissionStatus === Location.PermissionStatus.GRANTED && locationError === null,
+  });
 
-  let selectedDestination = null;
-  try {
-    const routeContext = useRouteContext();
-    selectedDestination = routeContext.selectedDestination;
-  } catch {
-    // Graceful fallback if rendered without RouteProvider
-  }
+  const routeContext = useRouteContext();
+  const selectedDestination = routeContext.selectedDestination;
+  const searchMapResults = routeContext.searchMapResults;
+  const selectedSearchResult = routeContext.selectedSearchResult;
+  const isSearchResultsActive = searchMapResults.length > 0;
+  const isRouteActive = selectedDestination !== null || routeContext.isPlanning;
+  const isSupportPlaceMode = supportPlaceSearch.status === 'success' || supportPlaceSearch.status === 'empty';
 
   React.useEffect(() => {
     if (selectedDestination && mapRef.current) {
@@ -49,12 +81,46 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
     }
   }, [selectedDestination]);
 
+  React.useEffect(() => {
+    if (!mapRef.current || searchMapResults.length === 0) return;
+    const resultsToFrame = getInitialCameraResults(searchMapResults);
+    if (resultsToFrame.length === 1) {
+      const result = resultsToFrame[0];
+      mapRef.current.animateToRegion({
+        latitude: result.latitude,
+        longitude: result.longitude,
+        latitudeDelta: 0.03,
+        longitudeDelta: 0.03,
+      }, 300);
+      return;
+    }
+    mapRef.current.fitToCoordinates(
+      resultsToFrame.map((result) => ({ latitude: result.latitude, longitude: result.longitude })),
+      { edgePadding: { top: 190, right: 88, bottom: 220, left: 28 }, animated: true },
+    );
+  }, [searchMapResults]);
+
+  React.useEffect(() => {
+    setSelectedSupportPlaceId((current) =>
+      current && !supportPlaceSearch.supportPlaces.some((place) => place.id === current)
+        ? null
+        : current,
+    );
+  }, [supportPlaceSearch.supportPlaces]);
+
+  React.useEffect(() => {
+    setExpandedSupportPlaceId((current) =>
+      current && !supportPlaceSearch.supportPlaces.some((place) => place.id === current) ? null : current,
+    );
+  }, [supportPlaceSearch.supportPlaces]);
+
   const initialRegion = {
     latitude: location?.latitude ?? FALLBACK_LOCATION.latitude,
     longitude: location?.longitude ?? FALLBACK_LOCATION.longitude,
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   };
+  const androidTileUrlTemplate = getBackendTileUrlTemplate();
 
   const loadIncidents = useCallback(async (bounds: ViewportBounds, activeFilter: MapFilter) => {
     setIsRefreshing(true);
@@ -105,23 +171,22 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
   });
 
   const showAreaSummary = async (latitude: number, longitude: number) => {
+    setAreaSummaryLocation({ latitude, longitude });
     try {
       const summary = await mapApi.getAreaSummary(latitude, longitude);
       setSelectedAreaSummary(summary);
+      setIsAreaSummaryUnavailable(false);
       setIsSummaryVisible(true);
     } catch {
-      // Fallback mock area summary
-      setSelectedAreaSummary({
-        center: { latitude, longitude },
-        radiusMeters: 1000,
-        totalIncidents: filteredIncidents.length,
-        byCategory: Object.fromEntries(['HARASSMENT', 'THEFT', 'ASSAULT', 'STALKING', 'OTHER'].map((category) => [category, filteredIncidents.filter((incident) => incident.category === category).length])) as AreaSummary['byCategory'],
-        bySeverity: Object.fromEntries(['LOW', 'MEDIUM', 'HIGH', 'CRITICAL'].map((severity) => [severity, filteredIncidents.filter((incident) => incident.severity === severity).length])) as AreaSummary['bySeverity'],
-        recentCount: filteredIncidents.filter((incident) => Date.now() - new Date(incident.occurredAt).getTime() <= 2_592_000_000).length,
-        dataDisclaimer: 'Based on available community data',
-      });
+      setSelectedAreaSummary(null);
+      setIsAreaSummaryUnavailable(true);
       setIsSummaryVisible(true);
     }
+  };
+
+  const retryAreaSummary = () => {
+    if (!areaSummaryLocation) return;
+    void showAreaSummary(areaSummaryLocation.latitude, areaSummaryLocation.longitude);
   };
 
   const handleLongPress = (event: { nativeEvent: { coordinate: { latitude: number; longitude: number } } }) => {
@@ -129,9 +194,24 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
     void showAreaSummary(latitude, longitude);
   };
 
-  const handleUseCurrentLocation = () => {
-    const center = location ?? FALLBACK_LOCATION;
-    mapRef.current?.animateToRegion({ ...center, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 300);
+  const handleUseCurrentLocation = async () => {
+    const currentLocation = await requestLocation();
+    if (!currentLocation) return;
+    mapRef.current?.animateToRegion({ ...currentLocation, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 300);
+  };
+
+  const handleNearbySupport = async () => {
+    const currentLocation = await requestLocation();
+    if (!currentLocation) {
+      await supportPlaceSearch.searchSupportPlaces(null);
+      return;
+    }
+    const searchOrigin = {
+      latitude: currentLocation.latitude,
+      longitude: currentLocation.longitude,
+    };
+    mapRef.current?.animateToRegion({ ...searchOrigin, latitudeDelta: 0.05, longitudeDelta: 0.05 }, 300);
+    await supportPlaceSearch.searchSupportPlaces(searchOrigin);
   };
 
   const handleCurrentAreaSummary = () => {
@@ -145,6 +225,61 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
     mapRef.current?.animateToRegion({ latitude, longitude, latitudeDelta: 0.02, longitudeDelta: 0.02 }, 300);
   };
 
+  const handleToggleSupportPlace = (place: SupportPlace) => {
+    setExpandedSupportPlaceId((current) => current === place.id ? null : place.id);
+    setSelectedSupportPlaceId(place.id);
+  };
+
+  const handleGetDirections = (place: SupportPlace) => {
+    routeContext.clearSearchMapResults();
+    if (supportPlaceSearch.searchOrigin) {
+      routeContext.setOrigin({
+        name: 'Current Location',
+        latitude: supportPlaceSearch.searchOrigin.latitude,
+        longitude: supportPlaceSearch.searchOrigin.longitude,
+      });
+    }
+    routeContext.setSelectedDestination({
+      id: place.id,
+      name: place.name,
+      address: supportPlacePresentation[place.category].label,
+      latitude: place.location.latitude,
+      longitude: place.location.longitude,
+    });
+    routeContext.setIsPlanning(true);
+  };
+
+  const handleSelectSearchResult = (result: DestinationSuggestion) => {
+    routeContext.setSelectedSearchResult(result);
+    setIsSearchResultsSheetExpanded(true);
+    mapRef.current?.animateToRegion({
+      latitude: result.latitude,
+      longitude: result.longitude,
+      latitudeDelta: 0.018,
+      longitudeDelta: 0.018,
+    }, 250);
+  };
+
+  const handleSetSearchResultDestination = (result: DestinationSuggestion) => {
+    routeContext.setSelectedDestination(result);
+    routeContext.clearSearchMapResults();
+  };
+
+  const retryMapData = () => {
+    const bounds = lastViewportRef.current;
+    if (bounds) void loadIncidents(bounds, filter);
+  };
+
+  const handleIncidentCommunityChanged = useCallback((change: CommunityIncidentChange) => {
+    setIncidents((current) => current.map((incident) =>
+      incident.id === change.incidentId
+        ? { ...incident, supportCount: change.evidence.supportCount }
+        : incident,
+    ));
+    const bounds = lastViewportRef.current;
+    if (bounds) void loadIncidents(bounds, filter);
+  }, [filter, loadIncidents]);
+
   if (isLocationLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -156,39 +291,104 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
 
   return (
     <View style={styles.container}>
-      <FilterBar filter={filter} onChangeFilter={setFilter} topOffset={controlsTopOffset} />
+      {!isRouteActive ? (
+        <FilterBar
+          compactTrigger={useCompactFloatingControls}
+          filter={filter}
+          onChangeFilter={setFilter}
+          topOffset={controlsTopOffset}
+        />
+      ) : null}
 
       <MapView
         ref={mapRef}
-        provider={PROVIDER_GOOGLE}
         style={styles.map}
+        mapType={Platform.OS === 'android' ? 'none' : undefined}
         initialRegion={initialRegion}
-        showsUserLocation
+        showsUserLocation={permissionStatus === Location.PermissionStatus.GRANTED}
         onRegionChangeComplete={handleRegionChangeComplete}
         onLongPress={handleLongPress}
       >
+        {Platform.OS === 'android' ? (
+          <UrlTile urlTemplate={androidTileUrlTemplate} tileSize={256} maximumZ={20} />
+        ) : null}
         {filteredIncidents.map((incident) => (
           <IncidentArea key={`area-${incident.id}`} incident={incident} />
         ))}
         {filteredIncidents.map((incident) => (
           <IncidentMarker key={`marker-${incident.id}`} incident={incident} />
         ))}
+        {supportPlaceSearch.supportPlaces.map((place) => (
+          <SupportPlaceMarker
+            key={`support-place-${place.id}`}
+            place={place}
+            distanceMetres={
+              supportPlaceSearch.searchOrigin
+                ? getSupportPlaceDistanceMetres(supportPlaceSearch.searchOrigin, place.location)
+                : null
+            }
+            selected={place.id === selectedSupportPlaceId}
+            onSelect={() => setSelectedSupportPlaceId(place.id)}
+          />
+        ))}
+        {searchMapResults.map((result) => (
+          <DestinationSearchResultMarker
+            key={`destination-search-${result.id}`}
+            result={result}
+            selected={result.id === selectedSearchResult?.id}
+            onSelect={() => handleSelectSearchResult(result)}
+          />
+        ))}
         {selectedDestination ? (
           <DestinationMarker destination={selectedDestination} />
         ) : null}
+        {routeContext.origin?.isManual ? (
+          <OriginMarker origin={routeContext.origin} />
+        ) : null}
       </MapView>
+
+      {Platform.OS === 'android' ? (
+        <View pointerEvents="none" style={[styles.tileAttribution, { top: controlsTopOffset + 112 }]}>
+          <Text style={styles.tileAttributionText}>© OpenStreetMap contributors · Geoapify</Text>
+        </View>
+      ) : null}
 
       <View
         pointerEvents="box-none"
         style={[
           styles.actionControls,
-          { bottom: isReportSheetExpanded ? Math.round(windowHeight * 0.58) + 16 : 128 },
+          { bottom: (isSearchResultsActive ? isSearchResultsSheetExpanded : isSupportPlaceMode ? isSupportPlaceSheetExpanded : isReportSheetExpanded) ? Math.round(windowHeight * 0.58) + 16 : 128 },
         ]}>
-        <Pressable accessibilityRole="button" accessibilityLabel="Use my current location" onPress={handleUseCurrentLocation} style={styles.mapAction}>
+        <Pressable accessibilityRole="button" accessibilityLabel="Use my current location" onPress={() => void handleUseCurrentLocation()} style={styles.mapAction}>
           <MaterialIcons name="my-location" size={22} color="#176B5B" />
         </Pressable>
         <Pressable accessibilityRole="button" accessibilityLabel="Show area safety context" onPress={handleCurrentAreaSummary} style={styles.mapAction}>
           <MaterialIcons name="analytics" size={22} color="#176B5B" />
+        </Pressable>
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel={
+            supportPlaceSearch.status === 'loading'
+              ? 'Finding nearby support places'
+              : 'Find nearby support places'
+          }
+          accessibilityState={{
+            disabled: supportPlaceSearch.status === 'loading',
+            busy: supportPlaceSearch.status === 'loading',
+            selected: supportPlaceSearch.status === 'success',
+          }}
+          disabled={supportPlaceSearch.status === 'loading'}
+          onPress={() => void handleNearbySupport()}
+          style={({ pressed }) => [
+            styles.mapAction,
+            supportPlaceSearch.status === 'success' && styles.mapActionActive,
+            pressed && supportPlaceSearch.status !== 'loading' && styles.mapActionPressed,
+          ]}>
+          {supportPlaceSearch.status === 'loading' ? (
+            <ActivityIndicator size="small" color="#176B5B" />
+          ) : (
+            <MaterialIcons name="support-agent" size={22} color={supportPlaceSearch.status === 'success' ? '#FFFFFF' : '#176B5B'} />
+          )}
         </Pressable>
       </View>
 
@@ -199,23 +399,51 @@ export function MapScreen({ controlsTopOffset = 8 }: { controlsTopOffset?: numbe
         </View>
       ) : null}
 
-      {filteredIncidents.length === 0 ? (
-        <View accessible accessibilityRole="summary" style={styles.emptyCard}>
-          <Text style={styles.emptyTitle}>{isMapDataUnavailable ? 'Safety information is unavailable' : 'No reports are visible in this area'}</Text>
-          <Text style={styles.emptyText}>{isMapDataUnavailable ? 'Check your connection and try moving the map again. Safety information may be limited while the service is unavailable.' : 'This does not mean the area is safe. Adjust your filters or move the map to explore available community data.'}</Text>
-        </View>
-      ) : null}
-
-      <ReportContextSheet
-        incidents={filteredIncidents}
-        onSelectIncident={handleFocusIncident}
-        onExpandedChange={setIsReportSheetExpanded}
+      <SupportPlaceSearchFeedback
+        status={supportPlaceSearch.status}
+        resultCount={supportPlaceSearch.supportPlaces.length}
+        errorMessage={supportPlaceSearch.errorMessage}
+        onRetry={() => void handleNearbySupport()}
+        onDismiss={supportPlaceSearch.dismissSupportPlaces}
       />
+
+      {isSearchResultsActive && routeContext.submittedSearchQuery ? (
+        <DestinationResultsSheet
+          query={routeContext.submittedSearchQuery}
+          results={searchMapResults}
+          selectedResult={selectedSearchResult}
+          expanded={isSearchResultsSheetExpanded}
+          onSelectResult={handleSelectSearchResult}
+          onSetDestination={handleSetSearchResultDestination}
+          onClear={() => {
+            setIsSearchResultsSheetExpanded(false);
+            routeContext.clearSearchMapResults();
+          }}
+          onExpandedChange={setIsSearchResultsSheetExpanded}
+        />
+      ) : (
+        <ReportContextSheet
+          key={isSupportPlaceMode ? 'support-places' : 'reports'}
+          incidents={filteredIncidents}
+          onIncidentCommunityChanged={handleIncidentCommunityChanged}
+          onSelectIncident={handleFocusIncident}
+          onExpandedChange={isSupportPlaceMode ? setIsSupportPlaceSheetExpanded : setIsReportSheetExpanded}
+          safetyInformationUnavailable={isMapDataUnavailable}
+          onRetrySafetyInformation={retryMapData}
+          supportPlaces={isSupportPlaceMode ? supportPlaceSearch.supportPlaces : undefined}
+          supportSearchOrigin={supportPlaceSearch.searchOrigin}
+          expandedSupportPlaceId={expandedSupportPlaceId}
+          onToggleSupportPlace={handleToggleSupportPlace}
+          onGetDirections={handleGetDirections}
+        />
+      )}
 
       <AreaSummarySheet
         visible={isSummaryVisible}
         summary={selectedAreaSummary}
+        unavailable={isAreaSummaryUnavailable}
         onClose={() => setIsSummaryVisible(false)}
+        onRetry={retryAreaSummary}
       />
     </View>
   );
@@ -228,6 +456,18 @@ const styles = StyleSheet.create({
   },
   map: {
     flex: 1,
+  },
+  tileAttribution: {
+    position: 'absolute',
+    right: 12,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255, 255, 255, 0.88)',
+  },
+  tileAttributionText: {
+    color: '#3E4C48',
+    fontSize: 10,
   },
   actionControls: {
     position: 'absolute',
@@ -249,6 +489,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.14,
     shadowRadius: 4,
   },
+  mapActionPressed: { opacity: 0.72 },
+  mapActionActive: { borderColor: '#176B5B', backgroundColor: '#176B5B' },
   refreshIndicator: {
     position: 'absolute',
     top: 204,
@@ -273,16 +515,9 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#5F6C68',
   },
-  emptyCard: {
-    position: 'absolute',
-    left: 16,
-    right: 16,
-    bottom: 128,
-    gap: 4,
-    padding: 14,
-    borderRadius: 14,
-    backgroundColor: '#FFFFFF',
-  },
-  emptyTitle: { color: '#18201E', fontSize: 15, fontWeight: '800' },
-  emptyText: { color: '#5F6C68', fontSize: 13, lineHeight: 18 },
 });
+
+function getInitialCameraResults(results: DestinationSuggestion[]) {
+  const localResults = results.filter((result) => result.distanceMeters !== undefined && result.distanceMeters <= 25_000);
+  return (localResults.length > 0 ? localResults : results).slice(0, 8);
+}

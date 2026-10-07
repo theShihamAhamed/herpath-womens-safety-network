@@ -26,6 +26,7 @@ export interface Journey {
   duration: number;
   currentPath: PathPoint[];
   checkIns: PathPoint[];
+  checkInCount: number;
   deviationDetected: boolean;
   deviationLocation: Coordinate | null;
   outcome: JourneyOutcome | null;
@@ -39,17 +40,22 @@ export interface JourneyHistoryItem {
   endTime?: string;
   duration: number;
   distanceTravelled: number;
+  checkInCount: number;
+  deviationDetected: boolean;
   outcome: JourneyOutcome | null;
   status: JourneyStatus;
   createdAt: string;
 }
 
 export interface AnalyticsSummary {
-  totalJourneys: number;
+  activeJourneys: number;
+  completedJourneys: number;
   safeJourneys: number;
   incidentJourneys: number;
   unknownJourneys: number;
+  // Percentages are of completed journeys only — active journeys never dilute these.
   safePercentage: number;
   incidentPercentage: number;
   unknownPercentage: number;
+  observedIncidentRate: number;
 }

@@ -1,6 +1,12 @@
 import { apiRequest } from '@/src/services/api/client';
 
-import type { AreaSummary, MapFilter, PublicIncidentMarker, ViewportBounds } from './map.types';
+import type {
+  AreaSummary,
+  MapFilter,
+  PublicIncidentMarker,
+  SupportPlace,
+  ViewportBounds,
+} from './map.types';
 
 export const mapApi = {
   async getIncidents(bounds: ViewportBounds, filter?: MapFilter): Promise<PublicIncidentMarker[]> {
@@ -30,5 +36,15 @@ export const mapApi = {
     return apiRequest<AreaSummary>(
       `/map/area-summary?lat=${lat}&lng=${lng}&radius=${radiusMeters}`
     );
+  },
+
+  async getSupportPlaces(latitude: number, longitude: number, radius?: number): Promise<SupportPlace[]> {
+    const params = new URLSearchParams({
+      latitude: latitude.toString(),
+      longitude: longitude.toString(),
+    });
+    if (radius !== undefined) params.append('radius', radius.toString());
+
+    return apiRequest<SupportPlace[]>(`/map/support-places?${params.toString()}`);
   },
 };

@@ -7,7 +7,7 @@ export interface Coordinate {
 }
 
 export interface LocationPoint extends Coordinate {
-  address?: string;
+  address?: string | undefined;
 }
 
 export interface StartJourneyInput {
@@ -15,7 +15,7 @@ export interface StartJourneyInput {
   origin: LocationPoint;
   destination: LocationPoint;
   polyline: string;
-  distance?: number;
-  duration?: number;
-  riskScore?: number;
+  distance?: number | undefined;
+  duration?: number | undefined;
+  riskScore?: number | undefined;
 }

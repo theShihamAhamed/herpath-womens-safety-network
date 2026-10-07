@@ -14,6 +14,7 @@ export interface IJourney extends Document {
   duration: number;
   currentPath: { latitude: number; longitude: number; timestamp: Date }[];
   checkIns: { latitude: number; longitude: number; timestamp: Date }[];
+  checkInCount: number;
   deviationDetected: boolean;
   deviationLocation: { latitude: number; longitude: number } | null;
   deviationTime: Date | null;
@@ -63,6 +64,7 @@ const JourneySchema = new Schema<IJourney>(
     duration: { type: Number, default: 0 },
     currentPath: { type: [PathPointSchema], default: [] },
     checkIns: { type: [PathPointSchema], default: [] },
+    checkInCount: { type: Number, default: 0, min: 0 },
     deviationDetected: { type: Boolean, default: false },
     deviationLocation: { type: CoordinateSchema, default: null },
     deviationTime: { type: Date, default: null },
@@ -73,7 +75,16 @@ const JourneySchema = new Schema<IJourney>(
     },
     status: { type: String, enum: ['ACTIVE', 'COMPLETED'], default: 'ACTIVE', index: true },
   },
-  { timestamps: true }
+  { timestamps: true, autoIndex: false }
+);
+
+JourneySchema.index(
+  { userId: 1 },
+  {
+    unique: true,
+    partialFilterExpression: { status: 'ACTIVE' },
+    name: 'unique_active_journey_per_user',
+  },
 );
 
 export const Journey = model<IJourney>('Journey', JourneySchema);

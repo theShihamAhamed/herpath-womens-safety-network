@@ -1,6 +1,6 @@
 import { createContext, ReactNode, useContext, useState } from 'react';
 
-import { Destination, RouteOrigin } from './types';
+import { Destination, DestinationSuggestion, RouteOrigin } from './types';
 
 interface RouteContextValue {
   selectedDestination: Destination | null;
@@ -11,6 +11,12 @@ interface RouteContextValue {
   setIsSearching: (isSearching: boolean) => void;
   isPlanning: boolean;
   setIsPlanning: (isPlanning: boolean) => void;
+  submittedSearchQuery: string | null;
+  searchMapResults: DestinationSuggestion[];
+  selectedSearchResult: DestinationSuggestion | null;
+  submitSearchMapResults: (query: string, results: DestinationSuggestion[]) => void;
+  setSelectedSearchResult: (result: DestinationSuggestion | null) => void;
+  clearSearchMapResults: () => void;
   clearRoutePlanning: () => void;
 }
 
@@ -21,9 +27,25 @@ export function RouteProvider({ children }: { children: ReactNode }) {
   const [origin, setOrigin] = useState<RouteOrigin | null>(null);
   const [isSearching, setIsSearching] = useState(false);
   const [isPlanning, setIsPlanning] = useState(false);
+  const [submittedSearchQuery, setSubmittedSearchQuery] = useState<string | null>(null);
+  const [searchMapResults, setSearchMapResults] = useState<DestinationSuggestion[]>([]);
+  const [selectedSearchResult, setSelectedSearchResult] = useState<DestinationSuggestion | null>(null);
+
+  const submitSearchMapResults = (query: string, results: DestinationSuggestion[]) => {
+    setSubmittedSearchQuery(query);
+    setSearchMapResults(results.slice(0, 8));
+    setSelectedSearchResult(null);
+  };
+
+  const clearSearchMapResults = () => {
+    setSubmittedSearchQuery(null);
+    setSearchMapResults([]);
+    setSelectedSearchResult(null);
+  };
 
   const clearRoutePlanning = () => {
     setSelectedDestination(null);
+    clearSearchMapResults();
     setIsPlanning(false);
     setIsSearching(false);
   };
@@ -39,6 +61,12 @@ export function RouteProvider({ children }: { children: ReactNode }) {
         setIsSearching,
         isPlanning,
         setIsPlanning,
+        submittedSearchQuery,
+        searchMapResults,
+        selectedSearchResult,
+        submitSearchMapResults,
+        setSelectedSearchResult,
+        clearSearchMapResults,
         clearRoutePlanning,
       }}>
       {children}

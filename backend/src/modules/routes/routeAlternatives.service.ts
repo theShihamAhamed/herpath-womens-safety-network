@@ -11,21 +11,29 @@ import type {
     RouteAlternativesRequest,
     RouteSummary,
 } from './routes.types.js';
+import { validateRouteSummary } from './routes.validation.js';
 
 function toRouteSummary(raw: RoutingRawRoute): RouteSummary {
+    const distanceMeters = Math.max(
+        0,
+        raw.legs.reduce((sum, leg) => sum + (Number.isFinite(leg.distance?.value) ? leg.distance.value : 0), 0)
+    );
+    const durationSeconds = Math.max(
+        0,
+        raw.legs.reduce((sum, leg) => sum + (Number.isFinite(leg.duration?.value) ? leg.duration.value : 0), 0)
+    );
 
-    const distanceMeters = raw.legs.reduce((sum, leg) => sum + leg.distance.value, 0);
-    const durationSeconds = raw.legs.reduce((sum, leg) => sum + leg.duration.value, 0);
-
-    return {
+    const summary: RouteSummary = {
         routeId: randomUUID(),
-        summaryLabel: raw.summary || 'Route',
+        summaryLabel: raw.summary?.trim() || 'Route',
         distanceMeters,
-        distanceText: raw.legs[0]?.distance.text ?? `${(distanceMeters / 1000).toFixed(1)} km`,
+        distanceText: raw.legs[0]?.distance?.text ?? `${(distanceMeters / 1000).toFixed(1)} km`,
         durationSeconds,
-        durationText: raw.legs[0]?.duration.text ?? `${Math.round(durationSeconds / 60)} min`,
-        polyline: raw.overview_polyline.points,
+        durationText: raw.legs[0]?.duration?.text ?? `${Math.round(durationSeconds / 60)} min`,
+        polyline: raw.overview_polyline?.points || '',
     };
+
+    return validateRouteSummary(summary);
 }
 
 export async function getRouteAlternatives(
@@ -43,3 +51,4 @@ export async function getRouteAlternatives(
 
     return rawRoutes.map(toRouteSummary);
 }
+

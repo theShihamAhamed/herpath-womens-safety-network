@@ -32,6 +32,19 @@ export function ProfileScreen() {
         <InfoRow label="Role" value={actor.role === 'MODERATOR' ? 'Moderator' : 'User'} />
         {actor.email ? <InfoRow label="Email" value={actor.email} /> : null}
       </View>
+      <View style={styles.card}>
+        <Text style={styles.sectionLabel}>Safety</Text>
+        <PrimaryButton
+          label="Journey History"
+          variant="secondary"
+          onPress={() => router.push('/journey/history')}
+        />
+        <PrimaryButton
+          label="Safety Analytics"
+          variant="secondary"
+          onPress={() => router.push('/journey/analytics')}
+        />
+      </View>
 
       {actor.accountType === 'ANONYMOUS' ? (
         <View style={styles.actions}>
@@ -89,4 +102,5 @@ const styles = StyleSheet.create({
   rowLabel: { color: palette.textMuted, fontSize: 14 },
   rowValue: { color: palette.text, fontSize: 14, fontWeight: '700', flexShrink: 1 },
   actions: { gap: spacing.md },
+  sectionLabel: { color: palette.textMuted, fontSize: 12, fontWeight: '800', letterSpacing: 1, marginBottom: spacing.sm },
 });

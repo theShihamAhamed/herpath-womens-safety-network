@@ -1,13 +1,14 @@
 import MaterialIcons from '@expo/vector-icons/MaterialIcons';
 import * as Location from 'expo-location';
 import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import MapView, { Marker, Polygon, type MapPressEvent, type Region } from 'react-native-maps';
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import MapView, { Marker, Polygon, UrlTile, type MapPressEvent, type Region } from 'react-native-maps';
 
 import { PrimaryButton } from '@/src/components/primary-button';
 import { ApiError } from '@/src/services/api/errors';
 import { palette, radius, spacing } from '@/src/theme';
 
+import { getBackendTileUrlTemplate } from '../map/backend-tile-url';
 import { incidentApi } from './incident-api';
 import type { GeoJsonPoint, SelectableLocationCell } from './incident.types';
 
@@ -113,9 +114,16 @@ export function ExactLocationSelector({
             accessibilityLabel="Manual exact incident location map"
             initialRegion={REPORT_SELECTION_REGION}
             onPress={selectManualPoint}
+            mapType={Platform.OS === 'android' ? 'none' : undefined}
             style={styles.map}>
+            {Platform.OS === 'android' ? (
+              <UrlTile urlTemplate={getBackendTileUrlTemplate()} tileSize={256} maximumZ={20} />
+            ) : null}
             {markerCoordinate ? <Marker coordinate={markerCoordinate} /> : null}
           </MapView>
+          {Platform.OS === 'android' ? (
+            <Text style={styles.tileAttributionText}>© OpenStreetMap contributors · Geoapify</Text>
+          ) : null}
         </View>
       ) : null}
 
@@ -202,7 +210,11 @@ export function ApproximateLocationSelector({
           accessibilityLabel="Approximate incident area selection map"
           initialRegion={REPORT_SELECTION_REGION}
           onRegionChangeComplete={setRegion}
+          mapType={Platform.OS === 'android' ? 'none' : undefined}
           style={styles.map}>
+          {Platform.OS === 'android' ? (
+            <UrlTile urlTemplate={getBackendTileUrlTemplate()} tileSize={256} maximumZ={20} />
+          ) : null}
           {cells.map((cell) => {
             const selected = cell.cellId === selectedCellId;
             return (
@@ -218,6 +230,9 @@ export function ApproximateLocationSelector({
             );
           })}
         </MapView>
+        {Platform.OS === 'android' ? (
+          <Text style={styles.tileAttributionText}>© OpenStreetMap contributors · Geoapify</Text>
+        ) : null}
       </View>
 
       <PrimaryButton
@@ -282,6 +297,12 @@ const styles = StyleSheet.create({
     backgroundColor: palette.surface,
   },
   map: { height: 300, width: '100%' },
+  tileAttributionText: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    color: palette.textMuted,
+    fontSize: 10,
+  },
   errorCard: { gap: spacing.md, padding: spacing.md, borderRadius: radius.md, backgroundColor: '#FDECEC' },
   errorText: { color: palette.error, fontSize: 14, lineHeight: 20 },
   selectionCard: {

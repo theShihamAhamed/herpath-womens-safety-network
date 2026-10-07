@@ -4,6 +4,7 @@ import axios from 'axios';
 
 import { AppError } from '../../common/errors/app-error.js';
 import type { RoutingRawRoute, RouteAlternativesRequest } from './routes.types.js';
+import { latLngCoordinateSchema } from './routes.validation.js';
 
 const ROUTING_URLS = {
   walking: 'https://routing.openstreetmap.de/routed-foot/route/v1/driving',
@@ -27,6 +28,19 @@ export async function fetchDirections(
   req: RouteAlternativesRequest,
 ): Promise<RoutingRawRoute[]> {
   const { origin, destination, mode = 'walking' } = req;
+
+  // Validate coordinates
+  const originResult = latLngCoordinateSchema.safeParse(origin);
+  const destResult = latLngCoordinateSchema.safeParse(destination);
+
+  if (!originResult.success || !destResult.success) {
+    throw new AppError({
+      statusCode: 400,
+      code: 'INVALID_COORDINATES',
+      message: 'Invalid origin or destination coordinates.',
+    });
+  }
+
   const url = `${ROUTING_URLS[mode]}/${origin.lng},${origin.lat};${destination.lng},${destination.lat}`;
 
   let data: OsrmResponse;
@@ -58,7 +72,7 @@ export async function fetchDirections(
     });
   }
 
-  if (data.code !== 'Ok') {
+  if (data.code !== 'Ok' || !Array.isArray(data.routes)) {
     throw new AppError({
       statusCode: 502,
       code: 'DIRECTIONS_API_ERROR',
@@ -66,7 +80,23 @@ export async function fetchDirections(
     });
   }
 
-  return data.routes.map((route, index) => ({
+  const validRoutes = data.routes.filter(
+    (route) =>
+      typeof route?.geometry === 'string' &&
+      route.geometry.length > 0 &&
+      Number.isFinite(route.distance) &&
+      Number.isFinite(route.duration)
+  );
+
+  if (validRoutes.length === 0) {
+    throw new AppError({
+      statusCode: 422,
+      code: 'DIRECTIONS_NO_RESULTS',
+      message: 'No valid route geometry returned by routing service.',
+    });
+  }
+
+  return validRoutes.map((route, index) => ({
     summary: index === 0 ? 'Recommended route' : `Alternative route ${index}`,
     overview_polyline: { points: route.geometry },
     legs: [{
@@ -83,4 +113,4 @@ export async function fetchDirections(
     }],
     warnings: [],
   }));
-}
+}

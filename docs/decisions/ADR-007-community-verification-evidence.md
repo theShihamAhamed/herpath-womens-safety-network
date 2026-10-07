@@ -45,5 +45,6 @@ and apply modes. A scheduler is deferred.
 - Deployments performing feedback mutations require transaction-capable MongoDB.
 - Process-local rate limiting is adequate for the current single-instance architecture and must use
   a shared store before multi-instance deployment.
-- Later trust weighting, abuse flags, moderation cases, and scheduled reconciliation can extend the
-  module without changing the public Incident contract.
+- Abuse flags, moderation cases, and reconciliation are now implemented as later extensions without
+  changing the public Incident contract. Trust weighting and scheduled reconciliation remain optional
+  future work.

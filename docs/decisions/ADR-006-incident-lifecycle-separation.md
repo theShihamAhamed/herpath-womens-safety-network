@@ -58,5 +58,6 @@ default lifecycle fields at revision zero; progressed records remain untouched.
 - Current Incident and Map contracts remain compatible while consumers move away from the legacy
   status field.
 - Community evidence continues to be presented as evidence rather than truth or verification.
-- Phase 1 creates no community-feedback, abuse-flagging, evidence-evaluation, moderation-case, or
-  moderator API. Those capabilities belong to later phases.
+- Historical note: the foundation phase created no community-feedback, abuse-flagging, evidence-evaluation,
+  moderation-case, or moderator API. Those capabilities were added in later phases and are present in
+  the current implementation.

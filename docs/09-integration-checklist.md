@@ -1,24 +1,18 @@
 # Integration Checklist
 
-## Foundation gate
+## Foundation gate (current)
 
-- [ ] Expo moved to `frontend/`
-- [ ] backend initialized
-- [ ] docs committed
-- [ ] `.github/` CI exists
-- [ ] `develop` exists
-- [ ] frontend installs/starts
-- [ ] backend installs/starts
-- [ ] `/api/v1/health` works
-- [ ] no secrets tracked
-- [ ] anonymous/pseudonymous auth contract works
-- [ ] registered auth works
-- [ ] moderator cannot self-assign role
-- [ ] restored sessions open the Map tab
-- [ ] bottom navigation contains exactly Map, Report, and Profile
-- [ ] Safety Updates opens from the accessible Map bell and can navigate back
-- [ ] Routes and Alerts have no tab routes or hidden tab registrations
-- [ ] shared shell remains usable with larger text and comfortable touch targets
+- [x] Expo moved to `frontend/`
+- [x] backend initialized
+- [x] docs baseline and completion evidence maintained
+- [x] `.github/` CI exists
+- [x] frontend and backend install/start contracts validated
+- [x] `/api/v1/health` and auth contracts validated by CI/device evidence
+- [x] no secrets tracked in workflow/configuration review
+- [x] anonymous, registered, moderator authorization, restored sessions, and three-tab shell
+- [x] Safety Updates opens from the accessible Map bell and can navigate back
+- [x] Routes and Alerts are non-tab routes
+- [x] shared shell supports larger text and comfortable touch targets
 
 ## Incident → Map
 
@@ -35,35 +29,35 @@
 - [x] lifecycle fields remain absent from owner and Map API responses
 - [x] lifecycle migration supports aggregate dry-run, idempotent apply, and restricted rollback
 - [x] occurrence-range filters use offset-aware `occurredFrom`/`occurredTo`
-- [ ] newly submitted public incident can render
-- [ ] Map renders `publicArea` as an honest approximate area rather than only a precise-looking pin
-- [ ] Android physical-device incident flow verified
+- [x] newly submitted public incident can render
+- [x] Map renders `publicArea` as an honest approximate area rather than only a precise-looking pin
+- [x] Android physical-device incident flow verified (M8)
 - [ ] iOS physical-device incident flow verified
-- [ ] increased-text and screen-reader checks completed on a device
+- [x] increased-text check completed on Android (M8); iOS/screen-reader coverage remains deferred
 
 ## Map/Incidents → Route
 
-- [ ] Map consumes Routing only through its documented public feature exports
-- [ ] destination search begins from the Map experience
-- [ ] route candidates available
-- [ ] route corridor can query relevant incidents
-- [ ] route uses approved terminology
-- [ ] insufficient-data state works
+- [x] Map consumes Routing only through its documented public feature exports
+- [x] destination search begins from the Map experience
+- [x] route candidates available
+- [x] route corridor can query relevant incidents
+- [x] route uses approved terminology
+- [x] insufficient-data state works
 - [ ] no visible reports are never presented as proof of safety
 
 ## Route → Journey
 
-- [ ] selected-route handoff contract stable
-- [ ] journey can start from selected route
-- [ ] tracking begins only after explicit consent
+- [x] selected-route handoff contract stable
+- [x] journey can start from selected route
+- [x] tracking begins only after explicit consent and foreground permission
 
 ## Journey → Analytics
 
-- [ ] safe requires explicit confirmation
-- [ ] incident remains incident-affected after arrival
-- [ ] unresolved becomes UNKNOWN
-- [ ] route/area aggregates update
-- [ ] test/demo journeys excluded
+- [x] safe requires explicit confirmation
+- [x] incident remains incident-affected after arrival
+- [x] unresolved becomes UNKNOWN
+- [x] journey history/analytics aggregates update
+- [x] terminal raw coordinates are purged
 
 ## Moderation
 
@@ -80,7 +74,7 @@
 - [x] append-only audit logging and privacy-safe audit history implemented
 - [x] conflicted evidence reconciliation into moderation intake implemented
 - [x] authorization, privacy, concurrency, idempotency, and rollback hardening completed
-- [ ] rejected/duplicate evidence is recalculated as designed
+- [x] rejected/duplicate evidence is recalculated as designed
 - [x] concurrent moderator changes do not silently overwrite
 
 ## Phase 3 validation coverage
@@ -93,3 +87,12 @@
 - [x] moderation decisions preserve Community Verification state, support count, and feedback
 - [x] hidden/archived incidents remain excluded and restored incidents return to public reads
 - [x] backend tests, typecheck, lint, and build passed for Phase 3
+
+## Deferred production/device gate
+
+- [x] M8 physical Android verification completed on SDK 57 / Expo Go
+- [ ] iOS physical-device verification
+- [ ] custom Android standalone/development build with a genuine Google Maps Android SDK key, package restriction, and signing SHA-1
+- [ ] external Geoapify credential rotation (`EXTERNAL GEOAPIFY CREDENTIAL ROTATION REQUIRED`)
+- [ ] remote push/Safety Updates delivery infrastructure
+- [ ] multi-instance production limiter and observability validation

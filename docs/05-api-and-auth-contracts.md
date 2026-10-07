@@ -166,6 +166,20 @@ Returns only reports owned by the authenticated actor, newest submission first. 
 
 Anonymous reports remain with the pseudonymous account/session that created them; sign-in, registration, or logout does not silently transfer ownership.
 
+## Destination search endpoint
+
+`GET /api/v1/routes/destinations/search` accepts a trimmed `q` of 1 to 100 characters and optional `lat`/`lng` coordinates. `GEOAPIFY_API_KEY` remains server-side. The first provider stage is Geoapify Address Autocomplete. For two or more characters, the backend parses the provider's ordered `query.categories` metadata and uses a generic relevance gate before it may run a Geoapify Places category search. If that does not yield relevant named places, it may use a `type=amenity` autocomplete pass. Explicit supported `&lt;category&gt; near me` requests require real coordinates and use the applicable Geoapify Places category.
+
+When real shared Map location is available, provider requests use it only as a proximity bias. Local results are preferred through a 25 km local-first pass where applicable, but there is no permanent country filter or worldwide distance limit: global provider results remain available when useful local results are absent. The service normalizes, relevance/proximity-orders, deduplicates, and caps results at eight. It never invents destinations, coordinates, or provider results. One-character input remains a truthful short-prefix state in the client; two or more characters are debounced and superseded responses are ignored.
+
+The response is provider-neutral and contains predictions only; it does not disclose provider payloads or fabricated coordinates:
+
+```text
+id, name, address, latitude, longitude, distanceMeters?
+```
+
+Normalized results already contain real coordinates, so selecting a suggestion sets the route destination without a second geocoding request. Search/Enter can instead submit up to eight current results to the Map for temporary markers and a Search Results sheet. An empty successful provider response returns `200 []`. A missing key, provider, or network failure returns `503 DESTINATION_SEARCH_UNAVAILABLE`; the service never fabricates a suggestion, destination, or coordinate as a fallback.
+
 ## Public Map incident endpoints
 
 `GET /api/v1/map/incidents` accepts required `swLat`, `swLng`, `neLat`, `neLng`, with optional `category`, `severity`, `occurredFrom`, and `occurredTo`. `GET /api/v1/map/area-summary` accepts `lat`, `lng`, optional `radius` from 100 to 10,000 metres, and optional `occurredFrom`/`occurredTo`. Time bounds are inclusive absolute instants and require `Z` or an explicit numeric offset.
@@ -184,6 +198,41 @@ backfill period, a legacy document is eligible only when all lifecycle fields ar
 status is `PUBLISHED_UNVERIFIED`. Community verification extends these lifecycle fields without
 changing the reporting or public Map response shapes. Abuse flags and moderation operate through
 separate authenticated contracts and do not expand the public Map projection.
+
+## Nearby support-place endpoint
+
+`GET /api/v1/map/support-places` accepts required `latitude` and `longitude`, with an optional `radius` in metres from 100 to 5,000 (default 2,000). It returns a normalized collection of named real OpenStreetMap support resources:
+
+```text
+id, name, category, location { latitude, longitude }
+```
+
+IDs retain OSM element type to avoid collisions (`node/123`, `way/123`, or `relation/123`). The endpoint exposes no raw provider tags, routing data, safety score, Incident data, or synthetic fallback places. An empty successful Overpass response returns `200 []`; an unavailable or rate-limited provider returns `503 SUPPORT_PLACE_PROVIDER_UNAVAILABLE`. The public client never contacts Overpass directly. User-visible support-place presentation must include `© OpenStreetMap contributors` attribution.
+
+## Map tile proxy and route contracts
+
+`GET /api/v1/map/tiles/:z/:x/:y` proxies the configured raster provider for the Android `UrlTile` path. Provider credentials are resolved only by the backend; clients receive tile bytes or a standard unavailable response and never receive `GEOAPIFY_API_KEY`.
+
+`GET /api/v1/routes/destinations/search` supplies normalized destination predictions. `GET /api/v1/routes/alternatives` returns provider route alternatives with HerPath risk context; route geometry/time/distance remains separate from the safety evidence used for comparison.
+
+## Journey endpoints and lifecycle
+
+Journey routes require a Bearer access token and use the authenticated actor as owner:
+
+| Endpoint | Purpose |
+| --- | --- |
+| `POST /api/v1/journeys/start` | Create one active journey from a selected route |
+| `PUT /api/v1/journeys/location` | Append an active location point |
+| `PUT /api/v1/journeys/checkin` | Add an active check-in |
+| `PUT /api/v1/journeys/deviation` | Record an active deviation and its time |
+| `PUT /api/v1/journeys/finish` | Complete and purge raw coordinates |
+| `PUT /api/v1/journeys/cancel` | Complete/cancel and purge raw coordinates |
+| `POST /api/v1/journeys/outcome` | Set `SAFE_CONFIRMED` or `INCIDENT_REPORTED` after completion |
+| `GET /api/v1/journeys/history` | Owner-scoped history projection |
+| `GET /api/v1/journeys/:id` | Owner-scoped journey detail |
+| `GET /api/v1/analytics/summary` | Owner-scoped aggregate summary |
+
+The client obtains foreground location permission before start, stores the returned journey ID before starting the watcher, and must not leave an active journey after permission denial. Finish, cancel, or 24-hour expiry transitions to `COMPLETED`; `completeJourney` defaults an unresolved outcome to `UNKNOWN` and purges `currentPath`, `checkIns`, and `deviationLocation`. The unique active-journey index and reconciliation command protect the one-active invariant.
 
 ## Community verification endpoints
 
