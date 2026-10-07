@@ -9,6 +9,7 @@ import {
 import { setNotificationHandler } from 'expo-notifications/build/NotificationsHandler';
 import { scheduleNotificationAsync } from 'expo-notifications/build/scheduleNotificationAsync';
 import { setNotificationChannelAsync } from 'expo-notifications/build/setNotificationChannelAsync';
+import Constants, { AppOwnership } from 'expo-constants';
 import { Platform } from 'react-native';
 
 export const JOURNEY_NOTIFICATION_CHANNEL_ID = 'journey-safety-alerts';
@@ -25,57 +26,69 @@ if (Platform.OS !== 'web') {
   });
 }
 
-async function configureJourneyNotificationChannel() {
-  if (Platform.OS !== 'android') return;
+function isExpoGo() {
+  return Constants.appOwnership === AppOwnership.Expo;
+}
 
-  await setNotificationChannelAsync(JOURNEY_NOTIFICATION_CHANNEL_ID, {
-    name: 'Journey safety alerts',
-    importance: AndroidImportance.HIGH,
-    sound: 'default',
-    vibrationPattern: [0, 250, 250, 250],
-    enableVibrate: true,
-    lockscreenVisibility: AndroidNotificationVisibility.PUBLIC,
-  });
+async function configureJourneyNotificationChannel() {
+  if (Platform.OS !== 'android' || isExpoGo()) return false;
+
+  try {
+    await setNotificationChannelAsync(JOURNEY_NOTIFICATION_CHANNEL_ID, {
+      name: 'Journey safety alerts',
+      importance: AndroidImportance.HIGH,
+      sound: 'default',
+      vibrationPattern: [0, 250, 250, 250],
+      enableVibrate: true,
+      lockscreenVisibility: AndroidNotificationVisibility.PUBLIC,
+    });
+    return true;
+  } catch (error) {
+    console.warn('Could not configure the journey notification channel', error);
+    return false;
+  }
 }
 
 export async function requestNotificationPermission() {
   if (Platform.OS === 'web') return false;
 
+  // Android 13 only presents the permission prompt after a channel exists.
+  // Expo Go owns its native channels, so it must use the fallback channel.
+  await configureJourneyNotificationChannel();
+
   const { status } = await getPermissionsAsync();
   if (status !== 'granted') {
     const { status: newStatus } = await requestPermissionsAsync();
     if (newStatus !== 'granted') return false;
-    await configureJourneyNotificationChannel();
     return true;
   }
-  await configureJourneyNotificationChannel();
   return true;
 }
 
 export async function sendDeviationNotification() {
-  if (Platform.OS === 'web') return;
-
-  await configureJourneyNotificationChannel();
-  await scheduleNotificationAsync({
-    content: {
-      title: 'Route deviation detected',
-      body: 'You have deviated from the recommended route.',
-      sound: true,
-    },
-    trigger: { channelId: JOURNEY_NOTIFICATION_CHANNEL_ID },
-  });
+  return sendJourneyNotification('Route deviation detected', 'You have deviated from the recommended route.');
 }
 
 export async function sendArrivalNotification() {
-  if (Platform.OS === 'web') return;
+  return sendJourneyNotification('Journey completed', 'You have arrived at your destination.');
+}
 
-  await configureJourneyNotificationChannel();
-  await scheduleNotificationAsync({
-    content: {
-      title: 'Journey completed',
-      body: 'You have arrived at your destination.',
-      sound: true,
-    },
-    trigger: { channelId: JOURNEY_NOTIFICATION_CHANNEL_ID },
-  });
+async function sendJourneyNotification(title: string, body: string) {
+  if (Platform.OS === 'web') return false;
+
+  try {
+    const { status } = await getPermissionsAsync();
+    if (status !== 'granted') return false;
+
+    const channelConfigured = await configureJourneyNotificationChannel();
+    await scheduleNotificationAsync({
+      content: { title, body, sound: true },
+      trigger: channelConfigured ? { channelId: JOURNEY_NOTIFICATION_CHANNEL_ID } : null,
+    });
+    return true;
+  } catch (error) {
+    // A local alert is supplementary and must never interrupt live tracking.
+    console.warn('Could not send a journey notification', error);
+    return false;
+  }
 }

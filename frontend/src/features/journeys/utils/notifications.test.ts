@@ -4,6 +4,7 @@ import {
 } from 'expo-notifications/build/NotificationPermissions';
 import { scheduleNotificationAsync } from 'expo-notifications/build/scheduleNotificationAsync';
 import { setNotificationChannelAsync } from 'expo-notifications/build/setNotificationChannelAsync';
+import Constants from 'expo-constants';
 import { PermissionStatus } from 'expo-modules-core';
 import { Platform } from 'react-native';
 import {
@@ -33,6 +34,11 @@ jest.mock('expo-notifications/build/scheduleNotificationAsync', () => ({
 jest.mock('expo-notifications/build/setNotificationChannelAsync', () => ({
   setNotificationChannelAsync: jest.fn().mockResolvedValue(null),
 }));
+jest.mock('expo-constants', () => ({
+  __esModule: true,
+  AppOwnership: { Expo: 'expo' },
+  default: { appOwnership: 'expo' },
+}));
 
 const mockGetPermissionsAsync = jest.mocked(getPermissionsAsync);
 const mockRequestPermissionsAsync = jest.mocked(requestPermissionsAsync);
@@ -53,20 +59,14 @@ describe('journey local notifications', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     Object.defineProperty(Platform, 'OS', { configurable: true, value: 'android' });
+    Object.defineProperty(Constants, 'appOwnership', { configurable: true, value: 'expo' });
   });
 
-  it('keeps local notifications available in Expo Go and configures an Android channel', async () => {
+  it('uses Expo Go fallback channels instead of its unavailable channel manager', async () => {
     mockGetPermissionsAsync.mockResolvedValue(permissionStatus(PermissionStatus.GRANTED));
 
     await expect(requestNotificationPermission()).resolves.toBe(true);
-
-    expect(mockSetNotificationChannelAsync).toHaveBeenCalledWith(
-      JOURNEY_NOTIFICATION_CHANNEL_ID,
-      expect.objectContaining({
-        name: 'Journey safety alerts',
-        importance: 6,
-      }),
-    );
+    expect(mockSetNotificationChannelAsync).not.toHaveBeenCalled();
   });
 
   it('does not configure or schedule notifications when permission is denied', async () => {
@@ -74,10 +74,27 @@ describe('journey local notifications', () => {
     mockRequestPermissionsAsync.mockResolvedValue(permissionStatus(PermissionStatus.DENIED));
 
     await expect(requestNotificationPermission()).resolves.toBe(false);
+    await expect(sendDeviationNotification()).resolves.toBe(false);
     expect(mockSetNotificationChannelAsync).not.toHaveBeenCalled();
+    expect(mockScheduleNotificationAsync).not.toHaveBeenCalled();
   });
 
-  it('schedules deviation and arrival alerts on the journey channel', async () => {
+  it('configures a dedicated channel before requesting permission in Android builds', async () => {
+    Object.defineProperty(Constants, 'appOwnership', { configurable: true, value: null });
+    mockGetPermissionsAsync.mockResolvedValue(permissionStatus(PermissionStatus.GRANTED));
+
+    await expect(requestNotificationPermission()).resolves.toBe(true);
+
+    expect(mockSetNotificationChannelAsync).toHaveBeenCalledWith(
+      JOURNEY_NOTIFICATION_CHANNEL_ID,
+      expect.objectContaining({ name: 'Journey safety alerts', importance: 6 }),
+    );
+  });
+
+  it('schedules deviation and arrival alerts on the journey channel in Android builds', async () => {
+    Object.defineProperty(Constants, 'appOwnership', { configurable: true, value: null });
+    mockGetPermissionsAsync.mockResolvedValue(permissionStatus(PermissionStatus.GRANTED));
+
     await sendDeviationNotification();
     await sendArrivalNotification();
 
