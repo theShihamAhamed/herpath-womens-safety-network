@@ -1,5 +1,14 @@
-import { createContext, type PropsWithChildren, useContext, useEffect, useRef, useState } from 'react';
+import {
+  createContext,
+  type PropsWithChildren,
+  useCallback,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
+import { registerAuthRecovery } from '@/src/services/api/auth-recovery';
 import { ApiError } from '@/src/services/api/errors';
 
 import { authApi } from './auth-api';
@@ -40,53 +49,119 @@ interface AuthContextValue {
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
+const SESSION_EXPIRED_MESSAGE = 'Your session expired. HerPath started a new anonymous session.';
 
 function isInvalidRefresh(error: unknown): boolean {
   return (
     error instanceof ApiError &&
-    (error.status === 401 || error.code === 'INVALID_REFRESH_TOKEN')
+    error.code === 'INVALID_REFRESH_TOKEN'
   );
 }
 
 export function AuthProvider({
   children,
-  dependencies = { api: authApi, storage: refreshTokenStorage },
+  dependencies,
 }: PropsWithChildren<{ dependencies?: AuthDependencies }>) {
+  const api = dependencies?.api ?? authApi;
+  const storage = dependencies?.storage ?? refreshTokenStorage;
   const [status, setStatus] = useState<SessionStatus>('loading');
   const [actor, setActor] = useState<AuthActor | null>(null);
   const [accessToken, setAccessToken] = useState<string | null>(null);
   const [operation, setOperation] = useState<AuthOperation>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const started = useRef(false);
+  const mounted = useRef(false);
+  const sessionRevision = useRef(0);
   const restorePromise = useRef<Promise<void> | null>(null);
 
-  async function activate(
+  const activate = useCallback(async function activate(
     bundle: AuthTokenBundle,
-    options: { persistBeforeVerification?: boolean } = {},
+    options: { persistBeforeVerification?: boolean; noticeMessage?: string } = {},
   ): Promise<void> {
     if (options.persistBeforeVerification) {
-      await dependencies.storage.set(bundle.refreshToken);
+      await storage.set(bundle.refreshToken);
     }
-    const verifiedActor = await dependencies.api.me(bundle.accessToken);
+    const verifiedActor = await api.me(bundle.accessToken);
     if (!options.persistBeforeVerification) {
-      await dependencies.storage.set(bundle.refreshToken);
+      await storage.set(bundle.refreshToken);
     }
+    if (!mounted.current) return;
     setAccessToken(bundle.accessToken);
     setActor(verifiedActor);
+    setErrorMessage(options.noticeMessage ?? null);
+    setStatus('ready');
+  }, [api, storage]);
+
+  const createAnonymousSession = useCallback(async function createAnonymousSession(
+    noticeMessage?: string,
+  ): Promise<void> {
+    await activate(await api.createAnonymous(), noticeMessage ? { noticeMessage } : {});
+  }, [activate, api]);
+
+  const transitionAfterTerminalRefreshFailure = useCallback(async function transitionAfterTerminalRefreshFailure(
+    cause: unknown,
+    expectedRevision: number,
+  ): Promise<never> {
+    if (sessionRevision.current !== expectedRevision) throw authRecoveryUnavailableError();
+    sessionRevision.current += 1;
+    await storage.clear();
+    if (!mounted.current) throw sessionExpiredError(cause);
+
+    setAccessToken(null);
+    setActor(null);
+    setStatus('loading');
+    setErrorMessage(SESSION_EXPIRED_MESSAGE);
+
+    try {
+      await createAnonymousSession(SESSION_EXPIRED_MESSAGE);
+    } catch {
+      if (mounted.current) {
+        setAccessToken(null);
+        setActor(null);
+        setStatus('error');
+        setErrorMessage(SESSION_EXPIRED_MESSAGE);
+      }
+    }
+
+    throw sessionExpiredError(cause);
+  }, [createAnonymousSession, storage]);
+
+  const recoverRuntimeAccessToken = useCallback(async function recoverRuntimeAccessToken(): Promise<string> {
+    const recoveryRevision = sessionRevision.current;
+    const currentRefreshToken = await storage.get();
+    if (!currentRefreshToken) {
+      return transitionAfterTerminalRefreshFailure(undefined, recoveryRevision);
+    }
+
+    let bundle: AuthTokenBundle;
+    try {
+      bundle = await api.refresh(currentRefreshToken);
+    } catch (error) {
+      if (isInvalidRefresh(error)) {
+        return transitionAfterTerminalRefreshFailure(error, recoveryRevision);
+      }
+      throw error;
+    }
+
+    if (sessionRevision.current !== recoveryRevision) throw authRecoveryUnavailableError();
+    await storage.set(bundle.refreshToken);
+    if (!mounted.current || sessionRevision.current !== recoveryRevision) {
+      throw authRecoveryUnavailableError();
+    }
+
+    setAccessToken(bundle.accessToken);
+    setActor(bundle.user);
     setErrorMessage(null);
     setStatus('ready');
-  }
-
-  async function createAnonymousSession(): Promise<void> {
-    await activate(await dependencies.api.createAnonymous());
-  }
+    return bundle.accessToken;
+  }, [api, storage, transitionAfterTerminalRefreshFailure]);
 
   async function performSessionRestore(): Promise<void> {
     setStatus('loading');
     setErrorMessage(null);
 
     try {
-      const refreshToken = await dependencies.storage.get();
+      const refreshToken = await storage.get();
       if (!refreshToken) {
         await createAnonymousSession();
         return;
@@ -94,12 +169,12 @@ export function AuthProvider({
 
       let bundle: AuthTokenBundle;
       try {
-        bundle = await dependencies.api.refresh(refreshToken);
+        bundle = await api.refresh(refreshToken);
       } catch (error) {
         if (!isInvalidRefresh(error)) {
           throw error;
         }
-        await dependencies.storage.clear();
+        await storage.clear();
         await createAnonymousSession();
         return;
       }
@@ -135,6 +210,18 @@ export function AuthProvider({
   }
 
   useEffect(() => {
+    mounted.current = true;
+    const unregister = registerAuthRecovery({
+      recoverAccessToken: recoverRuntimeAccessToken,
+    });
+
+    return () => {
+      mounted.current = false;
+      unregister();
+    };
+  }, [recoverRuntimeAccessToken]);
+
+  useEffect(() => {
     if (started.current) return;
     started.current = true;
     void restoreSession();
@@ -145,15 +232,16 @@ export function AuthProvider({
     createBundle: () => Promise<AuthTokenBundle>,
   ): Promise<void> {
     if (operation) return;
+    sessionRevision.current += 1;
     setOperation(nextOperation);
 
     try {
-      const previousRefreshToken = await dependencies.storage.get();
+      const previousRefreshToken = await storage.get();
       const bundle = await createBundle();
       await activate(bundle);
 
       if (previousRefreshToken && previousRefreshToken !== bundle.refreshToken) {
-        void dependencies.api.logout(previousRefreshToken).catch(() => undefined);
+        void api.logout(previousRefreshToken).catch(() => undefined);
       }
     } finally {
       setOperation(null);
@@ -162,13 +250,13 @@ export function AuthProvider({
 
   async function signIn(input: SignInInput): Promise<void> {
     await replaceSession('signIn', () =>
-      dependencies.api.login({ email: input.email.trim(), password: input.password }),
+      api.login({ email: input.email.trim(), password: input.password }),
     );
   }
 
   async function signUp(input: SignUpInput): Promise<void> {
     await replaceSession('signUp', () =>
-      dependencies.api.register({
+      api.register({
         name: input.name.trim(),
         email: input.email.trim(),
         password: input.password,
@@ -178,15 +266,16 @@ export function AuthProvider({
 
   async function logout(): Promise<void> {
     if (operation) return;
+    sessionRevision.current += 1;
     setOperation('logout');
 
     try {
-      const refreshToken = await dependencies.storage.get();
+      const refreshToken = await storage.get();
       if (refreshToken) {
-        await dependencies.api.logout(refreshToken).catch(() => undefined);
+        await api.logout(refreshToken).catch(() => undefined);
       }
 
-      await dependencies.storage.clear();
+      await storage.clear();
       setAccessToken(null);
       setActor(null);
       setStatus('loading');
@@ -221,6 +310,23 @@ export function AuthProvider({
       {children}
     </AuthContext.Provider>
   );
+}
+
+function sessionExpiredError(cause: unknown): ApiError {
+  return new ApiError({
+    status: 401,
+    code: 'SESSION_EXPIRED',
+    message: SESSION_EXPIRED_MESSAGE,
+    cause,
+  });
+}
+
+function authRecoveryUnavailableError(): ApiError {
+  return new ApiError({
+    status: 401,
+    code: 'AUTH_RECOVERY_UNAVAILABLE',
+    message: 'Your session could not be refreshed. Please try again.',
+  });
 }
 
 export function useAuth(): AuthContextValue {

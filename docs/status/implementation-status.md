@@ -3,14 +3,14 @@
 Update this through real PRs. Do not backdate progress.
 
 ## Current phase
-Moderation governance system
+M8 physical verification complete; M9 documentation freeze
 
 ## Repository
 - [x] frontend structure
 - [x] backend structure
 - [x] docs baseline
 - [x] CI
-- [ ] develop branch
+- [x] completion branch `fix/final-project-completion` validated at `262a06ed8383aa563e4bc36286e2d28420b5d6d1` (PR #60 remains open; not merged to `develop`)
 
 ## Backend foundation
 - [x] environment validation
@@ -83,19 +83,39 @@ Moderation governance system
 ### Sandaruwan
 - [x] destination search and geocoding integration
 - [x] selected destination display and coordinates handoff to route planning
-- [ ] provider route alternatives
-- [ ] risk comparison
+- [x] provider route alternatives
+- [x] risk comparison and Journey handoff
 
 ### Eshan
-- [ ] journey state machine
-- [ ] tracking
-- [ ] arrival/outcome
-- [ ] analytics
+- [x] journey state machine
+- [x] foreground tracking and lifecycle cleanup
+- [x] arrival/outcome
+- [x] analytics
 
 ## Baseline change log
 `YYYY-MM-DD | PR # | Change | Reason`
 
-## Phase 3 backend validation
+## Current completion validation
+
+- [x] frontend remote CI: 11 Jest suites, 63 tests
+- [x] backend remote CI: 34 test files, 323 tests
+- [x] physical Android M8 verification on SDK 57 / Expo Go
+- [x] journey raw-coordinate terminal purge and UNKNOWN fallback documented
+- [x] local journey notification fallback-channel behavior verified
+
+Known P2 quality item: Expo notifications reports a `shouldShowAlert` deprecation warning; notification behavior remains verified on the tested device.
+
+Remote `npm ci` also reports dependency-audit findings (frontend: 71 vulnerabilities including 1 critical; backend: 9 including 1 critical). No package changes are made in M9; review and remediation are required before production deployment.
+
+## Deferred production verification
+
+- [ ] iOS physical-device verification
+- [ ] custom Android binary/native Google Maps SDK key and signing configuration
+- [ ] external Geoapify credential rotation and production secret provisioning
+- [ ] remote push/Safety Updates delivery infrastructure
+- [ ] distributed multi-instance limiter and production observability review
+
+## Historical Phase 3 backend validation
 
 - [x] authorization matrix tests
 - [x] moderation response privacy-leakage tests
@@ -104,7 +124,7 @@ Moderation governance system
 - [x] transaction rollback tests
 - [x] Community Verification preservation tests
 - [x] public visibility regression tests
-- [x] backend tests passing (26 files, 193 tests)
+- [x] historical backend tests passing (26 files, 193 tests)
 - [x] backend typecheck passing
 - [x] backend lint passing
 - [x] backend build passing

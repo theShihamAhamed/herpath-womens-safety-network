@@ -4,8 +4,10 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { palette, radius, spacing } from '@/src/theme';
+import { ReportCommunityCard } from '@/src/features/community-verification/report-community-card';
+import type { CommunityIncidentChange } from '@/src/features/community-verification/community-verification.types';
 
-import { CATEGORY_CONFIG, SEVERITY_CONFIG, type PublicIncidentMarker, type SupportPlace } from './map.types';
+import { type PublicIncidentMarker, type SupportPlace } from './map.types';
 import { clampReportSheetOffset, resolveReportSheetSnapOffset } from './report-sheet-motion';
 import { summarizeVisibleIncidents } from './report-context-summary';
 import { formatSupportPlaceDistance, getSupportPlaceDistanceMetres } from './support-place-distance';
@@ -20,6 +22,7 @@ interface ReportContextSheetProps {
   incidents: PublicIncidentMarker[];
   onSelectIncident?: (incident: PublicIncidentMarker) => void;
   onExpandedChange?: (expanded: boolean) => void;
+  onIncidentCommunityChanged?: (change: CommunityIncidentChange) => void;
   safetyInformationUnavailable?: boolean;
   onRetrySafetyInformation?: () => void;
   supportPlaces?: SupportPlace[];
@@ -34,6 +37,7 @@ export function ReportContextSheet({
   incidents,
   onSelectIncident,
   onExpandedChange,
+  onIncidentCommunityChanged,
   safetyInformationUnavailable = false,
   onRetrySafetyInformation,
   supportPlaces,
@@ -53,6 +57,7 @@ export function ReportContextSheet({
   const sheetHeight = Math.round(windowHeight * SHEET_HEIGHT_RATIO);
   const collapsedOffset = Math.max(sheetHeight - collapsedSheetHeight, 0);
   const [expanded, setExpanded] = useState(false);
+  const [expandedIncidentId, setExpandedIncidentId] = useState<string | null>(null);
   const sheetOffset = useSharedValue(collapsedOffset);
   const dragStartOffset = useSharedValue(collapsedOffset);
   const updateExpanded = useCallback((nextExpanded: boolean) => {
@@ -64,6 +69,10 @@ export function ReportContextSheet({
     sheetOffset.value = offset;
     dragStartOffset.value = offset;
   }, [collapsedOffset, dragStartOffset, expanded, sheetOffset]);
+  const visibleExpandedIncidentId =
+    expandedIncidentId && incidents.some((incident) => incident.id === expandedIncidentId)
+      ? expandedIncidentId
+      : null;
   const settleSheet = useCallback((nextExpanded: boolean) => {
     sheetOffset.value = withTiming(nextExpanded ? 0 : collapsedOffset, SETTLE_ANIMATION);
     updateExpanded(nextExpanded);
@@ -175,35 +184,16 @@ export function ReportContextSheet({
           <Text style={styles.contextNote}>
             Community-reported locations are shown as approximate areas, not exact locations.
           </Text>
-          {incidents.map((incident) => {
-            const category = CATEGORY_CONFIG[incident.category];
-            const severity = SEVERITY_CONFIG[incident.severity];
-            const occurredAt = new Date(incident.occurredAt).toLocaleDateString(undefined, {
-              month: 'short',
-              day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
-            });
-
-            return (
-              <Pressable
-                key={incident.id}
-                accessibilityRole="button"
-                accessibilityLabel={`Focus approximate area for ${category.label}, ${severity.label} severity, occurred ${occurredAt}`}
-                accessibilityHint="Centers the map on this report's approximate area"
-                onPress={() => handleSelectIncident(incident)}
-                style={styles.reportRow}>
-                <Text style={styles.reportTitle}>{category.label}</Text>
-                <Text style={[styles.reportSeverity, { color: severity.color }]}>{severity.label} severity</Text>
-                <Text style={styles.reportDetail}>Occurred {occurredAt}</Text>
-                {incident.supportCount > 0 ? (
-                  <Text style={styles.reportDetail}>
-                    {incident.supportCount} community {incident.supportCount === 1 ? 'support' : 'supports'}
-                  </Text>
-                ) : null}
-              </Pressable>
-            );
-          })}
+          {incidents.map((incident) => (
+            <ReportCommunityCard
+              key={incident.id}
+              expanded={visibleExpandedIncidentId === incident.id}
+              incident={incident}
+              onIncidentChanged={onIncidentCommunityChanged}
+              onShowOnMap={() => handleSelectIncident(incident)}
+              onToggle={() => setExpandedIncidentId((current) => current === incident.id ? null : incident.id)}
+            />
+          ))}
           </>
         ) : null}
         {!isSupportPlaceMode && count === 0 ? (

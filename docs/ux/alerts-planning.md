@@ -8,7 +8,7 @@ Safety Updates is important supporting information, but it is not a permanent bo
 Map header → notification bell → /alerts
 ```
 
-The bell may gain an unread indicator later. The shared UX foundation implements only the nested route and empty-state shell.
+The bell may gain an unread indicator later. The shared UX foundation implements the nested route and empty-state shell; local journey deviation/fallback-channel alerts are implemented by the journey feature, while remote push delivery remains deferred.
 
 ## Future categories
 
@@ -30,4 +30,4 @@ Do not mark every update urgent. Distinguish informational, important, and genui
 
 ## Preferences and ownership
 
-Future notification preferences belong under Profile. Notification delivery and preference backends are outside this foundation PR. Alerts are a shared supporting concern; changes that affect owned features require coordination with those owners.
+Future notification preferences belong under Profile. Remote notification delivery and preference backends are outside this assessed scope. Alerts are a shared supporting concern; changes that affect owned features require coordination with those owners.

@@ -12,7 +12,7 @@ The permanent bottom navigation is:
 Map | Report | Profile
 ```
 
-- **Map** is the central workspace for destination search, geographic context, nearby reports, route comparison, and future journey entry.
+- **Map** is the central workspace for destination search, geographic context, nearby reports, route comparison, and journey entry.
 - **Report** provides staged incident reporting and the current authenticated actor's My Reports history/status.
 - **Profile** provides identity, authentication, preferences, history, privacy information, and eligible moderator access.
 

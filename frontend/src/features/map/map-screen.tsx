@@ -26,7 +26,8 @@ import {
 } from '@/src/features/routing';
 import { FALLBACK_LOCATION, type UseUserLocationResult } from './use-user-location';
 import { useSupportPlaceSearch } from './use-support-place-search';
-import { environment } from '@/src/config/environment';
+import { getBackendTileUrlTemplate } from './backend-tile-url';
+import type { CommunityIncidentChange } from '@/src/features/community-verification/community-verification.types';
 
 interface MapScreenProps {
   controlsTopOffset?: number;
@@ -119,7 +120,7 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
     latitudeDelta: 0.05,
     longitudeDelta: 0.05,
   };
-  const androidTileUrlTemplate = `${environment.apiBaseUrl}/map/tiles/{z}/{x}/{y}`;
+  const androidTileUrlTemplate = getBackendTileUrlTemplate();
 
   const loadIncidents = useCallback(async (bounds: ViewportBounds, activeFilter: MapFilter) => {
     setIsRefreshing(true);
@@ -269,6 +270,16 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
     if (bounds) void loadIncidents(bounds, filter);
   };
 
+  const handleIncidentCommunityChanged = useCallback((change: CommunityIncidentChange) => {
+    setIncidents((current) => current.map((incident) =>
+      incident.id === change.incidentId
+        ? { ...incident, supportCount: change.evidence.supportCount }
+        : incident,
+    ));
+    const bounds = lastViewportRef.current;
+    if (bounds) void loadIncidents(bounds, filter);
+  }, [filter, loadIncidents]);
+
   if (isLocationLoading) {
     return (
       <View style={styles.loadingContainer}>
@@ -414,6 +425,7 @@ export function MapScreen({ controlsTopOffset = 8, locationState }: MapScreenPro
         <ReportContextSheet
           key={isSupportPlaceMode ? 'support-places' : 'reports'}
           incidents={filteredIncidents}
+          onIncidentCommunityChanged={handleIncidentCommunityChanged}
           onSelectIncident={handleFocusIncident}
           onExpandedChange={isSupportPlaceMode ? setIsSupportPlaceSheetExpanded : setIsReportSheetExpanded}
           safetyInformationUnavailable={isMapDataUnavailable}

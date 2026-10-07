@@ -1,10 +1,10 @@
 # HerPath Mobile
 
-Expo SDK 54 mobile shell for HerPath. PR 4 provides native session restoration, anonymous-first access, registered authentication, role-aware navigation, and placeholders for the five agreed feature tabs.
+Expo SDK 57 React Native application for privacy-conscious incident reporting, community safety context, route comparison, and active journey outcomes. The current validated build includes anonymous-first and registered authentication, the three-tab shell (Map, Report, Profile), incident/community/moderation flows, route comparison, journey tracking, and local journey notifications.
 
 ## Requirements
 
-- Node.js 20.19 or newer
+- Node.js 22 or newer
 - npm
 - Expo Go or an Android development build
 - The HerPath backend running and reachable from the device
@@ -15,10 +15,10 @@ Expo SDK 54 mobile shell for HerPath. PR 4 provides native session restoration, 
 cd frontend
 npm ci
 Copy-Item .env.example .env
-npx expo start
+npm run start
 ```
 
-`EXPO_PUBLIC_API_BASE_URL` is compiled into the client and must contain the complete `/api/v1` base URL. It is public configuration, never a place for secrets.
+`EXPO_PUBLIC_API_BASE_URL` is compiled into the client and must contain the complete `/api/v1` base URL. It is public configuration, never a place for secrets. Geoapify remains backend-only; the mobile client does not contain a provider credential.
 
 ## Development API URL
 
@@ -49,17 +49,11 @@ Web refresh-token persistence is intentionally not provided in the first assesse
 app/
 ├── _layout.tsx
 ├── index.tsx
-├── (auth)/
-│   ├── sign-in.tsx
-│   └── sign-up.tsx
-├── (tabs)/
-│   ├── map.tsx
-│   ├── routes.tsx
-│   ├── report.tsx
-│   ├── alerts.tsx
-│   └── profile.tsx
-└── moderator/
-    └── index.tsx
+├── (auth)/sign-in.tsx, sign-up.tsx
+├── (tabs)/map.tsx, report.tsx, profile.tsx
+├── alerts.tsx
+├── journey/{intro,route-comparison,tracking,[id],outcome,history,analytics}.tsx
+└── moderator/{index,cases/[caseId]/{index,decision,audits}}.tsx
 ```
 
 The moderator route uses the actor role returned by the backend. This navigation guard is a UX boundary only; backend authorization remains mandatory.
@@ -67,10 +61,18 @@ The moderator route uses the actor role returned by the backend. This navigation
 ## Validation
 
 ```bash
-npx expo install --check
-npx expo-doctor
-npx tsc --noEmit
-npx eslint .
+npm run expo:check
+npm run typecheck
+npm run lint
+npm run test:ci
 ```
 
-The frontend currently has no automated test framework. Authentication APIs, storage, validation, and provider dependencies are separated so focused tests can be added without coupling them to route files.
+The remote frontend gate at the M7/M8 completion SHA reports 11 Jest suites and 63 tests. The backend gate reports 34 test files and 323 tests. Use `npx --no-install` for one-off local Expo checks so validation cannot install packages.
+
+## Maps and native builds
+
+In Expo Go, HerPath renders imagery through `MapView mapType="none"` and `UrlTile` against the backend `/api/v1/map/tiles/*` proxy. Geoapify credentials stay on the backend. A custom Android binary using `react-native-maps` additionally requires a separate Google Maps Android SDK key restricted to the package and signing SHA-1; that native credential is not present in this repository, so custom Android build verification is deferred.
+
+## Journey and privacy scope
+
+Journey start requires consent and foreground location permission before the backend start request; the returned journey identifier is stored before the watcher begins. Finish, cancel, and expiry complete the journey, default an unresolved outcome to `UNKNOWN`, and purge raw path/check-in/deviation coordinates while retaining aggregate history. Local deviation and fallback-channel notifications are implemented; remote Safety Updates push delivery remains outside this completion scope.

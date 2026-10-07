@@ -1,8 +1,8 @@
 # HerPath Backend
 
-Production-conscious Express and TypeScript foundation for the HerPath REST API. The backend is an independent npm project and exposes all application endpoints under `/api/v1`.
+Production-conscious Express and TypeScript API for HerPath. The backend is an independent npm project and exposes all application endpoints under `/api/v1`.
 
-The backend contains the shared infrastructure from PR 2 and the authentication/session foundation from PR 3. Incidents, maps, routes, journeys, notifications, and their application models belong to later feature PRs.
+The current modular API includes authentication, incidents, community verification, moderation, map/tile proxying, route search/risk comparison, journeys, and local-notification support contracts. Historical foundation PR references below describe when modules were introduced, not the current runtime scope.
 
 ## Architecture
 
@@ -16,6 +16,7 @@ src/
     ├── middleware/        Request ID, security, validation, limits, errors
     ├── types/             Shared API envelope types
     └── utils/             API response helpers
+└── modules/                auth, incidents, map, routes, journeys, community verification, moderation
 ```
 
 `app.ts` does not open a port. `server.ts` is the process entry point and owns startup and graceful shutdown. This separation allows Supertest to exercise the Express app without a live network listener or MongoDB instance.
@@ -97,9 +98,11 @@ GET  /me
 
 Anonymous users are pseudonymous server-side accounts with no email, password, name, or public identity. Public registration always creates an active `USER`; it cannot create a moderator. The operator-only promotion command is the sole PR 3 moderator provisioning path.
 
-Registered passwords must contain 4 to 128 characters and are hashed with Argon2id. The four-character minimum is an assessed/demo-project usability constraint, not a production password-security recommendation. Access JWTs are short-lived and issuer/audience constrained. Refresh tokens are opaque, stored only as SHA-256 hashes, rotated on refresh, and revocable on logout, account disablement, or detected reuse. Clients must store refresh tokens in secure native storage when that frontend work is implemented.
+Registered passwords must contain 4 to 128 characters and are hashed with Argon2id. The four-character minimum is an assessed/demo-project usability constraint, not a production password-security recommendation. Access JWTs are short-lived and issuer/audience constrained. Refresh tokens are opaque, stored only as SHA-256 hashes, rotated on refresh, and revocable on logout, account disablement, or detected reuse. The current Expo client stores refresh tokens in native Expo SecureStore; access tokens remain in memory.
 
 Authentication integration tests run against `mongodb-memory-server`, not a developer or shared database. The first local run may download its isolated MongoDB binary.
+
+The current remote regression baseline is 34 test files and 323 Vitest tests. Frontend remote CI reports 11 Jest suites and 63 tests. Journey lifecycle reconciliation is available through `npm run journey:lifecycle:reconcile`; terminal journeys purge raw coordinates and unresolved outcomes default to `UNKNOWN`.
 
 ## Health endpoint
 

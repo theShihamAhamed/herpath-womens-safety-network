@@ -33,6 +33,14 @@ export const apiEndpoints = {
     create: '/incidents',
     locationCells: '/incidents/location-cells',
     mine: '/incidents/mine',
+    verification: (incidentId: string) =>
+      `/incidents/${encodeURIComponent(incidentId)}/verification`,
+    feedbackEligibility: (incidentId: string) =>
+      `/incidents/${encodeURIComponent(incidentId)}/feedback/eligibility`,
+    feedback: (incidentId: string) =>
+      `/incidents/${encodeURIComponent(incidentId)}/feedback`,
+    flags: (incidentId: string) =>
+      `/incidents/${encodeURIComponent(incidentId)}/flags`,
   },
 
   moderation: {
@@ -52,5 +60,7 @@ export const apiEndpoints = {
 
   routes: {
     search: '/routes/destinations/search',
+    alternatives: '/routes/alternatives',
+    recommendation: '/routes/recommendation',
   },
 } as const;

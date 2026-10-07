@@ -26,6 +26,7 @@ export interface Journey {
   duration: number;
   currentPath: PathPoint[];
   checkIns: PathPoint[];
+  checkInCount: number;
   deviationDetected: boolean;
   deviationLocation: Coordinate | null;
   outcome: JourneyOutcome | null;
@@ -39,6 +40,8 @@ export interface JourneyHistoryItem {
   endTime?: string;
   duration: number;
   distanceTravelled: number;
+  checkInCount: number;
+  deviationDetected: boolean;
   outcome: JourneyOutcome | null;
   status: JourneyStatus;
   createdAt: string;

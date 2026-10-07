@@ -24,6 +24,10 @@ app/
 │   ├── map.tsx
 │   ├── report.tsx
 │   └── profile.tsx
+├── journey/
+│   ├── intro.tsx, route-comparison.tsx, tracking.tsx
+│   ├── [id].tsx, outcome.tsx, history.tsx, analytics.tsx
+│   └── _layout.tsx
 └── moderator/
     ├── _layout.tsx
     ├── index.tsx
@@ -67,7 +71,7 @@ Map owns the presentation container, map/location context, markers/filters, and 
 Map bell → Safety Updates → optional future deep link → Back
 ```
 
-The current shared foundation contains an empty state only. Notification delivery, unread state, preferences, and deep-link behavior are future work.
+The current shared foundation contains the Safety Updates empty state. Remote push delivery, unread state, preferences, and deep-link behavior remain future work. Local deviation and fallback-channel journey notifications are implemented in the journey feature and are a separate concern.
 
 ## Incident
 
@@ -91,10 +95,13 @@ The draft and its UUIDv4 remain stable after network or server failures so a ret
 ## Journey
 
 ```text
-Selected route → explanation/consent → ACTIVE
+Selected route → explanation/consent → foreground permission
+→ backend start (store returned journey ID) → watcher → ACTIVE
 → tracking/check-ins/deviation → arrival detected
 → explicit SAFE_CONFIRMED or INCIDENT_REPORTED
-→ UNKNOWN if unresolved → stop tracking → update aggregates
+→ finish/cancel/24-hour expiry → stop tracking
+→ terminal raw-coordinate purge → update aggregates
+→ UNKNOWN if unresolved
 ```
 
 ## Moderator

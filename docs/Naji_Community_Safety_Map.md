@@ -6,7 +6,7 @@ Naji owns the Map workspace, public incident-location visualization, map filters
 
 ## Objectives and functional scope
 
-- Render an interactive Google map through `react-native-maps`.
+- Render an interactive map through `react-native-maps`; Android imagery uses the backend tile proxy (`mapType="none"` + `UrlTile` → `/api/v1/map/tiles/*`).
 - Request foreground location only in context and retain a usable Colombo fallback when permission is denied or unavailable.
 - Load public incident projections for the visible bounding box, show a marker/callout for each projection, and expose category, severity, and absolute occurrence-range filters.
 - Let people pan, zoom, inspect markers, and long-press an area for an area-level summary.
@@ -33,7 +33,7 @@ The incident-reporting component must retain private coordinates separately and 
 
 ## Map integration and configuration
 
-The approved map renderer is Google Maps through `react-native-maps` (ADR-003); foreground location uses Expo SDK 54’s `expo-location`. Native Google Maps API-key setup is required for standalone Android/iOS builds as documented by Expo and must use a restricted key supplied through deployment configuration—never source control.
+The validated Expo Go renderer uses the backend tile proxy and foreground location uses Expo SDK 57 `expo-location`. Expo Go does not require a project Google Maps key for this path. A custom Android binary still uses the native Google Maps SDK through `react-native-maps` and requires a separate restricted Google Maps Android SDK key supplied through deployment configuration; that key is not present in source control or the current repository configuration.
 
 Nearby support-place data is queried server-side from OpenStreetMap through Overpass. `OVERPASS_API_URL` defaults to the public interpreter endpoint and is configurable without credentials. The provider sends a HerPath User-Agent, applies a bounded timeout, and is protected by a small in-process spatial cache plus in-flight request deduplication. The Map API must not fabricate places or fall back to Routing/Nominatim data. When support places are presented in HS-77 or HS-79, the relevant Map surface must show `© OpenStreetMap contributors` attribution.
 
@@ -116,7 +116,7 @@ Verify map loading, pan/zoom, permitted and denied location states, empty/networ
 
 ## Implementation status
 
-Implemented: Expo SDK 54-compatible map and foreground location dependencies, map surface, viewport and summary endpoints, category/severity filters, privacy-safe persisted Incident integration, occurrence-range filtering through `occurredFrom`/`occurredTo`, permission fallback, explicit empty state, neutral community-support wording, and the component integration boundary. The frontend contract consumes `occurredAt`, `createdAt`, `publicLocation`, and `publicArea`; time-of-day filtering is applied locally to `occurredAt`. The map renders the API-supplied `publicArea` polygon with a subtle outline and fill, plus a clearly labelled coarse center indicator.
+Implemented and physically verified on Expo SDK 57: map and foreground-location dependencies, backend-proxied tile imagery, viewport and summary endpoints, category/severity filters, privacy-safe persisted Incident integration, occurrence-range filtering through `occurredFrom`/`occurredTo`, permission fallback, explicit empty state, neutral community-support wording, and the component integration boundary. The frontend contract consumes `occurredAt`, `createdAt`, `publicLocation`, and `publicArea`; time-of-day filtering is applied locally to `occurredAt`. The map renders the API-supplied `publicArea` polygon with a subtle outline and fill, plus a clearly labelled coarse center indicator.
 
 `publicArea` is an approximate public area, not an incident boundary or the reported person's location. The Map neither generates its geometry nor receives private coordinates, H3 cell IDs, or Incident descriptions.
 
